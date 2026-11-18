@@ -7,6 +7,7 @@ import {
   categoryOptions,
   formatMoney,
   isFiltering,
+  memberLabel,
   membersInBalances,
   monthRange,
   type ExpenseFilter,
@@ -100,8 +101,7 @@ export function ExpenseFilters({
           <option value="">Everyone</option>
           {group.members.map((m) => (
             <option key={m.id} value={m.id}>
-              {m.name}
-              {m.former ? " (Former Member)" : ""}
+              {memberLabel(m)}
             </option>
           ))}
         </select>
@@ -227,7 +227,10 @@ export function SpendingInsights({
           byMonth={insights.byMonth}
           balances={balances
             .filter((b) => inBalances.has(b.memberId))
-            .map((b) => ({ name: members.get(b.memberId)?.name ?? "Unknown member", amount: b.amount }))}
+            .map((b) => {
+              const member = members.get(b.memberId);
+              return { name: member ? memberLabel(member) : "Unknown member", amount: b.amount };
+            })}
         />
       )}
     </div>

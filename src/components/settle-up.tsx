@@ -9,6 +9,7 @@ import {
   computeLedger,
   explainSettlements,
   formatMoney,
+  memberLabel,
   membersInBalances,
   parseAmount,
   validateSettlement,
@@ -449,8 +450,7 @@ function SettlementForm({
           <option value="">{placeholder}</option>
           {members.map((m) => (
             <option key={m.id} value={m.id}>
-              {m.name}
-              {m.former ? " (Former Member)" : ""}
+              {memberLabel(m)}
             </option>
           ))}
         </select>

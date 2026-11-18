@@ -23,6 +23,14 @@ export function parseGroupDetails(fields: NewGroupFields, group: GroupSnapshot):
   return { ok: false, errors: { ...(parsed.ok ? {} : parsed.errors), currency: lock } };
 }
 
+/** What follows a Former Member's name wherever it is shown. */
+export const FORMER_MEMBER_SUFFIX = " (Former Member)";
+
+/** A Member's name as shown in lists and charts, marking a Former Member. */
+export function memberLabel(member: Member): string {
+  return member.former ? member.name + FORMER_MEMBER_SUFFIX : member.name;
+}
+
 /** The Members taking part in the Group now, in Group order: not Former Members. */
 export function currentMembers(group: GroupSnapshot): Member[] {
   return group.members.filter((m) => !m.former);

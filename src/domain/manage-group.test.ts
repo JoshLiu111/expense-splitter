@@ -3,6 +3,7 @@ import type { Expense, GroupSnapshot, Member, Settlement } from "./types";
 import {
   groupDeletionBlock,
   memberRemovalBlock,
+  memberLabel,
   membersInBalances,
   parseGroupDetails,
   memberEmailBlock,
@@ -248,6 +249,16 @@ describe("membersInBalances", () => {
     expect(groupDeletionBlock(reopened, { isCreator: true })).toBe(
       "Everyone must be Settled Up before this Group can be deleted.",
     );
+  });
+});
+
+describe("memberLabel", () => {
+  it("is a current Member's name", () => {
+    expect(memberLabel(member("mem_ana", { name: "Ana" }))).toBe("Ana");
+  });
+
+  it("marks a Former Member", () => {
+    expect(memberLabel(member("mem_ben", { name: "Ben", former: true }))).toBe("Ben (Former Member)");
   });
 });
 

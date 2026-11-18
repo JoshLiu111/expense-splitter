@@ -64,6 +64,8 @@ export {
   groupDeletionBlock,
   EMAIL_PATTERN,
   memberEmailBlock,
+  FORMER_MEMBER_SUFFIX,
+  memberLabel,
   memberRemovalBlock,
   membersInBalances,
   MAX_MEMBER_NAME_LENGTH,

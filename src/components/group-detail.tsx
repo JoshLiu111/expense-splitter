@@ -12,6 +12,7 @@ import {
   formatMoney,
   isFiltering,
   groupDeletionBlock,
+  FORMER_MEMBER_SUFFIX,
   membersInBalances,
   type Expense,
   type ExpenseFilter,
@@ -215,7 +216,7 @@ export function GroupDetail({
                   <span className="font-semibold break-words">
                     {member.name}
                     {member.former && (
-                      <span className="font-normal text-text-secondary"> (Former Member)</span>
+                      <span className="font-normal text-text-secondary">{FORMER_MEMBER_SUFFIX}</span>
                     )}
                   </span>
                 </span>

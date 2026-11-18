@@ -123,6 +123,8 @@ test("S2: a Former Member whose Balance reopens shows in Balances and can be set
   const olivia = page.getByTestId("balance-mem_olivia");
   await expect(olivia).toContainText("Olivia Hayes (Former Member)");
   await expect(olivia).toContainText("$18.75");
+  // The Balance chart labels her the same way.
+  await expect(page.getByRole("rowheader", { name: "Olivia Hayes (Former Member)" })).toHaveCount(1);
 
   // ...and it can still be settled from the suggestion.
   await settleUp(page).getByRole("button", { name: /^Record: Chloe Yun pays Olivia Hayes/ }).click();
