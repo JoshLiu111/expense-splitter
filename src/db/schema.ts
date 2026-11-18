@@ -129,6 +129,8 @@ export const expenses = pgTable(
     currency: text("currency").notNull(),
     /** Locked Rate as a plain decimal string. */
     lockedRate: text("locked_rate").notNull(),
+    /** True when a Member overrode the Locked Rate by hand. */
+    manualRate: boolean("manual_rate").notNull().default(false),
     payerId: text("payer_id")
       .notNull()
       .references(() => members.id),
@@ -179,4 +181,22 @@ export const settlements = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [index("settlements_group_id_idx").on(t.groupId)],
+);
+
+// ---------------------------------------------------------------------------
+// Exchange Rate cache: the latest rates from ExchangeRate-API, refreshed at
+// most daily. Units of `quote` per one unit of `base`.
+// ---------------------------------------------------------------------------
+
+export const exchangeRates = pgTable(
+  "exchange_rates",
+  {
+    base: text("base").notNull(),
+    quote: text("quote").notNull(),
+    /** As returned by the API; Locked Rates are derived from it. */
+    rate: text("rate").notNull(),
+    /** The day (UTC) the rate was fetched. */
+    fetchedOn: date("fetched_on", { mode: "string" }).notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.base, t.quote] })],
 );

@@ -17,6 +17,8 @@ const group: GroupSnapshot = {
 
 const fields = (overrides: Partial<NewExpenseFields> = {}): NewExpenseFields => ({
   amount: "60",
+  currency: "USD",
+  rate: "",
   description: "Pizza",
   date: "2026-01-01",
   category: "Food & Drink",
@@ -74,11 +76,11 @@ describe("parseNewExpense", () => {
 
   it("takes JPY amounts in whole yen", () => {
     const yenGroup = { ...group, currency: "JPY" as const };
-    expect(parseNewExpense(fields({ amount: "1000.5" }), yenGroup)).toEqual({
+    expect(parseNewExpense(fields({ amount: "1000.5", currency: "JPY" }), yenGroup)).toEqual({
       ok: false,
       errors: { amount: "JPY amounts must be whole numbers." },
     });
-    const result = parseNewExpense(fields({ amount: "1000" }), yenGroup);
+    const result = parseNewExpense(fields({ amount: "1000", currency: "JPY" }), yenGroup);
     expect(result.ok && result.value.shares.map((s) => s.amount)).toEqual([334, 333, 333]);
   });
 

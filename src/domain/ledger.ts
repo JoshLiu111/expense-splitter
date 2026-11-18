@@ -1,7 +1,8 @@
-import { convert, exponentOf } from "./currency";
+import { convert, CURRENCY_CODES, exponentOf } from "./currency";
 import { simplifyDebts, type SuggestedSettlement } from "./settle-up";
 import type {
   CalendarDate,
+  CurrencyCode,
   Expense,
   GroupSnapshot,
   MinorUnits,
@@ -40,6 +41,15 @@ export type TimelineEntry =
       settlement: Settlement;
     };
 
+/** What a Group spent in one Expense Currency, e.g. "¥312,000 ≈ $2,090.40". */
+export interface CurrencySubtotal {
+  currency: CurrencyCode;
+  /** In that Expense Currency. */
+  amount: MinorUnits;
+  /** The same Expenses in the Group Currency, at their Locked Rates. */
+  groupAmount: MinorUnits;
+}
+
 export interface Ledger {
   /** One entry per Member, in Group Member order. */
   balances: MemberBalance[];
@@ -50,6 +60,8 @@ export interface Ledger {
   expenseCount: number;
   /** Total of all Expenses in the Group Currency. */
   totalSpent: MinorUnits;
+  /** Spending per Expense Currency used, the Group Currency first. */
+  currencySubtotals: CurrencySubtotal[];
   /**
    * Suggested Settlements from Debt Simplification, in the order found;
    * never under one unit of Group Currency.
@@ -77,25 +89,25 @@ export function computeLedger(group: GroupSnapshot): Ledger {
 
   const entries: { entry: TimelineEntry; createdAt: string }[] = [];
   let totalSpent = 0;
+  const subtotals = new Map<CurrencyCode, CurrencySubtotal>();
 
   for (const expense of group.expenses) {
+    const { lines, groupAmount } = inGroupCurrency(expense, group.currency);
     const owing: OwingLine[] = [];
-    let groupAmount = 0;
-    for (const share of expense.shares) {
-      const line = convert(
-        share.amount,
-        expense.currency,
-        group.currency,
-        expense.lockedRate,
-      );
-      add(share.memberId, -line);
-      groupAmount += line;
-      if (share.amount !== 0) {
-        owing.push({ memberId: share.memberId, amount: share.amount, groupAmount: line });
-      }
+    for (const line of lines) {
+      add(line.memberId, -line.groupAmount);
+      if (line.amount !== 0) owing.push(line);
     }
     add(expense.payerId, groupAmount);
     totalSpent += groupAmount;
+    const subtotal = subtotals.get(expense.currency) ?? {
+      currency: expense.currency,
+      amount: 0,
+      groupAmount: 0,
+    };
+    subtotal.amount += expense.amount;
+    subtotal.groupAmount += groupAmount;
+    subtotals.set(expense.currency, subtotal);
     entries.push({
       createdAt: expense.createdAt,
       entry: {
@@ -142,9 +154,28 @@ export function computeLedger(group: GroupSnapshot): Ledger {
     timeline: entries.map(({ entry }) => entry),
     expenseCount: group.expenses.length,
     totalSpent,
+    currencySubtotals: [group.currency, ...CURRENCY_CODES]
+      .filter((code, i, codes) => codes.indexOf(code) === i)
+      .flatMap((code) => subtotals.get(code) ?? []),
     suggestions: simplified.filter((p) => p.amount >= oneUnit),
     smallChange: simplified.filter((p) => p.amount < oneUnit),
   };
+}
+
+/**
+ * An Expense's Shares converted to the Group Currency with its Locked Rate,
+ * each rounded on its own line (ADR 0001), and their sum.
+ */
+export function inGroupCurrency(
+  expense: Pick<Expense, "shares" | "currency" | "lockedRate">,
+  groupCurrency: CurrencyCode,
+): { lines: OwingLine[]; groupAmount: MinorUnits } {
+  const lines = expense.shares.map((share) => ({
+    memberId: share.memberId,
+    amount: share.amount,
+    groupAmount: convert(share.amount, expense.currency, groupCurrency, expense.lockedRate),
+  }));
+  return { lines, groupAmount: lines.reduce((sum, line) => sum + line.groupAmount, 0) };
 }
 
 function compare(a: string, b: string): number {

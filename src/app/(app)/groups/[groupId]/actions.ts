@@ -13,6 +13,7 @@ import {
   type ManageResult,
 } from "@/groups/manage-group";
 import { userGroupRepository } from "@/groups/user-groups";
+import { todaysRates } from "@/rates/todays-rates";
 import {
   clearSmallChange,
   deleteSettlement,
@@ -32,7 +33,7 @@ export async function saveUserExpense(
   if (typeof groupId !== "string" || (expenseId !== null && typeof expenseId !== "string")) {
     return { ok: false, errors: { form: "That request wasn't valid." } };
   }
-  const result = await saveExpense(userGroupRepository(user), groupId, expenseId, fields);
+  const result = await saveExpense(userGroupRepository(user), groupId, expenseId, fields, todaysRates);
   if (result.ok) refresh();
   return result;
 }

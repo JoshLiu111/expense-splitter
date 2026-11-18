@@ -8,6 +8,7 @@ import { addMember, deleteGroup, removeMember, updateGroupDetails } from "@/grou
 import { clearSmallChange, deleteSettlement, recordSettlement } from "@/settlements/settle-up";
 import { GUEST_MEMBER_NAME } from "@/guest/guest-repository";
 import { guestRepository, useGuestGroups } from "@/guest/use-guest-groups";
+import { fetchTodaysRates } from "@/rates/use-todays-rates";
 
 export function GuestGroupView() {
   const { groupId } = useParams<{ groupId: string }>();
@@ -45,7 +46,7 @@ export function GuestGroupView() {
       // Groups don't, so their first Member pays by default.
       currentMemberId={group.members.find((m) => m.name === GUEST_MEMBER_NAME)?.id}
       onSaveExpense={(expenseId, fields) =>
-        saveExpense(guestRepository(), group.id, expenseId, fields)
+        saveExpense(guestRepository(), group.id, expenseId, fields, fetchTodaysRates)
       }
       onDeleteExpense={(expenseId) => deleteExpense(guestRepository(), group.id, expenseId)}
       manage={{

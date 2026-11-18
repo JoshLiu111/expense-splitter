@@ -83,6 +83,10 @@ _Avoid_: Original currency, foreign currency
 The exchange rate from Expense Currency to Group Currency fixed on an Expense when it is recorded (or overridden by a Member), so past Balances never change.
 _Avoid_: Current rate, live rate
 
+**Today's Rate**:
+The exchange rate a new Locked Rate is taken from: ExchangeRate-API's rate, cached once a day, or the last cached rate (flagged "rates may be outdated") when the service can't be reached.
+_Avoid_: Current rate, live rate, market rate
+
 ### Balances and settling
 
 **Balance**:

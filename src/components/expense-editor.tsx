@@ -3,6 +3,7 @@
 import { X } from "lucide-react";
 import { Dialog } from "radix-ui";
 import type { Expense, GroupSnapshot, NewExpenseFields } from "@/domain";
+import type { TodaysRatesState } from "@/rates/use-todays-rates";
 import type { ExpenseResult } from "@/expenses/save-expense";
 import { ExpenseForm } from "@/components/expense-form";
 import { Button } from "@/components/ui/button";
@@ -12,6 +13,7 @@ interface ExpenseEditorProps {
   group: GroupSnapshot;
   /** The Expense being edited, or `null` to add one. */
   expense: Expense | null;
+  rates: TodaysRatesState;
   currentMemberId: string | undefined;
   onSave: (fields: NewExpenseFields) => Promise<ExpenseResult>;
   onClose: () => void;
@@ -31,6 +33,7 @@ export function ExpenseEditor(props: ExpenseEditorProps) {
       key={props.expense?.id ?? "new"}
       group={props.group}
       expense={props.expense}
+      rates={props.rates}
       currentMemberId={props.currentMemberId}
       onSave={props.onSave}
       onCancel={props.onClose}

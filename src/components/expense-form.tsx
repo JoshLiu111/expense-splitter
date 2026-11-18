@@ -3,18 +3,24 @@
 import { useId, useMemo, useState, useTransition, type FormEvent } from "react";
 import {
   CATEGORIES,
+  CURRENCY_CODES,
   amountText,
   MAX_EXPENSE_DESCRIPTION_LENGTH,
   MAX_EXPENSE_NOTES_LENGTH,
   computeSplit,
   describeEqualSplit,
   formatMoney,
+  inGroupCurrency,
+  isCurrencyCode,
+  lockRate,
   parseAmount,
   currentMembers,
   selectableMembers,
   type Expense,
   type GroupSnapshot,
+  type CurrencyCode,
   type NewExpenseFields,
+  type LockResult,
   type SplitType,
 } from "@/domain";
 import type { ExpenseResult } from "@/expenses/save-expense";
@@ -22,7 +28,8 @@ import { GUEST_MEMBER_NAME } from "@/guest/guest-repository";
 import { ErrorSummary, Field } from "@/components/form";
 import { MemberAvatar } from "@/components/member-avatar";
 import { Button } from "@/components/ui/button";
-import { todayCalendarDate } from "@/lib/format";
+import { formatCalendarDate, todayCalendarDate } from "@/lib/format";
+import type { TodaysRatesState } from "@/rates/use-todays-rates";
 import { cn } from "@/lib/utils";
 
 type FormFields = Omit<NewExpenseFields, "splitValues">;
@@ -39,6 +46,9 @@ function initialFields(
   if (expense) {
     return {
       amount: amountText(expense.amount, expense.currency),
+      currency: expense.currency,
+      // A manual rate shows, so saving keeps it; an automatic one is kept anyway.
+      rate: expense.manualRate ? expense.lockedRate : "",
       description: expense.description,
       date: expense.date,
       category: expense.category,
@@ -51,6 +61,8 @@ function initialFields(
   const current = currentMembers(group);
   return {
     amount: "",
+    currency: group.currency,
+    rate: "",
     description: "",
     date: todayCalendarDate(),
     category: "Other",
@@ -106,6 +118,7 @@ const chipClass =
 export function ExpenseForm({
   group,
   expense,
+  rates,
   currentMemberId,
   onSave,
   onCancel,
@@ -114,6 +127,7 @@ export function ExpenseForm({
   group: GroupSnapshot;
   /** The Expense being edited, or `null` to add one. */
   expense: Expense | null;
+  rates: TodaysRatesState;
   currentMemberId: string | undefined;
   onSave: (fields: NewExpenseFields) => Promise<ExpenseResult>;
   onCancel: () => void;
@@ -129,6 +143,8 @@ export function ExpenseForm({
   const formId = useId();
   const ids = {
     amount: `${formId}-amount`,
+    currency: `${formId}-currency`,
+    rate: `${formId}-rate`,
     description: `${formId}-description`,
     payerId: `${formId}-payer`,
     participants: `${formId}-participants`,
@@ -146,12 +162,14 @@ export function ExpenseForm({
     splitType !== "equal" &&
     setSplitValues((v) => ({ ...v, [splitType]: { ...v[splitType], [memberId]: value } }));
 
-  const amount = parseAmount(fields.amount, group.currency);
+  const currency: CurrencyCode = isCurrencyCode(fields.currency) ? fields.currency : group.currency;
+  const foreign = currency !== group.currency;
+  const amount = parseAmount(fields.amount, currency);
   const liveAmountError = fields.amount.trim() !== "" && !amount.ok ? amount.error : undefined;
   const split = amount.ok
     ? computeSplit({
         amount: amount.amount,
-        currency: group.currency,
+        currency,
         splitType,
         participantIds: fields.participantIds,
         memberOrder: group.members.map((m) => m.id),
@@ -172,6 +190,19 @@ export function ExpenseForm({
   );
   const nameOf = (id: string) => group.members.find((m) => m.id === id)?.name ?? "Unknown member";
   const selectedCount = pickable.filter((m) => fields.participantIds.includes(m.id)).length;
+  // The Locked Rate this Expense would get if saved now, for the preview.
+  const lock = lockRate({ typed: fields.rate, currency, group, existing: expense ?? undefined, rates });
+  const converted =
+    foreign && lock.ok && split?.ok
+      ? inGroupCurrency({ shares: split.shares, currency, lockedRate: lock.rate }, group.currency)
+      : null;
+  const relocking = expense !== null && foreign && currency !== expense.currency;
+  const rateError = errors?.rate && (lock.ok ? undefined : lock.error);
+
+  function changeCurrency(code: string) {
+    // A typed rate was for the previous currency.
+    setFields((f) => ({ ...f, currency: code, rate: "" }));
+  }
 
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -195,7 +226,8 @@ export function ExpenseForm({
     <form onSubmit={submit} noValidate className="flex flex-col gap-5">
       <ErrorSummary errors={summaryErrors} fieldIds={ids} />
 
-      <Field id={ids.amount} label={`Amount (${group.currency})`} error={shownErrors.amount}>
+      <div className="grid grid-cols-[1fr_auto] items-start gap-3">
+      <Field id={ids.amount} label={`Amount (${currency})`} error={shownErrors.amount}>
         {(describedBy, className) => (
           <input
             id={ids.amount}
@@ -208,10 +240,44 @@ export function ExpenseForm({
             aria-invalid={shownErrors.amount ? true : undefined}
             aria-describedby={describedBy}
             className={cn(className, "amount text-xl font-semibold")}
-            placeholder={group.currency === "JPY" ? "0" : "0.00"}
+            placeholder={currency === "JPY" ? "0" : "0.00"}
           />
         )}
       </Field>
+      <Field id={ids.currency} label="Currency" error={errors?.currency}>
+        {(describedBy, className) => (
+          <select
+            id={ids.currency}
+            name="currency"
+            value={fields.currency}
+            onChange={(e) => changeCurrency(e.target.value)}
+            aria-invalid={errors?.currency ? true : undefined}
+            aria-describedby={describedBy}
+            className={cn(className, "min-h-11 text-xl font-semibold")}
+          >
+            {CURRENCY_CODES.map((code) => (
+              <option key={code} value={code}>
+                {code}
+              </option>
+            ))}
+          </select>
+        )}
+      </Field>
+      </div>
+
+      {foreign && (
+        <ExchangeRateField
+          id={ids.rate}
+          currency={currency}
+          groupCurrency={group.currency}
+          typed={fields.rate}
+          onChange={(rate) => set("rate", rate)}
+          lock={lock}
+          rates={rates}
+          relocking={relocking}
+          error={rateError}
+        />
+      )}
 
       <Field id={ids.description} label="Description" error={errors?.description}>
         {(describedBy, className) => (
@@ -346,7 +412,7 @@ export function ExpenseForm({
                 <Field
                   key={member.id}
                   id={id}
-                  label={`${member.name} (${splitType === "exact" ? group.currency : splitType === "percentage" ? "%" : "shares"})`}
+                  label={`${member.name} (${splitType === "exact" ? currency : splitType === "percentage" ? "%" : "shares"})`}
                   error={error}
                 >
                   {(describedBy, className) => (
@@ -388,7 +454,7 @@ export function ExpenseForm({
                   <span className="text-text-secondary">not charged</span>
                 ) : (
                   <span className="amount font-semibold">
-                    {formatMoney(share.amount, group.currency)}
+                    {formatMoney(share.amount, currency)}
                   </span>
                 )}
               </li>
@@ -397,14 +463,14 @@ export function ExpenseForm({
         ) : split?.ok && amount.ok ? (
           <>
             <p className="amount font-semibold">
-              {describeEqualSplit(amount.amount, group.currency, split.shares)}
+              {describeEqualSplit(amount.amount, currency, split.shares)}
             </p>
             {new Set(split.shares.map((s) => s.amount)).size > 1 && (
               <ul className="mt-1 text-text-secondary">
                 {split.shares.map((share) => (
                   <li key={share.memberId}>
                     {nameOf(share.memberId)}:{" "}
-                    <span className="amount">{formatMoney(share.amount, group.currency)}</span>
+                    <span className="amount">{formatMoney(share.amount, currency)}</span>
                   </li>
                 ))}
               </ul>
@@ -413,6 +479,11 @@ export function ExpenseForm({
         ) : (
           <p className="text-text-secondary">
             {split && !split.ok ? split.error : "Enter an amount to see each Share."}
+          </p>
+        )}
+        {converted && amount.ok && (
+          <p className="amount mt-1 font-semibold" data-testid="converted-preview">
+            {formatMoney(amount.amount, currency)} ≈ {formatMoney(converted.groupAmount, group.currency)}
           </p>
         )}
       </div>
@@ -478,5 +549,84 @@ export function ExpenseForm({
         </Button>
       </div>
     </form>
+  );
+}
+
+/**
+ * The Locked Rate for a foreign-currency Expense: today's rate (or the one it
+ * already has) unless a Member types their own, which is marked manual.
+ */
+function ExchangeRateField({
+  id,
+  currency,
+  groupCurrency,
+  typed,
+  onChange,
+  lock,
+  rates,
+  relocking,
+  error,
+}: {
+  id: string;
+  currency: CurrencyCode;
+  groupCurrency: CurrencyCode;
+  typed: string;
+  onChange: (rate: string) => void;
+  lock: LockResult;
+  rates: TodaysRatesState;
+  relocking: boolean;
+  error: string | undefined;
+}) {
+  const manual = typed.trim() !== "";
+  const hintId = `${id}-hint`;
+  let hint: string;
+  if (manual) hint = lock.ok ? "Manual rate. Clear it to use today's rate." : "";
+  else if (lock.ok && lock.kept) hint = "This Expense keeps its Locked Rate. Type a rate to override it.";
+  else if (lock.ok) hint = "Today's rate, locked when you save. Type a rate to override it.";
+  else if (rates === undefined) hint = "Loading today's rate…";
+  else hint = lock.error;
+  const notices = [
+    relocking && !manual && "Changing the currency re-locks the rate at today's rate.",
+    !manual &&
+      !(lock.ok && lock.kept) &&
+      rates?.stale &&
+      `Rates may be outdated (last updated ${formatCalendarDate(rates.fetchedOn)}).`,
+  ].filter((n): n is string => Boolean(n));
+
+  return (
+    <div className="flex flex-col gap-2">
+      <Field id={id} label={`Exchange rate (${groupCurrency} per 1 ${currency})`} error={error}>
+        {(describedBy, className) => (
+          <input
+            id={id}
+            name="rate"
+            inputMode="decimal"
+            autoComplete="off"
+            value={typed}
+            onChange={(e) => onChange(e.target.value)}
+            placeholder={!manual && lock.ok ? lock.rate : ""}
+            aria-invalid={error ? true : undefined}
+            aria-describedby={[describedBy, hintId].filter(Boolean).join(" ")}
+            className={cn(className, "amount")}
+          />
+        )}
+      </Field>
+      <p id={hintId} className="text-sm text-text-secondary">
+        {lock.ok && (
+          <span className="amount font-semibold text-text-primary">
+            1 {currency} = {lock.rate} {groupCurrency}
+            {lock.manual && " (manual)"}.{" "}
+          </span>
+        )}
+        {hint}
+      </p>
+      {notices.length > 0 && (
+        <ul role="status" className="text-sm font-semibold text-warning">
+          {notices.map((notice) => (
+            <li key={notice}>{notice}</li>
+          ))}
+        </ul>
+      )}
+    </div>
   );
 }

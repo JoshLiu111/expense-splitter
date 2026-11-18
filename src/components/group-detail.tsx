@@ -24,6 +24,7 @@ import { DeleteGroupSection, EditGroupDetails, MembersSection } from "@/componen
 import { MemberAvatar } from "@/components/member-avatar";
 import { SettleUpSection } from "@/components/settle-up";
 import { Button } from "@/components/ui/button";
+import { useTodaysRates } from "@/rates/use-todays-rates";
 import { describeBalance, formatCalendarDate, pluralize } from "@/lib/format";
 
 /**
@@ -55,6 +56,7 @@ export function GroupDetail({
 }) {
   const router = useRouter();
   const ledger = computeLedger(group);
+  const rates = useTodaysRates();
   const members = new Map(group.members.map((m) => [m.id, m]));
   const nameOf = (id: string) => members.get(id)?.name ?? "Unknown member";
 
@@ -139,6 +141,24 @@ export function GroupDetail({
           </span>{" "}
           spent · Balances in {group.currency}
         </p>
+        {ledger.currencySubtotals.some((s) => s.currency !== group.currency) && (
+          <ul aria-label="Spent per currency" className="mt-1 flex flex-wrap gap-x-4 text-sm text-text-secondary">
+            {ledger.currencySubtotals.map((subtotal) => (
+              <li key={subtotal.currency}>
+                Spent in {subtotal.currency}:{" "}
+                <span className="amount text-text-primary">
+                  {formatMoney(subtotal.amount, subtotal.currency)}
+                </span>
+                {subtotal.currency !== group.currency && (
+                  <>
+                    {" "}
+                    ≈ <span className="amount">{formatMoney(subtotal.groupAmount, group.currency)}</span>
+                  </>
+                )}
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
 
       <p role="status" className="empty:hidden">
@@ -150,6 +170,7 @@ export function GroupDetail({
         <ExpenseEditor
           group={group}
           expense={editing.expense}
+          rates={rates}
           currentMemberId={currentMemberId}
           onSave={(fields) => onSaveExpense(editing.expense?.id ?? null, fields)}
           onClose={close}
@@ -297,9 +318,6 @@ function ExpenseRow({
 }) {
   const { expense } = entry;
   const foreign = expense.currency !== group.currency;
-  // This form only edits Expenses in the Group Currency; others would lose
-  // their Locked Rate.
-  const editable = !foreign;
   return (
     <article className="flex flex-col gap-2 rounded-lg border border-border bg-surface px-4 py-3">
       <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-1">
@@ -317,18 +335,22 @@ function ExpenseRow({
             {formatMoney(expense.amount, expense.currency)}
           </span>
           {foreign && (
-            <span className="amount block text-sm text-text-secondary">
-              ≈ {formatMoney(entry.groupAmount, group.currency)}
-            </span>
+            <>
+              <span className="amount block text-sm text-text-secondary">
+                ≈ {formatMoney(entry.groupAmount, group.currency)}
+              </span>
+              <span className="amount block text-xs text-text-secondary">
+                1 {expense.currency} = {expense.lockedRate} {group.currency}
+                {expense.manualRate && " · manual rate"}
+              </span>
+            </>
           )}
         </p>
       </div>
       <div className="-mb-1 flex justify-end gap-1">
-        {editable && (
-          <Button variant="ghost" onClick={onEdit} aria-label={`Edit “${expense.description}”`}>
-            <Pencil aria-hidden /> Edit
-          </Button>
-        )}
+        <Button variant="ghost" onClick={onEdit} aria-label={`Edit “${expense.description}”`}>
+          <Pencil aria-hidden /> Edit
+        </Button>
         <ConfirmDelete
           label={`Delete “${expense.description}”`}
           title="Delete this Expense?"

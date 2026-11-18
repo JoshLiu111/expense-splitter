@@ -89,6 +89,27 @@ test("a signed-in User's Expense is saved to their Group", async ({ page }) => {
   await expect(page.getByText("$24.50 spent")).toBeVisible();
 });
 
+test("S2: a signed-in User's yen Expense is locked at the server's rate", async ({ page }) => {
+  await signUp(page, uniqueEmail());
+  await page.getByRole("link", { name: "New Group" }).click();
+  await field(page, "Name").fill("Tokyo");
+  await page.getByRole("button", { name: "Create Group" }).click();
+  await expect(page.getByRole("heading", { level: 1, name: "Tokyo" })).toBeVisible();
+
+  await page.getByRole("button", { name: "Add Expense", exact: true }).click();
+  await field(page, "Currency").selectOption("JPY");
+  await field(page, "Amount (JPY)").fill("4500");
+  await field(page, "Description").fill("Sushi");
+  // Fixed rates in S2: ¥150 per dollar.
+  await expect(page.getByTestId("converted-preview")).toHaveText("¥4,500 ≈ $30.00");
+  await page.getByRole("button", { name: "Add Expense", exact: true }).click();
+
+  await expect(page.getByText("Expense added.")).toBeVisible();
+  await page.reload();
+  await expect(page.getByText("1 JPY = 0.00666667 USD")).toBeVisible();
+  await expect(page.getByText("Spent in JPY: ¥4,500 ≈ $30.00")).toBeVisible();
+});
+
 test("a signed-in User's Percentage Split reloads on edit", async ({ page }) => {
   await signUp(page, uniqueEmail());
   await page.getByRole("link", { name: "New Group" }).click();

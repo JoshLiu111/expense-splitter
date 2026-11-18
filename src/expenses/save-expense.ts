@@ -1,4 +1,9 @@
-import { parseNewExpense, type NewExpenseErrors, type NewExpenseFields } from "@/domain";
+import {
+  parseNewExpense,
+  type NewExpenseErrors,
+  type NewExpenseFields,
+  type RateSnapshot,
+} from "@/domain";
 import type { GroupRepository } from "@/groups/group-repository";
 
 /** What the Expense form shows after a save or delete. */
@@ -37,6 +42,8 @@ export function expenseFields(input: unknown): NewExpenseFields {
       : [];
   return {
     amount: text("amount"),
+    currency: text("currency"),
+    rate: text("rate"),
     description: text("description"),
     date: text("date"),
     category: text("category"),
@@ -52,23 +59,30 @@ const EXPENSE_GONE = "This Expense no longer exists. It may have been deleted.";
 
 const formError = (form: string): ExpenseResult => ({ ok: false, errors: { form } });
 
+/** Today's exchange rates (perhaps outdated), or `null` if none were ever cached. */
+export type TodaysRates = () => Promise<RateSnapshot | null>;
+
 /**
  * Validates the form against the Group as it is now (so the Payer and
  * participants must still be its current Members, or already on the
- * Expense being edited), then records it.
+ * Expense being edited), then records it. A foreign-currency Expense gets
+ * Today's Rate from `rates` as its Locked Rate, unless it keeps one.
  */
 export async function saveExpense(
   repo: GroupRepository,
   groupId: string,
   expenseId: string | null,
-  fields: NewExpenseFields,
+  input: NewExpenseFields,
+  rates: TodaysRates,
 ): Promise<ExpenseResult> {
   const group = await repo.getGroup(groupId);
   if (!group) return formError("This Group is no longer available.");
   // Former Members already on an edited Expense stay selectable for it.
   const existing = expenseId ? group.expenses.find((e) => e.id === expenseId) : undefined;
   if (expenseId && !existing) return formError(EXPENSE_GONE);
-  const parsed = parseNewExpense(expenseFields(fields), group, existing);
+  const fields = expenseFields(input);
+  const foreign = fields.currency !== group.currency;
+  const parsed = parseNewExpense(fields, group, existing, foreign ? await rates() : null);
   if (!parsed.ok) return parsed;
   const saved = expenseId
     ? await repo.updateExpense(groupId, expenseId, parsed.value)

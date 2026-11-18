@@ -67,6 +67,20 @@ export function groupRepositoryContract(makeRepository: () => Promise<GroupRepos
     expect((await repo.getGroup(group.id))?.expenses).toEqual([expense]);
   });
 
+  it("keeps a foreign-currency Expense's Locked Rate and whether it was manual", async () => {
+    const repo = await makeRepository();
+    const group = await repo.createGroup({ name: "Tokyo", description: "", currency: "USD" });
+    const me = group.members[0].id;
+    const ryokan = { currency: "JPY" as const, amount: 84000, shares: [{ memberId: me, amount: 84000 }] };
+
+    const manual = await repo.addExpense(group.id, lunch(group, { ...ryokan, lockedRate: "0.0068", manualRate: true }));
+    const automatic = await repo.addExpense(group.id, lunch(group, { ...ryokan, lockedRate: "0.00670017" }));
+
+    expect(manual).toMatchObject({ currency: "JPY", lockedRate: "0.0068", manualRate: true });
+    expect(automatic?.manualRate).toBeUndefined();
+    expect((await repo.getGroup(group.id))?.expenses).toEqual([manual, automatic]);
+  });
+
   it("edits an Expense, keeping its id and creation time", async () => {
     const repo = await makeRepository();
     const group = await repo.createGroup({ name: "Flat", description: "", currency: "USD" });

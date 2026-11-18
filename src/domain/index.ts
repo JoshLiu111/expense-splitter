@@ -1,6 +1,6 @@
 export type * from "./types";
-export { computeLedger } from "./ledger";
-export type { Ledger, MemberBalance, OwingLine, TimelineEntry } from "./ledger";
+export { computeLedger, inGroupCurrency } from "./ledger";
+export type { CurrencySubtotal, Ledger, MemberBalance, OwingLine, TimelineEntry } from "./ledger";
 export type { SuggestedSettlement } from "./settle-up";
 export { parseNewSettlement, validateSettlement } from "./settlement";
 export type {
@@ -14,6 +14,8 @@ export type {
 export { importSampleGroups } from "./sample-data";
 export { amountText, CURRENCY_CODES, formatMoney, isCurrencyCode, parseAmount } from "./currency";
 export type { ParseAmountResult } from "./currency";
+export { todaysRate } from "./exchange-rates";
+export type { RateSnapshot } from "./exchange-rates";
 export {
   parseNewGroup,
   DEFAULT_GROUP_CURRENCY,
@@ -28,9 +30,11 @@ export {
   MAX_EXPENSE_DESCRIPTION_LENGTH,
   MAX_EXPENSE_NOTES_LENGTH,
   isSplitType,
+  lockRate,
   parseNewExpense,
 } from "./new-expense";
 export type {
+  LockResult,
   NewExpense,
   NewExpenseErrors,
   NewExpenseFields,

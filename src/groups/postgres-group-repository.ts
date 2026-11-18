@@ -144,6 +144,7 @@ export function createPostgresGroupRepository(
             amount: e.amount,
             currency: e.currency as CurrencyCode,
             lockedRate: e.lockedRate,
+            ...(e.manualRate ? { manualRate: true } : {}),
             payerId: e.payerId,
             splitType: e.splitType as SplitType,
             shares: shareRows
@@ -207,6 +208,7 @@ export function createPostgresGroupRepository(
       amount: expense.amount,
       currency: expense.currency,
       lockedRate: expense.lockedRate,
+      manualRate: expense.manualRate ?? false,
       payerId: expense.payerId,
       splitType: expense.splitType,
       date: expense.date,

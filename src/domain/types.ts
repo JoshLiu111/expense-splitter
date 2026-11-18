@@ -55,6 +55,8 @@ export interface Expense {
    * floating-point error.
    */
   lockedRate: string;
+  /** True when a Member overrode the Locked Rate by hand. */
+  manualRate?: boolean;
   payerId: string;
   splitType: SplitType;
   shares: Share[];
