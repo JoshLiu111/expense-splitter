@@ -25,6 +25,8 @@ export default defineConfig({
     env: {
       BETTER_AUTH_URL: `http://localhost:${PORT}`,
       EMAIL_OUTBOX_DIR,
+      // Lets FIXED_EXCHANGE_RATES take effect; the app ignores it otherwise.
+      E2E: "1",
       // S2 runs against fixed rates, never the real currency API.
       FIXED_EXCHANGE_RATES: JSON.stringify(FIXED_EXCHANGE_RATES),
     },
