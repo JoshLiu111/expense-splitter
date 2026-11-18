@@ -1,10 +1,14 @@
-import { sql } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { migrate } from "drizzle-orm/node-postgres/migrator";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createDatabase, type Database } from "@/db/client";
 import { members, user } from "@/db/schema";
 import { groupRepositoryContract } from "./group-repository.contract";
-import { createPostgresGroupRepository, type GroupUser } from "./postgres-group-repository";
+import {
+  claimPendingMembers,
+  createPostgresGroupRepository,
+  type GroupUser,
+} from "./postgres-group-repository";
 
 const url = process.env.TEST_DATABASE_URL;
 
@@ -26,11 +30,16 @@ describe.skipIf(!url)("Postgres GroupRepository", () => {
   });
 
   /** A registered User to act as; created directly as a test fixture. */
-  async function aUser(): Promise<GroupUser> {
+  async function aUser({ verified = false } = {}): Promise<GroupUser> {
     userCount += 1;
     const u = { id: `usr_${userCount}`, name: `User ${userCount}`, email: `u${userCount}@example.test` };
-    await db.insert(user).values(u);
+    await db.insert(user).values({ ...u, emailVerified: verified });
     return u;
+  }
+
+  /** Marks a User's email verified, as following the emailed link does. */
+  async function verify(u: GroupUser) {
+    await db.update(user).set({ emailVerified: true }).where(eq(user.id, u.id));
   }
 
   groupRepositoryContract(async () => createPostgresGroupRepository(db, await aUser()));
@@ -96,7 +105,7 @@ describe.skipIf(!url)("Postgres GroupRepository", () => {
       description: "",
       currency: "USD",
     });
-    // Theo is a Linked Member too (fixture: linking isn't built yet).
+    // Theo is a Linked Member too, inserted directly as a fixture.
     await db.insert(members).values({
       id: "mem_theo_shared",
       groupId: group.id,
@@ -116,7 +125,7 @@ describe.skipIf(!url)("Postgres GroupRepository", () => {
     const theo = await aUser();
     const mayasRepo = createPostgresGroupRepository(db, maya);
     const group = await mayasRepo.createGroup({ name: "Shared", description: "", currency: "USD" });
-    // Theo is a Linked Member too (fixture: linking isn't built yet).
+    // Theo is a Linked Member too, inserted directly as a fixture.
     await db.insert(members).values({
       id: "mem_theo_removed",
       groupId: group.id,
@@ -137,11 +146,11 @@ describe.skipIf(!url)("Postgres GroupRepository", () => {
   it("keeps another User from managing a Group's details and Members", async () => {
     const mayasRepo = createPostgresGroupRepository(db, await aUser());
     const group = await mayasRepo.createGroup({ name: "Private", description: "", currency: "USD" });
-    const chloe = await mayasRepo.addMember(group.id, "Chloe");
+    const chloe = await mayasRepo.addMember(group.id, { name: "Chloe" });
 
     const theosRepo = createPostgresGroupRepository(db, await aUser());
     expect(await theosRepo.updateGroup(group.id, { name: "Mine", description: "", currency: "EUR" })).toBeNull();
-    expect(await theosRepo.addMember(group.id, "Theo")).toBeNull();
+    expect(await theosRepo.addMember(group.id, { name: "Theo" })).toBeNull();
     expect(await theosRepo.removeMember(group.id, chloe!.id)).toBe(false);
     expect(await theosRepo.deleteGroup(group.id)).toBe(false);
     expect(await mayasRepo.getGroup(group.id)).toMatchObject({
@@ -149,6 +158,91 @@ describe.skipIf(!url)("Postgres GroupRepository", () => {
       currency: "USD",
       members: [expect.anything(), chloe],
     });
+  });
+
+  it("links a Member added by a verified User's email; that User sees and edits the Group", async () => {
+    const mayasRepo = createPostgresGroupRepository(db, await aUser());
+    const theo = await aUser({ verified: true });
+    const group = await mayasRepo.createGroup({ name: "Shared", description: "", currency: "USD" });
+
+    const added = await mayasRepo.addMember(group.id, { name: "Theo", email: theo.email });
+
+    expect(added).toEqual({
+      id: expect.any(String),
+      name: "Theo",
+      email: theo.email,
+      userId: theo.id,
+      avatarColor: expect.any(String),
+    });
+    const theosRepo = createPostgresGroupRepository(db, theo);
+    expect((await theosRepo.listGroups()).map((g) => g.id)).toEqual([group.id]);
+    expect(await theosRepo.updateGroup(group.id, { name: "Ours", description: "", currency: "USD" })).not.toBeNull();
+    expect((await mayasRepo.getGroup(group.id))?.name).toBe("Ours");
+  });
+
+  it("makes a Member added by an unknown or unverified email a Pending Member", async () => {
+    const mayasRepo = createPostgresGroupRepository(db, await aUser());
+    const unverified = await aUser();
+    const group = await mayasRepo.createGroup({ name: "Shared", description: "", currency: "USD" });
+
+    const pending = await mayasRepo.addMember(group.id, { name: "Theo", email: unverified.email });
+    const stranger = await mayasRepo.addMember(group.id, { name: "Zoe", email: "zoe@nowhere.test" });
+
+    expect(pending).not.toHaveProperty("userId");
+    expect(stranger).not.toHaveProperty("userId");
+    expect(await createPostgresGroupRepository(db, unverified).getGroup(group.id)).toBeNull();
+  });
+
+  it("links a Name-only Member given a verified User's email, keeping their history", async () => {
+    const mayasRepo = createPostgresGroupRepository(db, await aUser());
+    const theo = await aUser({ verified: true });
+    const group = await mayasRepo.createGroup({ name: "Shared", description: "", currency: "USD" });
+    const named = await mayasRepo.addMember(group.id, { name: "Theo" });
+
+    expect(await mayasRepo.setMemberEmail(group.id, named!.id, theo.email)).toEqual({
+      ...named,
+      email: theo.email,
+      userId: theo.id,
+    });
+    expect(await createPostgresGroupRepository(db, theo).getGroup(group.id)).not.toBeNull();
+  });
+
+  it("claims a Pending Member only when a User verifies that exact email", async () => {
+    const mayasRepo = createPostgresGroupRepository(db, await aUser());
+    const theo = await aUser();
+    const other = await aUser({ verified: true });
+    const group = await mayasRepo.createGroup({ name: "Shared", description: "", currency: "USD" });
+    const pending = await mayasRepo.addMember(group.id, { name: "Theo", email: theo.email });
+
+    await claimPendingMembers(db, other);
+    expect(await createPostgresGroupRepository(db, other).getGroup(group.id)).toBeNull();
+
+    await verify(theo);
+    await claimPendingMembers(db, theo);
+
+    const theosView = await createPostgresGroupRepository(db, theo).getGroup(group.id);
+    expect(theosView?.members).toContainEqual({ ...pending, userId: theo.id });
+  });
+
+  it("claims nothing in a Group where the User is already a Linked Member", async () => {
+    const theo = await aUser({ verified: true });
+    const mayasRepo = createPostgresGroupRepository(db, await aUser());
+    const group = await mayasRepo.createGroup({ name: "Shared", description: "", currency: "USD" });
+    await mayasRepo.addMember(group.id, { name: "Theo", email: theo.email });
+    // A second Pending Member with Theo's email, slipped in past validation.
+    await db.insert(members).values({
+      id: "mem_theo_dupe",
+      groupId: group.id,
+      name: "Theo again",
+      email: theo.email,
+      avatarColor: "#10B981",
+      position: 9,
+    });
+
+    await claimPendingMembers(db, theo);
+
+    const linked = (await mayasRepo.getGroup(group.id))?.members.filter((m) => m.userId === theo.id);
+    expect(linked).toHaveLength(1);
   });
 
   it("lists a User's Groups oldest first", async () => {

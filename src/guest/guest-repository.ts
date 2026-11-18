@@ -136,12 +136,30 @@ export function createSessionStorageRepository(
     async updateGroup(id, details) {
       return changeGroup(id, (g) => ({ ...g, ...details }));
     },
-    async addMember(groupId, name) {
+    // Guests have no Users, so a Member with an email stays a Pending Member.
+    async addMember(groupId, { name, email }) {
       let member: Member | null = null;
       changeGroup(groupId, (g) => {
-        member = { id: `mem_${newId()}`, name, avatarColor: nextAvatarColor(g.members) };
+        member = {
+          id: `mem_${newId()}`,
+          name,
+          ...(email ? { email } : {}),
+          avatarColor: nextAvatarColor(g.members),
+        };
         return { ...g, members: [...g.members, member] };
       });
+      return member;
+    },
+    async setMemberEmail(groupId, memberId, email) {
+      let member: Member | null = null;
+      changeGroup(groupId, (g) => ({
+        ...g,
+        members: g.members.map((m) => {
+          if (m.id !== memberId || m.userId) return m;
+          member = { ...m, email };
+          return member;
+        }),
+      }));
       return member;
     },
     async removeMember(groupId, memberId) {

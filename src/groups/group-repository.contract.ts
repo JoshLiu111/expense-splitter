@@ -149,8 +149,8 @@ export function groupRepositoryContract(makeRepository: () => Promise<GroupRepos
     const repo = await makeRepository();
     const group = await repo.createGroup({ name: "Flat", description: "", currency: "USD" });
 
-    const chloe = await repo.addMember(group.id, "Chloe Park");
-    const dev = await repo.addMember(group.id, "Dev Shah");
+    const chloe = await repo.addMember(group.id, { name: "Chloe Park" });
+    const dev = await repo.addMember(group.id, { name: "Dev Shah" });
 
     expect(chloe).toEqual({ id: expect.any(String), name: "Chloe Park", avatarColor: expect.any(String) });
     const colours = [group.members[0], chloe!, dev!].map((m) => m.avatarColor);
@@ -158,10 +158,40 @@ export function groupRepositoryContract(makeRepository: () => Promise<GroupRepos
     expect((await repo.getGroup(group.id))?.members).toEqual([group.members[0], chloe, dev]);
   });
 
+  it("keeps the email a Member is added by", async () => {
+    const repo = await makeRepository();
+    const group = await repo.createGroup({ name: "Flat", description: "", currency: "USD" });
+
+    const chloe = await repo.addMember(group.id, { name: "Chloe Park", email: "chloe@nowhere.test" });
+
+    expect(chloe).toEqual({
+      id: expect.any(String),
+      name: "Chloe Park",
+      email: "chloe@nowhere.test",
+      avatarColor: expect.any(String),
+    });
+    expect((await repo.getGroup(group.id))?.members).toEqual([group.members[0], chloe]);
+  });
+
+  it("gives a Name-only Member an email, keeping their place on past Expenses", async () => {
+    const repo = await makeRepository();
+    const group = await repo.createGroup({ name: "Flat", description: "", currency: "USD" });
+    const chloe = await repo.addMember(group.id, { name: "Chloe Park" });
+    const past = await repo.addExpense(group.id, lunch(group, { payerId: chloe!.id }));
+
+    const updated = await repo.setMemberEmail(group.id, chloe!.id, "chloe@nowhere.test");
+
+    expect(updated).toEqual({ ...chloe, email: "chloe@nowhere.test" });
+    const after = await repo.getGroup(group.id);
+    expect(after?.members).toEqual([group.members[0], updated]);
+    expect(after?.expenses).toEqual([past]);
+    expect(await repo.setMemberEmail(group.id, "mem_missing", "x@nowhere.test")).toBeNull();
+  });
+
   it("removes a Member by making them a Former Member, still on past Expenses", async () => {
     const repo = await makeRepository();
     const group = await repo.createGroup({ name: "Flat", description: "", currency: "USD" });
-    const chloe = await repo.addMember(group.id, "Chloe Park");
+    const chloe = await repo.addMember(group.id, { name: "Chloe Park" });
     const past = await repo.addExpense(group.id, lunch(group, { payerId: chloe!.id }));
 
     expect(await repo.removeMember(group.id, chloe!.id)).toBe(true);
@@ -187,7 +217,7 @@ export function groupRepositoryContract(makeRepository: () => Promise<GroupRepos
     const other = await repo.createGroup({ name: "Other", description: "", currency: "USD" });
 
     expect(await repo.updateGroup("grp_missing", { name: "X", description: "", currency: "USD" })).toBeNull();
-    expect(await repo.addMember("grp_missing", "Chloe")).toBeNull();
+    expect(await repo.addMember("grp_missing", { name: "Chloe" })).toBeNull();
     expect(await repo.removeMember(group.id, other.members[0].id)).toBe(false);
     expect(await repo.deleteGroup("grp_missing")).toBe(false);
     expect((await repo.getGroup(other.id))?.members).toEqual(other.members);
@@ -196,7 +226,7 @@ export function groupRepositoryContract(makeRepository: () => Promise<GroupRepos
   it("records and deletes Settlements", async () => {
     const repo = await makeRepository();
     const group = await repo.createGroup({ name: "Flat", description: "", currency: "USD" });
-    const chloe = await repo.addMember(group.id, "Chloe");
+    const chloe = await repo.addMember(group.id, { name: "Chloe" });
     const me = group.members[0].id;
     await repo.addExpense(group.id, lunch(group, { shares: [{ memberId: chloe!.id, amount: 2450 }] }));
 
@@ -221,7 +251,7 @@ export function groupRepositoryContract(makeRepository: () => Promise<GroupRepos
     const repo = await makeRepository();
     const group = await repo.createGroup({ name: "Flat", description: "", currency: "USD" });
     const other = await repo.createGroup({ name: "Other", description: "", currency: "USD" });
-    const chloe = await repo.addMember(other.id, "Chloe");
+    const chloe = await repo.addMember(other.id, { name: "Chloe" });
     const settlement = await repo.addSettlement(other.id, {
       fromId: chloe!.id,
       toId: other.members[0].id,

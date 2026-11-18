@@ -50,7 +50,8 @@ export function GuestGroupView() {
       onDeleteExpense={(expenseId) => deleteExpense(guestRepository(), group.id, expenseId)}
       manage={{
         updateDetails: (fields) => updateGroupDetails(guestRepository(), group.id, fields),
-        addMember: (name) => addMember(guestRepository(), group.id, name),
+        // Guests have no Users to link, so they add Name-only Members.
+        addMember: ({ name }) => addMember(guestRepository(), group.id, { name }),
         removeMember: (memberId) => removeMember(guestRepository(), group.id, memberId),
         deleteGroup: () => deleteGroup(guestRepository(), group.id, { userId: undefined }),
       }}

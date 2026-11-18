@@ -1,4 +1,5 @@
 import { defineConfig, devices } from "@playwright/test";
+import { EMAIL_OUTBOX_DIR } from "./e2e/outbox";
 
 const PORT = 3100;
 
@@ -20,6 +21,6 @@ export default defineConfig({
     command: `npm run start -- --port ${PORT}`,
     url: `http://localhost:${PORT}`,
     reuseExistingServer: !process.env.CI,
-    env: { BETTER_AUTH_URL: `http://localhost:${PORT}` },
+    env: { BETTER_AUTH_URL: `http://localhost:${PORT}`, EMAIL_OUTBOX_DIR },
   },
 });

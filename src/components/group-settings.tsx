@@ -2,7 +2,7 @@
 
 import { useId, useRef, useState, useTransition, type FormEvent, type RefObject } from "react";
 import { AlertDialog, Dialog } from "radix-ui";
-import { Pencil, Trash2, UserPlus, X } from "lucide-react";
+import { Mail, Pencil, Trash2, UserPlus, X } from "lucide-react";
 import {
   CURRENCY_CODES,
   currencyLock,
@@ -10,12 +10,13 @@ import {
   MAX_GROUP_DESCRIPTION_LENGTH,
   MAX_GROUP_NAME_LENGTH,
   MAX_MEMBER_NAME_LENGTH,
+  memberEmailBlock,
   memberRemovalBlock,
   type GroupSnapshot,
   type Member,
   type NewGroupFields,
 } from "@/domain";
-import type { ManageResult } from "@/groups/manage-group";
+import type { ManageResult, NewMemberFields } from "@/groups/manage-group";
 import { ErrorSummary, Field } from "@/components/form";
 import { MemberAvatar } from "@/components/member-avatar";
 import { Button } from "@/components/ui/button";
@@ -193,21 +194,32 @@ function GroupDetailsForm({
   );
 }
 
+/** How a Member is tied to a User, for signed-in Users' Groups. */
+function linkStatus(member: Member): string | null {
+  if (member.userId) return `${member.email ?? "Signed up"} · Linked`;
+  if (member.email) return `${member.email} · Pending until they sign up and verify this email`;
+  return null;
+}
+
 /**
- * The Group's current Members, with a form to add Name-only Members and a
- * confirmed Remove for any Member whose Balance is zero. Former Members are
- * listed apart; they stay on past Expenses.
+ * The Group's current Members, with a form to add Members and a confirmed
+ * Remove for any Member whose Balance is zero. Former Members are listed
+ * apart; they stay on past Expenses. With `onSetEmail` (signed-in Users),
+ * Members can be added by email and Name-only Members given one, which
+ * links them to the User who verified it.
  */
 export function MembersSection({
   group,
   headingRef,
   onAdd,
+  onSetEmail,
   onRemove,
   onNews,
 }: {
   group: GroupSnapshot;
   headingRef: RefObject<HTMLHeadingElement | null>;
-  onAdd: (name: string) => Promise<ManageResult>;
+  onAdd: (fields: NewMemberFields) => Promise<ManageResult>;
+  onSetEmail?: (memberId: string, email: string) => Promise<ManageResult>;
   onRemove: (memberId: string) => Promise<ManageResult>;
   onNews: (news: string) => void;
 }) {
@@ -242,6 +254,7 @@ export function MembersSection({
       <ul className="mt-3 divide-y divide-border-subtle rounded-lg border border-border bg-surface">
         {current.map((member) => {
           const block = memberRemovalBlock(group, member.id);
+          const status = onSetEmail ? linkStatus(member) : null;
           return (
             <li
               key={member.id}
@@ -250,18 +263,34 @@ export function MembersSection({
             >
               <span className="flex min-w-0 items-center gap-3">
                 <MemberAvatar member={member} />
-                <span className="font-semibold break-words">{member.name}</span>
+                <span className="flex min-w-0 flex-col">
+                  <span className="font-semibold break-words">{member.name}</span>
+                  {status && <span className="text-sm break-words text-text-secondary">{status}</span>}
+                </span>
               </span>
-              {block ? (
-                <span className="text-sm text-text-secondary">{block}</span>
-              ) : (
-                <ConfirmRemoveMember member={member} onConfirm={() => remove(member)} />
-              )}
+              <span className="flex flex-wrap items-center gap-1">
+                {onSetEmail && memberEmailBlock(group, member.id) === null && (
+                  <MemberEmailDialog
+                    member={member}
+                    onSave={(email) => onSetEmail(member.id, email)}
+                    onSaved={(email) => onNews(`Saved ${email} for ${member.name}.`)}
+                  />
+                )}
+                {block ? (
+                  <span className="text-sm text-text-secondary">{block}</span>
+                ) : (
+                  <ConfirmRemoveMember member={member} onConfirm={() => remove(member)} />
+                )}
+              </span>
             </li>
           );
         })}
       </ul>
-      <AddMemberForm onAdd={onAdd} onAdded={(name) => onNews(`Added ${name}.`)} />
+      <AddMemberForm
+        byEmail={onSetEmail !== undefined}
+        onAdd={onAdd}
+        onAdded={(name) => onNews(`Added ${name}.`)}
+      />
       {former.length > 0 && (
         <div className="mt-4">
           <h3 className="text-sm font-semibold text-text-secondary">Former Members</h3>
@@ -317,56 +346,182 @@ function ConfirmRemoveMember({ member, onConfirm }: { member: Member; onConfirm:
 }
 
 function AddMemberForm({
+  byEmail,
   onAdd,
   onAdded,
 }: {
-  onAdd: (name: string) => Promise<ManageResult>;
+  /** Offer an email field, to add a Linked or Pending Member. */
+  byEmail: boolean;
+  onAdd: (fields: NewMemberFields) => Promise<ManageResult>;
   onAdded: (name: string) => void;
 }) {
-  const [name, setName] = useState("");
-  const [error, setError] = useState<string>();
+  const [fields, setFields] = useState<NewMemberFields>({ name: "", email: "" });
+  const [errors, setErrors] = useState<Failure["errors"]>();
   const [pending, startTransition] = useTransition();
   const id = useId();
-  const input = useRef<HTMLInputElement>(null);
+  const ids = { name: `${id}-name`, email: `${id}-email` };
+  const nameInput = useRef<HTMLInputElement>(null);
 
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     startTransition(async () => {
-      const result = await attempt(() => onAdd(name));
+      const result = await attempt(() => onAdd(fields));
       if (result.ok) {
-        onAdded(name.trim());
-        setName("");
-        setError(undefined);
+        onAdded(fields.name.trim());
+        setFields({ name: "", email: "" });
+        setErrors(undefined);
       } else {
-        setError(result.errors.name ?? result.errors.form ?? "Couldn't add the Member.");
+        setErrors(
+          result.errors.name || result.errors.email
+            ? result.errors
+            : { name: result.errors.form ?? "Couldn't add the Member." },
+        );
       }
-      input.current?.focus();
+      nameInput.current?.focus();
     });
   }
 
+  const hasError = Boolean(errors?.name || errors?.email);
   return (
     <form onSubmit={submit} noValidate className="mt-4 flex flex-wrap items-end gap-3">
       <div className="min-w-48 flex-1">
-        <Field id={id} label="Add a Member by name" error={error}>
+        <Field id={ids.name} label="Add a Member by name" error={errors?.name}>
           {(describedBy, className) => (
             <input
-              ref={input}
-              id={id}
+              ref={nameInput}
+              id={ids.name}
               autoComplete="off"
               maxLength={MAX_MEMBER_NAME_LENGTH}
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              aria-invalid={error ? true : undefined}
+              value={fields.name}
+              onChange={(e) => setFields((f) => ({ ...f, name: e.target.value }))}
+              aria-invalid={errors?.name ? true : undefined}
               aria-describedby={describedBy}
               className={className}
             />
           )}
         </Field>
       </div>
-      <Button type="submit" variant="outline" disabled={pending} className={error ? "mb-7" : undefined}>
+      {byEmail && (
+        <div className="min-w-48 flex-1">
+          <Field id={ids.email} label="Email (optional)" error={errors?.email}>
+            {(describedBy, className) => (
+              <input
+                id={ids.email}
+                type="email"
+                autoComplete="off"
+                value={fields.email}
+                onChange={(e) => setFields((f) => ({ ...f, email: e.target.value }))}
+                aria-invalid={errors?.email ? true : undefined}
+                aria-describedby={describedBy}
+                className={className}
+              />
+            )}
+          </Field>
+        </div>
+      )}
+      <Button type="submit" variant="outline" disabled={pending} className={hasError ? "mb-7" : undefined}>
         <UserPlus aria-hidden /> Add Member
       </Button>
+      {byEmail && (
+        <p className="basis-full text-sm text-text-secondary">
+          With an email, someone who has signed up and verified it can see and edit this Group
+          straight away; anyone else is linked once they sign up and verify that email.
+        </p>
+      )}
     </form>
+  );
+}
+
+/** Give a Name-only or Pending Member an email, in a dialog. */
+function MemberEmailDialog({
+  member,
+  onSave,
+  onSaved,
+}: {
+  member: Member;
+  onSave: (email: string) => Promise<ManageResult>;
+  onSaved: (email: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [email, setEmail] = useState(member.email ?? "");
+  const [error, setError] = useState<string>();
+  const [pending, startTransition] = useTransition();
+  const id = useId();
+  const action = member.email ? "Change email" : "Add email";
+
+  function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    startTransition(async () => {
+      const result = await attempt(() => onSave(email));
+      if (result.ok) {
+        setOpen(false);
+        onSaved(email.trim().toLowerCase());
+      } else setError(result.errors.email ?? result.errors.form ?? "Couldn't save the email.");
+    });
+  }
+
+  return (
+    <Dialog.Root
+      open={open}
+      onOpenChange={(next) => {
+        setOpen(next);
+        if (next) {
+          setEmail(member.email ?? "");
+          setError(undefined);
+        }
+      }}
+    >
+      <Dialog.Trigger asChild>
+        <Button variant="ghost" aria-label={`${action} for ${member.name}`}>
+          <Mail aria-hidden /> {action}
+        </Button>
+      </Dialog.Trigger>
+      <Dialog.Portal>
+        <Dialog.Overlay className="fixed inset-0 z-40 bg-black/50" />
+        <Dialog.Content className={dialogClass}>
+          <div className="mb-2 flex items-center justify-between gap-2">
+            <Dialog.Title className="text-lg font-bold break-words">
+              {action} for {member.name}
+            </Dialog.Title>
+            <Dialog.Close asChild>
+              <Button variant="ghost" size="icon" aria-label="Close">
+                <X aria-hidden />
+              </Button>
+            </Dialog.Close>
+          </div>
+          <Dialog.Description className="mb-4 text-text-secondary">
+            {member.name} keeps their Expenses and Balance. Once they&apos;ve signed up and verified this
+            email, they can see and edit the Group.
+          </Dialog.Description>
+          <form onSubmit={submit} noValidate className="flex flex-col gap-5">
+            <Field id={id} label="Email" error={error}>
+              {(describedBy, className) => (
+                <input
+                  id={id}
+                  type="email"
+                  autoComplete="off"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  aria-invalid={error ? true : undefined}
+                  aria-describedby={describedBy}
+                  className={className}
+                />
+              )}
+            </Field>
+            <div className="flex flex-wrap justify-end gap-3">
+              <Dialog.Close asChild>
+                <Button type="button" variant="outline">
+                  Cancel
+                </Button>
+              </Dialog.Close>
+              <Button type="submit" disabled={pending}>
+                {pending ? "Saving…" : "Save email"}
+              </Button>
+            </div>
+          </form>
+        </Dialog.Content>
+      </Dialog.Portal>
+    </Dialog.Root>
   );
 }
 

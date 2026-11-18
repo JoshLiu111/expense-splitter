@@ -4,6 +4,8 @@ import {
   groupDeletionBlock,
   memberRemovalBlock,
   parseGroupDetails,
+  memberEmailBlock,
+  parseMemberEmail,
   parseNewMember,
 } from "./manage-group";
 
@@ -118,6 +120,64 @@ describe("parseNewMember", () => {
   it("allows the name of a Former Member, who is no longer in the Group", () => {
     const flat = group({ members: [member("mem_ana", { name: "Ana Silva", former: true })] });
     expect(parseNewMember("Ana Silva", flat).ok).toBe(true);
+  });
+});
+
+describe("parseMemberEmail", () => {
+  it("treats a blank email as none, for a Name-only Member", () => {
+    expect(parseMemberEmail("  ", group())).toEqual({ ok: true, value: undefined });
+  });
+
+  it("accepts a trimmed email, lower-cased so it matches the User's", () => {
+    expect(parseMemberEmail(" Chloe@Example.com ", group())).toEqual({ ok: true, value: "chloe@example.com" });
+  });
+
+  it("rejects something that isn't an email address", () => {
+    expect(parseMemberEmail("chloe", group())).toEqual({
+      ok: false,
+      error: "Enter an email address like name@example.com.",
+    });
+  });
+
+  it("rejects an email another Member already has, so a User is linked to at most one Member", () => {
+    const flat = group({ members: [member("mem_ana", { name: "Ana Silva", email: "ana@example.com" })] });
+    expect(parseMemberEmail("ANA@example.com", flat)).toEqual({
+      ok: false,
+      error: "Ana Silva already has that email in this Group.",
+    });
+    const removed = group({
+      members: [member("mem_ana", { name: "Ana Silva", email: "ana@example.com", former: true })],
+    });
+    expect(parseMemberEmail("ana@example.com", removed)).toEqual({
+      ok: false,
+      error: "Ana Silva already has that email in this Group.",
+    });
+  });
+
+  it("ignores the Member whose email is being changed", () => {
+    const flat = group({ members: [member("mem_ana", { name: "Ana Silva", email: "ana@example.com" })] });
+    expect(parseMemberEmail("ana@example.com", flat, "mem_ana")).toEqual({ ok: true, value: "ana@example.com" });
+  });
+});
+
+describe("memberEmailBlock", () => {
+  it("lets a Name-only or Pending Member be given an email", () => {
+    const flat = group({ members: [member("mem_ana"), member("mem_ben", { email: "ben@example.com" })] });
+    expect(memberEmailBlock(flat, "mem_ana")).toBeNull();
+    expect(memberEmailBlock(flat, "mem_ben")).toBeNull();
+  });
+
+  it("keeps a Linked Member's email, which is their User's", () => {
+    const flat = group({
+      members: [member("mem_ana", { name: "Ana Silva", email: "ana@example.com", userId: "usr_ana" })],
+    });
+    expect(memberEmailBlock(flat, "mem_ana")).toBe("Ana Silva is already a Linked Member.");
+  });
+
+  it("refuses Former Members and Members of other Groups", () => {
+    const flat = group({ members: [member("mem_ana", { name: "Ana Silva", former: true })] });
+    expect(memberEmailBlock(flat, "mem_ana")).toBe("Ana Silva has been removed from this Group.");
+    expect(memberEmailBlock(flat, "mem_zed")).toBe("That Member isn't in this Group.");
   });
 });
 

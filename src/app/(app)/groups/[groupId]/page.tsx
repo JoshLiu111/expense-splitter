@@ -12,6 +12,7 @@ import {
   deleteUserGroup,
   removeUserMember,
   saveUserExpense,
+  setUserMemberEmail,
   updateUserGroup,
 } from "./actions";
 
@@ -46,6 +47,7 @@ async function UserGroup({ params }: Pick<PageProps<"/groups/[groupId]">, "param
       manage={{
         updateDetails: updateUserGroup.bind(null, groupId),
         addMember: addUserMember.bind(null, groupId),
+        setMemberEmail: setUserMemberEmail.bind(null, groupId),
         removeMember: removeUserMember.bind(null, groupId),
         deleteGroup: deleteUserGroup.bind(null, groupId),
       }}

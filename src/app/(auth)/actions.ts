@@ -5,14 +5,21 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { auth, MIN_PASSWORD_LENGTH } from "@/auth/auth";
 import { safeReturnTo } from "@/auth/return-to";
+import { requireUser } from "@/auth/session";
+import { EMAIL_PATTERN } from "@/domain";
 
 export interface AuthFormState {
   errors?: { name?: string; email?: string; password?: string; form?: string };
   /** What the visitor typed (never the password), to refill the form. */
   values?: { name?: string; email?: string };
+  /** A confirmation to show once the action has worked. */
+  done?: string;
 }
 
-const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+/** Where the emailed verification link lands, with `?error=` if it failed. */
+const VERIFIED_PATH = "/email-verified";
+/** Where the emailed reset link lands, with `?token=` or `?error=`. */
+const RESET_PATH = "/reset-password";
 
 function text(formData: FormData, key: string): string {
   const value = formData.get(key);
@@ -34,14 +41,14 @@ export async function signUp(_: AuthFormState, formData: FormData): Promise<Auth
 
   if (!name) errors.name = "Enter your name.";
   if (!email) errors.email = "Enter your email address.";
-  else if (!EMAIL.test(email)) errors.email = "Enter an email address like name@example.com.";
+  else if (!EMAIL_PATTERN.test(email)) errors.email = "Enter an email address like name@example.com.";
   if (password.length < MIN_PASSWORD_LENGTH)
     errors.password = `Use a password of at least ${MIN_PASSWORD_LENGTH} characters.`;
   if (Object.keys(errors).length > 0) return { errors, values };
 
   try {
     await auth().api.signUpEmail({
-      body: { name, email, password },
+      body: { name, email, password, callbackURL: VERIFIED_PATH },
       headers: await headers(),
     });
   } catch (error) {
@@ -89,4 +96,50 @@ export async function signIn(_: AuthFormState, formData: FormData): Promise<Auth
 export async function signOut(): Promise<void> {
   await auth().api.signOut({ headers: await headers() });
   redirect("/");
+}
+
+/** Sends a fresh verification link to the signed-in User. */
+export async function resendVerificationEmail(): Promise<AuthFormState> {
+  const user = await requireUser("/dashboard");
+  if (user.emailVerified) return { done: "Your email is already verified." };
+  await auth().api.sendVerificationEmail({
+    body: { email: user.email, callbackURL: VERIFIED_PATH },
+    headers: await headers(),
+  });
+  return { done: `We sent a new link to ${user.email}.` };
+}
+
+const RESET_SENT =
+  "If an account uses that email, we've sent it a link to choose a new password. The link works for one hour.";
+
+/** Emails a reset link. Says the same whether or not the email is registered. */
+export async function requestPasswordReset(_: AuthFormState, formData: FormData): Promise<AuthFormState> {
+  const email = text(formData, "email").trim();
+  if (!email) return { errors: { email: "Enter your email address." }, values: { email } };
+  if (!EMAIL_PATTERN.test(email))
+    return { errors: { email: "Enter an email address like name@example.com." }, values: { email } };
+  await auth().api.requestPasswordReset({
+    body: { email, redirectTo: RESET_PATH },
+    headers: await headers(),
+  });
+  return { done: RESET_SENT, values: { email } };
+}
+
+/** Sets a new password from an emailed reset link, then asks to sign in. */
+export async function resetPassword(_: AuthFormState, formData: FormData): Promise<AuthFormState> {
+  const token = text(formData, "token");
+  const password = text(formData, "password");
+  if (password.length < MIN_PASSWORD_LENGTH)
+    return { errors: { password: `Use a password of at least ${MIN_PASSWORD_LENGTH} characters.` } };
+  try {
+    await auth().api.resetPassword({ body: { token, newPassword: password }, headers: await headers() });
+  } catch (error) {
+    const code = errorCode(error);
+    if (code === "INVALID_TOKEN")
+      return { errors: { form: "This reset link has expired or was already used. Ask for a new one." } };
+    if (code === "PASSWORD_TOO_LONG")
+      return { errors: { password: "Use a password of 128 characters or fewer." } };
+    throw error;
+  }
+  redirect("/sign-in?reset=1");
 }

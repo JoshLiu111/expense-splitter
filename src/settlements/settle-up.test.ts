@@ -9,7 +9,7 @@ async function flatWithDebt(owed = 1000) {
   const repo = createSessionStorageRepository(memoryStorage(), () => []);
   const group = await repo.createGroup({ name: "Flat", description: "", currency: "USD" });
   const you = group.members[0];
-  const chloe = (await repo.addMember(group.id, "Chloe"))!;
+  const chloe = (await repo.addMember(group.id, { name: "Chloe" }))!;
   await repo.addExpense(group.id, {
     description: "Pizza",
     amount: owed,

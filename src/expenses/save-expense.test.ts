@@ -20,7 +20,7 @@ it("keeps Former Members off new Expenses but lets their past Expenses be edited
   const repo = createSessionStorageRepository(memoryStorage(), () => []);
   const group = await repo.createGroup({ name: "Flat", description: "", currency: "USD" });
   const you = group.members[0].id;
-  const dev = (await repo.addMember(group.id, "Dev"))!.id;
+  const dev = (await repo.addMember(group.id, { name: "Dev" }))!.id;
   expect(await saveExpense(repo, group.id, null, paidBy(dev, [dev]))).toEqual({ ok: true });
   const [past] = (await repo.getGroup(group.id))!.expenses;
   await repo.removeMember(group.id, dev);

@@ -40,10 +40,13 @@ export {
   currencyLock,
   currentMembers,
   groupDeletionBlock,
+  EMAIL_PATTERN,
+  memberEmailBlock,
   memberRemovalBlock,
   MAX_MEMBER_NAME_LENGTH,
+  parseMemberEmail,
   parseGroupDetails,
   parseNewMember,
   selectableMembers,
 } from "./manage-group";
-export type { ParseMemberResult } from "./manage-group";
+export type { ParseEmailResult, ParseMemberResult } from "./manage-group";

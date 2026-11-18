@@ -1,7 +1,9 @@
 import {
   groupDeletionBlock,
+  memberEmailBlock,
   memberRemovalBlock,
   parseGroupDetails,
+  parseMemberEmail,
   parseNewMember,
   type NewGroupFields,
 } from "@/domain";
@@ -10,7 +12,13 @@ import type { GroupRepository } from "./group-repository";
 /** What a Group management control shows after it acts. */
 export type ManageResult =
   | { ok: true }
-  | { ok: false; errors: Partial<Record<keyof NewGroupFields | "form", string>> };
+  | { ok: false; errors: Partial<Record<keyof NewGroupFields | keyof NewMemberFields | "form", string>> };
+
+/** What the Add Member form sends; a blank email adds a Name-only Member. */
+export interface NewMemberFields {
+  name: string;
+  email: string;
+}
 
 /** Who is acting: a signed-in User, or a Guest (`userId` undefined). */
 export interface Visitor {
@@ -50,13 +58,45 @@ export async function updateGroupDetails(
   return (await repo.updateGroup(groupId, parsed.value)) ? { ok: true } : formError(GROUP_GONE);
 }
 
-/** Adds a Name-only Member. */
-export async function addMember(repo: GroupRepository, groupId: string, name: unknown): Promise<ManageResult> {
+/**
+ * Adds a Member: Name-only, or by email, which links a User who has verified
+ * it and otherwise makes a Pending Member.
+ */
+export async function addMember(repo: GroupRepository, groupId: string, input: unknown): Promise<ManageResult> {
   const group = await repo.getGroup(groupId);
   if (!group) return formError(GROUP_GONE);
-  const parsed = parseNewMember(typeof name === "string" ? name : "", group);
-  if (!parsed.ok) return { ok: false, errors: { name: parsed.error } };
-  return (await repo.addMember(groupId, parsed.value.name)) ? { ok: true } : formError(GROUP_GONE);
+  const name = parseNewMember(text(input, "name"), group);
+  const email = parseMemberEmail(text(input, "email"), group);
+  if (!name.ok || !email.ok)
+    return {
+      ok: false,
+      errors: { ...(name.ok ? {} : { name: name.error }), ...(email.ok ? {} : { email: email.error }) },
+    };
+  const added = await repo.addMember(groupId, {
+    name: name.value.name,
+    ...(email.value ? { email: email.value } : {}),
+  });
+  return added ? { ok: true } : formError(GROUP_GONE);
+}
+
+/**
+ * Gives a Name-only or Pending Member an email, keeping their history; a
+ * User who has verified it is linked straight away.
+ */
+export async function setMemberEmail(
+  repo: GroupRepository,
+  groupId: string,
+  memberId: string,
+  rawEmail: unknown,
+): Promise<ManageResult> {
+  const group = await repo.getGroup(groupId);
+  if (!group) return formError(GROUP_GONE);
+  const block = memberEmailBlock(group, memberId);
+  if (block) return formError(block);
+  const email = parseMemberEmail(typeof rawEmail === "string" ? rawEmail : "", group, memberId);
+  if (!email.ok) return { ok: false, errors: { email: email.error } };
+  if (!email.value) return { ok: false, errors: { email: "Enter the Member's email address." } };
+  return (await repo.setMemberEmail(groupId, memberId, email.value)) ? { ok: true } : formError(GROUP_GONE);
 }
 
 /** Makes a Member with a zero Balance a Former Member. */
@@ -88,7 +128,9 @@ export async function deleteGroup(
 /** The Group management operations a Group page can call, bound to one Group. */
 export interface GroupManagement {
   updateDetails(fields: NewGroupFields): Promise<ManageResult>;
-  addMember(name: string): Promise<ManageResult>;
+  addMember(fields: NewMemberFields): Promise<ManageResult>;
+  /** Absent for Guests, who have no Users to link Members to by email. */
+  setMemberEmail?: (memberId: string, email: string) => Promise<ManageResult>;
   removeMember(memberId: string): Promise<ManageResult>;
   deleteGroup(): Promise<ManageResult>;
 }

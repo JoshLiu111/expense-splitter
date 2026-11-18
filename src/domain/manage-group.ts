@@ -50,6 +50,38 @@ export function parseNewMember(rawName: string, group: GroupSnapshot): ParseMemb
   return { ok: true, value: { name } };
 }
 
+/** A plausible email address: something@something.tld, no spaces. */
+export const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+export type ParseEmailResult = { ok: true; value: string | undefined } | { ok: false; error: string };
+
+/**
+ * Validates the email a Member is added or linked by; blank means none.
+ * Lower-cased so it matches a User's email. No two Members of a Group,
+ * Former ones included, share an email, so one User is linked to at most
+ * one Member per Group. `memberId` is the Member being given the email.
+ */
+export function parseMemberEmail(raw: string, group: GroupSnapshot, memberId?: string): ParseEmailResult {
+  const email = raw.trim().toLowerCase();
+  if (email === "") return { ok: true, value: undefined };
+  if (!EMAIL_PATTERN.test(email)) return { ok: false, error: "Enter an email address like name@example.com." };
+  const clash = group.members.find((m) => m.id !== memberId && m.email?.toLowerCase() === email);
+  if (clash) return { ok: false, error: `${clash.name} already has that email in this Group.` };
+  return { ok: true, value: email };
+}
+
+/**
+ * Why a Member can't be given an email, or `null` if they can: Name-only
+ * and Pending Members can; a Linked Member's email is their User's.
+ */
+export function memberEmailBlock(group: GroupSnapshot, memberId: string): string | null {
+  const member = group.members.find((m) => m.id === memberId);
+  if (!member) return "That Member isn't in this Group.";
+  if (member.former) return `${member.name} has been removed from this Group.`;
+  if (member.userId) return `${member.name} is already a Linked Member.`;
+  return null;
+}
+
 /** Why a Member can't be removed from the Group, or `null` if they can. */
 export function memberRemovalBlock(group: GroupSnapshot, memberId: string): string | null {
   const member = group.members.find((m) => m.id === memberId);

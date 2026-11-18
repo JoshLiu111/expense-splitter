@@ -1,7 +1,7 @@
-import { and, asc, eq, exists, inArray, max } from "drizzle-orm";
+import { and, asc, eq, exists, inArray, isNull, max, notExists, sql } from "drizzle-orm";
 import type { CurrencyCode, Expense, GroupSnapshot, NewExpense, SplitType } from "@/domain";
 import type { Database } from "@/db/client";
-import { expenseShares, expenses, groups, members, settlements } from "@/db/schema";
+import { expenseShares, expenses, groups, members, settlements, user } from "@/db/schema";
 import { AVATAR_COLORS, nextAvatarColor, type GroupRepository } from "./group-repository";
 
 /** The signed-in User a repository acts for. */
@@ -9,6 +9,66 @@ export interface GroupUser {
   id: string;
   name: string;
   email: string;
+}
+
+type Tx = Parameters<Parameters<Database["transaction"]>[0]>[0];
+
+/**
+ * The User a Member with this email should be linked to: the one who has
+ * verified it (ADR 0005), unless they are already linked to a Member of the
+ * Group, since a User is linked to at most one Member per Group.
+ */
+async function userToLink(tx: Tx, groupId: string, email: string): Promise<string | null> {
+  const [found] = await tx
+    .select({ id: user.id })
+    .from(user)
+    .where(
+      and(
+        eq(sql`lower(${user.email})`, email.toLowerCase()),
+        eq(user.emailVerified, true),
+        notExists(
+          tx
+            .select({ one: members.id })
+            .from(members)
+            .where(and(eq(members.groupId, groupId), eq(members.userId, user.id))),
+        ),
+      ),
+    );
+  return found?.id ?? null;
+}
+
+/**
+ * Links a User who has just verified their email to every Pending Member
+ * with that exact email, at most one per Group and never in a Group where
+ * they are already linked. Former Members are left as they are.
+ */
+export async function claimPendingMembers(db: Database, verified: { id: string; email: string }) {
+  await db.transaction(async (tx) => {
+    const pending = await tx
+      .select({ id: members.id, groupId: members.groupId })
+      .from(members)
+      .where(
+        and(
+          eq(sql`lower(${members.email})`, verified.email.toLowerCase()),
+          isNull(members.userId),
+          eq(members.former, false),
+        ),
+      )
+      .orderBy(asc(members.position));
+    const linkedGroups = new Set(
+      (
+        await tx
+          .select({ groupId: members.groupId })
+          .from(members)
+          .where(eq(members.userId, verified.id))
+      ).map((m) => m.groupId),
+    );
+    for (const member of pending) {
+      if (linkedGroups.has(member.groupId)) continue;
+      linkedGroups.add(member.groupId);
+      await tx.update(members).set({ userId: verified.id }).where(eq(members.id, member.id));
+    }
+  });
 }
 
 /**
@@ -125,8 +185,6 @@ export function createPostgresGroupRepository(
     const [group] = await load(groupId);
     return group?.expenses.find((e) => e.id === expenseId) ?? null;
   }
-
-  type Tx = Parameters<Parameters<Database["transaction"]>[0]>[0];
 
   async function insertShares(tx: Tx, expenseId: string, expense: NewExpense) {
     if (expense.shares.length === 0) return;
@@ -249,7 +307,7 @@ export function createPostgresGroupRepository(
       const [group] = await load(id);
       return group ?? null;
     },
-    async addMember(groupId, name) {
+    async addMember(groupId, { name, email }) {
       if (!(await canSee(groupId))) return null;
       const memberId = `mem_${newId()}`;
       await db.transaction(async (tx) => {
@@ -265,10 +323,27 @@ export function createPostgresGroupRepository(
           id: memberId,
           groupId,
           name,
+          email: email ?? null,
+          userId: email ? await userToLink(tx, groupId, email) : null,
           avatarColor: nextAvatarColor(existing),
           position: (last ?? -1) + 1,
         });
       });
+      const [group] = await load(groupId);
+      return group?.members.find((m) => m.id === memberId) ?? null;
+    },
+    async setMemberEmail(groupId, memberId, email) {
+      if (!(await canSee(groupId))) return null;
+      const updated = await db.transaction(async (tx) => {
+        const rows = await tx
+          .update(members)
+          .set({ email, userId: await userToLink(tx, groupId, email) })
+          // A Linked Member's email is their User's, so leave it alone.
+          .where(and(eq(members.id, memberId), eq(members.groupId, groupId), isNull(members.userId)))
+          .returning({ id: members.id });
+        return rows.length > 0;
+      });
+      if (!updated) return null;
       const [group] = await load(groupId);
       return group?.members.find((m) => m.id === memberId) ?? null;
     },

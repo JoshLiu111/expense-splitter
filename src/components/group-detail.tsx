@@ -246,6 +246,7 @@ export function GroupDetail({
         group={group}
         headingRef={membersHeading}
         onAdd={manage.addMember}
+        onSetEmail={manage.setMemberEmail}
         onRemove={manage.removeMember}
         onNews={setActionNews}
       />

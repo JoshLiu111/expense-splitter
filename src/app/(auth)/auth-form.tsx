@@ -8,9 +8,10 @@ import { ErrorSummary, Field, FormCard } from "@/components/form";
 import { MIN_PASSWORD_LENGTH } from "@/auth/password";
 import { signIn, signUp, type AuthFormState } from "./actions";
 
-
 export function AuthForm({ mode }: { mode: "sign-in" | "sign-up" }) {
-  const next = useSearchParams().get("next") ?? "";
+  const params = useSearchParams();
+  const next = params.get("next") ?? "";
+  const justReset = mode === "sign-in" && params.get("reset") !== null;
   const [state, action, pending] = useActionState<AuthFormState, FormData>(
     mode === "sign-up" ? signUp : signIn,
     {},
@@ -30,6 +31,11 @@ export function AuthForm({ mode }: { mode: "sign-in" | "sign-up" }) {
       <h1 id={`${formId}-heading`} className="text-2xl font-extrabold">
         {isSignUp ? "Sign up" : "Sign in"}
       </h1>
+      {justReset && (
+        <p role="status" className="rounded-md border border-border p-4 text-sm">
+          Your password has been changed. Sign in with your new password.
+        </p>
+      )}
       <FormCard>
         <form action={action} noValidate className="flex flex-col gap-5">
           <ErrorSummary errors={errors} fieldIds={ids} />
@@ -84,6 +90,11 @@ export function AuthForm({ mode }: { mode: "sign-in" | "sign-up" }) {
               />
             )}
           </Field>
+          {!isSignUp && (
+            <Link href="/forgot-password" className="self-start text-sm font-semibold text-accent underline">
+              Forgot your password?
+            </Link>
+          )}
           <Button type="submit" disabled={pending}>
             {pending
               ? isSignUp

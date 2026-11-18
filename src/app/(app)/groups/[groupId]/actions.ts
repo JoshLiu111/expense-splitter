@@ -8,6 +8,7 @@ import {
   addMember,
   deleteGroup,
   removeMember,
+  setMemberEmail,
   updateGroupDetails,
   type ManageResult,
 } from "@/groups/manage-group";
@@ -56,10 +57,18 @@ export async function updateUserGroup(groupId: string, fields: unknown): Promise
   return result;
 }
 
-export async function addUserMember(groupId: string, name: unknown): Promise<ManageResult> {
+export async function addUserMember(groupId: string, fields: unknown): Promise<ManageResult> {
   const user = await requireUser(`/groups/${groupId}`);
   if (typeof groupId !== "string") return INVALID;
-  const result = await addMember(userGroupRepository(user), groupId, name);
+  const result = await addMember(userGroupRepository(user), groupId, fields);
+  if (result.ok) refresh();
+  return result;
+}
+
+export async function setUserMemberEmail(groupId: string, memberId: string, email: unknown): Promise<ManageResult> {
+  const user = await requireUser(`/groups/${groupId}`);
+  if (typeof groupId !== "string" || typeof memberId !== "string") return INVALID;
+  const result = await setMemberEmail(userGroupRepository(user), groupId, memberId, email);
   if (result.ok) refresh();
   return result;
 }

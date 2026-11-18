@@ -5,16 +5,21 @@ import type { GroupUser } from "@/groups/postgres-group-repository";
 import { auth } from "./auth";
 import { signInPath } from "./return-to";
 
+/** The signed-in User, and whether they have verified their email. */
+export interface SessionUser extends GroupUser {
+  emailVerified: boolean;
+}
+
 /** The signed-in User, or `null`. Reads the request, so call it inside Suspense. */
-export async function getCurrentUser(): Promise<GroupUser | null> {
+export async function getCurrentUser(): Promise<SessionUser | null> {
   const result = await auth().api.getSession({ headers: await headers() });
   if (!result) return null;
-  const { id, name, email } = result.user;
-  return { id, name, email };
+  const { id, name, email, emailVerified } = result.user;
+  return { id, name, email, emailVerified };
 }
 
 /** The signed-in User; otherwise redirects to sign-in and back to `returnTo`. */
-export async function requireUser(returnTo: string): Promise<GroupUser> {
+export async function requireUser(returnTo: string): Promise<SessionUser> {
   const user = await getCurrentUser();
   if (!user) redirect(signInPath(returnTo));
   return user;

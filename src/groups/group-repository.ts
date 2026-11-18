@@ -35,14 +35,27 @@ export interface GroupRepository {
   /** Replaces a Group's name, description and Group Currency; `null` if not visible. */
   updateGroup(id: string, details: NewGroup): Promise<GroupSnapshot | null>;
   /**
-   * Adds a Name-only Member at the end of the Group, with an avatar colour
-   * of its own; `null` if the Group isn't visible here.
+   * Adds a Member at the end of the Group, with an avatar colour of its own;
+   * `null` if the Group isn't visible here. Without an email it is Name-only;
+   * with one, it is linked to the User who has verified that email, or else
+   * a Pending Member.
    */
-  addMember(groupId: string, name: string): Promise<Member | null>;
+  addMember(groupId: string, member: NewMember): Promise<Member | null>;
+  /**
+   * Gives a Member a (lower-cased) email, linking them as `addMember` does
+   * and keeping their history; `null` if they aren't in that visible Group.
+   */
+  setMemberEmail(groupId: string, memberId: string, email: string): Promise<Member | null>;
   /** Makes a Member a Former Member; `false` if they aren't in that visible Group. */
   removeMember(groupId: string, memberId: string): Promise<boolean>;
   /** Deletes a Group and everything in it; `false` if it isn't visible here. */
   deleteGroup(id: string): Promise<boolean>;
+}
+
+/** A Member about to be added; `email` is already validated and lower-cased. */
+export interface NewMember {
+  name: string;
+  email?: string;
 }
 
 /**
