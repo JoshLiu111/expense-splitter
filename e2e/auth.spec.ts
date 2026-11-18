@@ -54,7 +54,7 @@ test("sign up, create a Group, sign out, sign in: the Group is still listed", as
   await expect(page.getByRole("heading", { level: 1, name: "Flat 3B" })).toBeVisible();
   await expect(page.getByText("Balances in GBP")).toBeVisible();
   // The creator is the Group's first Member.
-  await expect(page.getByRole("region", { name: "Balances" }).getByText("Maya Chen")).toBeVisible();
+  await expect(page.getByRole("region", { name: "Balances" }).getByText("Maya Chen", { exact: true })).toBeVisible();
 
   await signOut(page);
   await page.getByRole("link", { name: "Sign in" }).click();
@@ -66,6 +66,27 @@ test("sign up, create a Group, sign out, sign in: the Group is still listed", as
   await expect(group).toContainText("£0.00 spent");
   await expect(group).toContainText("Your Balance:");
   await expect(group).toContainText("settled up");
+});
+
+test("a signed-in User's Expense is saved to their Group", async ({ page }) => {
+  await signUp(page, uniqueEmail());
+  await page.getByRole("link", { name: "New Group" }).click();
+  await field(page, "Name").fill("Lunch club");
+  await page.getByRole("button", { name: "Create Group" }).click();
+  await expect(page.getByRole("heading", { level: 1, name: "Lunch club" })).toBeVisible();
+
+  await page.getByRole("button", { name: "Add Expense", exact: true }).click();
+  await field(page, "Amount (USD)").fill("24.50");
+  await field(page, "Description").fill("Ramen");
+  // Paid by me by default.
+  await expect(page.getByRole("radio", { name: "Maya Chen (you)" })).toBeChecked();
+  await page.getByRole("button", { name: "Add Expense", exact: true }).click();
+
+  await expect(page.getByText("Expense added.")).toBeVisible();
+  await expect(page.getByText("1 expense ·")).toBeVisible();
+  await page.reload();
+  await expect(page.getByRole("heading", { name: "Ramen" })).toBeVisible();
+  await expect(page.getByText("$24.50 spent")).toBeVisible();
 });
 
 test("the session cookie outlives the browser", async ({ page, context }) => {

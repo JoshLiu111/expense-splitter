@@ -1,4 +1,4 @@
-import type { GroupSnapshot, NewGroup } from "@/domain";
+import type { Expense, GroupSnapshot, NewExpense, NewGroup } from "@/domain";
 
 /**
  * Persistence for the Groups one visitor can see: a Guest's session Groups,
@@ -11,6 +11,15 @@ export interface GroupRepository {
   getGroup(id: string): Promise<GroupSnapshot | null>;
   /** Creates a Group whose only Member is the visitor creating it. */
   createGroup(input: NewGroup): Promise<GroupSnapshot>;
+  /** Records an Expense; `null` if the Group isn't visible here. */
+  addExpense(groupId: string, expense: NewExpense): Promise<Expense | null>;
+  /**
+   * Replaces an Expense's fields and Shares, keeping its id and creation
+   * time; `null` if the Expense isn't in that visible Group.
+   */
+  updateExpense(groupId: string, expenseId: string, expense: NewExpense): Promise<Expense | null>;
+  /** Deletes an Expense; `false` if it isn't in that visible Group. */
+  deleteExpense(groupId: string, expenseId: string): Promise<boolean>;
 }
 
 /** Colours for new Members' initials avatars, from the sample data palette. */

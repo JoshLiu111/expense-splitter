@@ -1,0 +1,156 @@
+import { describe, expect, it } from "vitest";
+import { amountText, CATEGORIES, parseAmount, parseNewExpense, type GroupSnapshot, type NewExpenseFields } from "./index";
+
+const group: GroupSnapshot = {
+  id: "grp_flat",
+  name: "Flat",
+  description: "",
+  currency: "USD",
+  members: ["alex", "jordan", "sam", "taylor"].map((name) => ({
+    id: `mem_${name}`,
+    name,
+    avatarColor: "#3B82F6",
+  })),
+  expenses: [],
+  settlements: [],
+};
+
+const fields = (overrides: Partial<NewExpenseFields> = {}): NewExpenseFields => ({
+  amount: "60",
+  description: "Pizza",
+  date: "2026-01-01",
+  category: "Food & Drink",
+  payerId: "mem_alex",
+  participantIds: ["mem_alex", "mem_jordan", "mem_sam"],
+  notes: "",
+  ...overrides,
+});
+
+describe("parseNewExpense", () => {
+  it("turns the form into an Equal Expense in the Group Currency", () => {
+    expect(parseNewExpense(fields(), group)).toEqual({
+      ok: true,
+      value: {
+        description: "Pizza",
+        amount: 6000,
+        currency: "USD",
+        lockedRate: "1",
+        payerId: "mem_alex",
+        splitType: "equal",
+        shares: [
+          { memberId: "mem_alex", amount: 2000 },
+          { memberId: "mem_jordan", amount: 2000 },
+          { memberId: "mem_sam", amount: 2000 },
+        ],
+        date: "2026-01-01",
+        category: "Food & Drink",
+      },
+    });
+  });
+
+  it.each([
+    ["", "Enter an amount."],
+    ["abc", "Enter the amount as a number, like 12.50."],
+    ["0", "Enter an amount greater than zero."],
+    ["-5", "Enter an amount greater than zero."],
+    ["12.345", "USD amounts can have at most 2 decimal places."],
+    ["10000000000", "Enter an amount under $10,000,000,000.00."],
+  ])("rejects the amount %j", (amount, message) => {
+    expect(parseNewExpense(fields({ amount }), group)).toEqual({
+      ok: false,
+      errors: { amount: message },
+    });
+  });
+
+  it("accepts thousands separators and reads the amount in exact minor units", () => {
+    const result = parseNewExpense(fields({ amount: " 1,234.56 ", participantIds: ["mem_alex"] }), group);
+    expect(result.ok && result.value.amount).toBe(123456);
+    // 0.29 * 100 is 28.999… in floating point
+    const cents = parseNewExpense(fields({ amount: "0.29", participantIds: ["mem_alex"] }), group);
+    expect(cents.ok && cents.value.amount).toBe(29);
+  });
+
+  it("takes JPY amounts in whole yen", () => {
+    const yenGroup = { ...group, currency: "JPY" as const };
+    expect(parseNewExpense(fields({ amount: "1000.5" }), yenGroup)).toEqual({
+      ok: false,
+      errors: { amount: "JPY amounts must be whole numbers." },
+    });
+    const result = parseNewExpense(fields({ amount: "1000" }), yenGroup);
+    expect(result.ok && result.value.shares.map((s) => s.amount)).toEqual([334, 333, 333]);
+  });
+
+  it("offers the nine predefined Categories", () => {
+    expect(CATEGORIES).toEqual([
+      "Food & Drink",
+      "Transport",
+      "Accommodation",
+      "Housing",
+      "Entertainment",
+      "Shopping",
+      "Utilities",
+      "Groceries",
+      "Other",
+    ]);
+  });
+
+  it("reports every problem at once with a specific message", () => {
+    expect(
+      parseNewExpense(
+        fields({
+          amount: "",
+          description: "  ",
+          date: "2026-02-30",
+          category: "Snacks",
+          payerId: "mem_stranger",
+          participantIds: [],
+          notes: "x".repeat(1001),
+        }),
+        group,
+      ),
+    ).toEqual({
+      ok: false,
+      errors: {
+        amount: "Enter an amount.",
+        description: "Describe what the Expense was for.",
+        date: "Enter a real date, like 2026-01-31.",
+        category: "Choose one of the Categories.",
+        payerId: "Choose who paid.",
+        participants: "Choose at least one member to split with.",
+        notes: "Keep notes to 1000 characters or fewer.",
+      },
+    });
+  });
+
+  it("rejects a description over 120 characters", () => {
+    expect(parseNewExpense(fields({ description: "x".repeat(121) }), group)).toEqual({
+      ok: false,
+      errors: { description: "Keep the description to 120 characters or fewer." },
+    });
+  });
+
+  it("rejects participants who aren't Members of the Group", () => {
+    expect(parseNewExpense(fields({ participantIds: ["mem_alex", "mem_stranger"] }), group)).toEqual({
+      ok: false,
+      errors: { participants: "Only members of this Group can share an Expense." },
+    });
+  });
+
+  it("keeps trimmed notes and drops blank ones", () => {
+    const withNotes = parseNewExpense(fields({ notes: "  extra cheese " }), group);
+    expect(withNotes.ok && withNotes.value.notes).toBe("extra cheese");
+    const blank = parseNewExpense(fields({ notes: "   " }), group);
+    expect(blank.ok && "notes" in blank.value).toBe(false);
+  });
+});
+
+describe("amountText", () => {
+  it.each([
+    [6000, "USD", "60.00"],
+    [5, "USD", "0.05"],
+    [84000, "JPY", "84000"],
+  ] as const)("shows %i %s as %j for editing, and reads back the same", (amount, currency, text) => {
+    expect(amountText(amount, currency)).toBe(text);
+    expect(parseAmount(text, currency)).toEqual({ ok: true, amount });
+  });
+});

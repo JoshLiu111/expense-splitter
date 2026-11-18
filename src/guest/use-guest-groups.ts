@@ -18,13 +18,20 @@ export function guestRepository(): GuestGroupRepository {
     const inner = createSessionStorageRepository(window.sessionStorage, () =>
       importSampleGroups(sampleData),
     );
+    /** Runs a write, then tells subscribed views to re-read. */
+    const notifying =
+      <Args extends unknown[], Result>(write: (...args: Args) => Promise<Result>) =>
+      async (...args: Args) => {
+        const result = await write(...args);
+        window.dispatchEvent(new Event(CHANGE_EVENT));
+        return result;
+      };
     repository = {
       ...inner,
-      async createGroup(input) {
-        const group = await inner.createGroup(input);
-        window.dispatchEvent(new Event(CHANGE_EVENT));
-        return group;
-      },
+      createGroup: notifying(inner.createGroup),
+      addExpense: notifying(inner.addExpense),
+      updateExpense: notifying(inner.updateExpense),
+      deleteExpense: notifying(inner.deleteExpense),
     };
   }
   return repository;

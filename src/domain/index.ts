@@ -2,7 +2,8 @@ export type * from "./types";
 export { computeLedger } from "./ledger";
 export type { Ledger, MemberBalance, OwingLine, TimelineEntry } from "./ledger";
 export { importSampleGroups } from "./sample-data";
-export { CURRENCY_CODES, formatMoney, isCurrencyCode } from "./currency";
+export { amountText, CURRENCY_CODES, formatMoney, isCurrencyCode, parseAmount } from "./currency";
+export type { ParseAmountResult } from "./currency";
 export {
   parseNewGroup,
   DEFAULT_GROUP_CURRENCY,
@@ -10,3 +11,17 @@ export {
   MAX_GROUP_NAME_LENGTH,
 } from "./new-group";
 export type { NewGroup, NewGroupFields, ParseResult } from "./new-group";
+export { computeSplit, describeEqualSplit } from "./split";
+export type { SplitInput, SplitResult } from "./split";
+export {
+  CATEGORIES,
+  MAX_EXPENSE_DESCRIPTION_LENGTH,
+  MAX_EXPENSE_NOTES_LENGTH,
+  parseNewExpense,
+} from "./new-expense";
+export type {
+  NewExpense,
+  NewExpenseErrors,
+  NewExpenseFields,
+  ParseExpenseResult,
+} from "./new-expense";

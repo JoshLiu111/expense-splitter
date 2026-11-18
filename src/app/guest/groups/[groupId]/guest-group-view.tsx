@@ -3,7 +3,9 @@
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { GroupDetail } from "@/components/group-detail";
-import { useGuestGroups } from "@/guest/use-guest-groups";
+import { deleteExpense, saveExpense } from "@/expenses/save-expense";
+import { GUEST_MEMBER_NAME } from "@/guest/guest-repository";
+import { guestRepository, useGuestGroups } from "@/guest/use-guest-groups";
 
 export function GuestGroupView() {
   const { groupId } = useParams<{ groupId: string }>();
@@ -32,5 +34,18 @@ export function GuestGroupView() {
     );
   }
 
-  return <GroupDetail group={group} backHref="/guest" backLabel="All Groups" />;
+  return (
+    <GroupDetail
+      group={group}
+      backHref="/guest"
+      backLabel="All Groups"
+      // A Guest's own Groups have a Name-only Member "You"; the sample
+      // Groups don't, so their first Member pays by default.
+      currentMemberId={group.members.find((m) => m.name === GUEST_MEMBER_NAME)?.id}
+      onSaveExpense={(expenseId, fields) =>
+        saveExpense(guestRepository(), group.id, expenseId, fields)
+      }
+      onDeleteExpense={(expenseId) => deleteExpense(guestRepository(), group.id, expenseId)}
+    />
+  );
 }

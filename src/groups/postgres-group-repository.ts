@@ -1,5 +1,5 @@
 import { and, asc, eq, exists, inArray } from "drizzle-orm";
-import type { CurrencyCode, Expense, GroupSnapshot, SplitType } from "@/domain";
+import type { CurrencyCode, Expense, GroupSnapshot, NewExpense, SplitType } from "@/domain";
 import type { Database } from "@/db/client";
 import { expenseShares, expenses, groups, members, settlements } from "@/db/schema";
 import { AVATAR_COLORS, type GroupRepository } from "./group-repository";
@@ -100,6 +100,48 @@ export function createPostgresGroupRepository(
     }));
   }
 
+  async function canSee(groupId: string): Promise<boolean> {
+    const [row] = await db
+      .select({ id: groups.id })
+      .from(groups)
+      .where(and(isLinkedMember, eq(groups.id, groupId)));
+    return row !== undefined;
+  }
+
+  async function findExpense(groupId: string, expenseId: string): Promise<Expense | null> {
+    const [group] = await load(groupId);
+    return group?.expenses.find((e) => e.id === expenseId) ?? null;
+  }
+
+  type Tx = Parameters<Parameters<Database["transaction"]>[0]>[0];
+
+  async function insertShares(tx: Tx, expenseId: string, expense: NewExpense) {
+    if (expense.shares.length === 0) return;
+    await tx.insert(expenseShares).values(
+      expense.shares.map((share, position) => ({
+        expenseId,
+        memberId: share.memberId,
+        amount: share.amount,
+        position,
+      })),
+    );
+  }
+
+  /** The Expense columns a visitor can set. */
+  function expenseColumns(expense: NewExpense) {
+    return {
+      description: expense.description,
+      amount: expense.amount,
+      currency: expense.currency,
+      lockedRate: expense.lockedRate,
+      payerId: expense.payerId,
+      splitType: expense.splitType,
+      date: expense.date,
+      category: expense.category,
+      notes: expense.notes ?? null,
+    };
+  }
+
   return {
     listGroups: () => load(),
     async getGroup(id) {
@@ -122,6 +164,38 @@ export function createPostgresGroupRepository(
       });
       const [group] = await load(groupId);
       return group;
+    },
+    async addExpense(groupId, input) {
+      if (!(await canSee(groupId))) return null;
+      const expenseId = `exp_${newId()}`;
+      await db.transaction(async (tx) => {
+        await tx.insert(expenses).values({ id: expenseId, groupId, ...expenseColumns(input) });
+        await insertShares(tx, expenseId, input);
+      });
+      return findExpense(groupId, expenseId);
+    },
+    async updateExpense(groupId, expenseId, input) {
+      if (!(await canSee(groupId))) return null;
+      const updated = await db.transaction(async (tx) => {
+        const rows = await tx
+          .update(expenses)
+          .set(expenseColumns(input))
+          .where(and(eq(expenses.id, expenseId), eq(expenses.groupId, groupId)))
+          .returning({ id: expenses.id });
+        if (rows.length === 0) return false;
+        await tx.delete(expenseShares).where(eq(expenseShares.expenseId, expenseId));
+        await insertShares(tx, expenseId, input);
+        return true;
+      });
+      return updated ? findExpense(groupId, expenseId) : null;
+    },
+    async deleteExpense(groupId, expenseId) {
+      if (!(await canSee(groupId))) return false;
+      const rows = await db
+        .delete(expenses)
+        .where(and(eq(expenses.id, expenseId), eq(expenses.groupId, groupId)))
+        .returning({ id: expenses.id });
+      return rows.length > 0;
     },
   };
 }

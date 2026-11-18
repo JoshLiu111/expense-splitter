@@ -63,6 +63,31 @@ describe.skipIf(!url)("Postgres GroupRepository", () => {
     expect(await theosRepo.getGroup(group.id)).toBeNull();
   });
 
+  it("keeps another User from changing a Group's Expenses", async () => {
+    const maya = await aUser();
+    const mayasRepo = createPostgresGroupRepository(db, maya);
+    const group = await mayasRepo.createGroup({ name: "Private", description: "", currency: "USD" });
+    const me = group.members[0].id;
+    const expense = {
+      description: "Rent",
+      amount: 100000,
+      currency: "USD" as const,
+      lockedRate: "1",
+      payerId: me,
+      splitType: "equal" as const,
+      shares: [{ memberId: me, amount: 100000 }],
+      date: "2026-03-01",
+      category: "Housing",
+    };
+    const rent = await mayasRepo.addExpense(group.id, expense);
+
+    const theosRepo = createPostgresGroupRepository(db, await aUser());
+    expect(await theosRepo.addExpense(group.id, expense)).toBeNull();
+    expect(await theosRepo.updateExpense(group.id, rent!.id, { ...expense, amount: 1 })).toBeNull();
+    expect(await theosRepo.deleteExpense(group.id, rent!.id)).toBe(false);
+    expect((await mayasRepo.getGroup(group.id))?.expenses).toEqual([rent]);
+  });
+
   it("lists a User's Groups oldest first", async () => {
     const repo = createPostgresGroupRepository(db, await aUser());
     const first = await repo.createGroup({ name: "First", description: "", currency: "USD" });

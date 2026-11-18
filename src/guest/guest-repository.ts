@@ -1,5 +1,8 @@
-import type { GroupSnapshot } from "@/domain";
+import type { Expense, GroupSnapshot } from "@/domain";
 import { AVATAR_COLORS, type GroupRepository } from "@/groups/group-repository";
+
+/** The Name-only Member standing for the Guest in Groups they create. */
+export const GUEST_MEMBER_NAME = "You";
 
 const STORAGE_KEY = "expense-splitter:guest:v1";
 
@@ -41,6 +44,20 @@ export function createSessionStorageRepository(
     return cachedGroups;
   }
 
+  /** Applies `change` to one Group's Expenses; `false` if the Group is missing. */
+  function updateExpenses(groupId: string, change: (expenses: Expense[]) => Expense[]): boolean {
+    const groups = read();
+    if (!groups.some((g) => g.id === groupId)) return false;
+    write(groups.map((g) => (g.id === groupId ? { ...g, expenses: change(g.expenses) } : g)));
+    return true;
+  }
+
+  function findExpense(groupId: string, expenseId: string): Expense | undefined {
+    return read()
+      .find((g) => g.id === groupId)
+      ?.expenses.find((e) => e.id === expenseId);
+  }
+
   function write(groups: GroupSnapshot[]) {
     storage.setItem(STORAGE_KEY, JSON.stringify({ version: 1, groups } satisfies StoredState));
   }
@@ -57,12 +74,31 @@ export function createSessionStorageRepository(
       const group: GroupSnapshot = {
         id: `grp_${newId()}`,
         ...input,
-        members: [{ id: `mem_${newId()}`, name: "You", avatarColor: AVATAR_COLORS[0] }],
+        members: [{ id: `mem_${newId()}`, name: GUEST_MEMBER_NAME, avatarColor: AVATAR_COLORS[0] }],
         expenses: [],
         settlements: [],
       };
       write([...read(), group]);
       return group;
+    },
+    async addExpense(groupId, input) {
+      const expense: Expense = {
+        ...input,
+        id: `exp_${newId()}`,
+        createdAt: new Date().toISOString(),
+      };
+      return updateExpenses(groupId, (expenses) => [...expenses, expense]) ? expense : null;
+    },
+    async updateExpense(groupId, expenseId, input) {
+      const existing = findExpense(groupId, expenseId);
+      if (!existing) return null;
+      const expense: Expense = { ...input, id: existing.id, createdAt: existing.createdAt };
+      updateExpenses(groupId, (expenses) => expenses.map((e) => (e.id === expenseId ? expense : e)));
+      return expense;
+    },
+    async deleteExpense(groupId, expenseId) {
+      if (!findExpense(groupId, expenseId)) return false;
+      return updateExpenses(groupId, (expenses) => expenses.filter((e) => e.id !== expenseId));
     },
   };
 }

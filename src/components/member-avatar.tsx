@@ -25,13 +25,15 @@ function textColourOn(hex: string): string {
 
 export function MemberAvatar({
   member,
+  size = "md",
 }: {
   member: Pick<Member, "name" | "avatarColor">;
+  size?: "sm" | "md";
 }) {
   return (
     <span
       aria-hidden
-      className="inline-flex size-9 shrink-0 items-center justify-center rounded-full text-sm font-bold"
+      className={`inline-flex shrink-0 items-center justify-center rounded-full font-bold ${size === "sm" ? "size-8 text-xs" : "size-9 text-sm"}`}
       style={{ backgroundColor: member.avatarColor, color: textColourOn(member.avatarColor) }}
     >
       {initials(member.name)}

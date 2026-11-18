@@ -10,9 +10,12 @@ import { cn } from "@/lib/utils";
 export function BalanceStatus({
   amount,
   currency,
+  label: sentence,
 }: {
   amount: MinorUnits;
   currency: CurrencyCode;
+  /** A natural-language sentence for screen readers, e.g. "Jordan owes $219.49". */
+  label?: string;
 }) {
   const state = amount > 0 ? "owed" : amount < 0 ? "owes" : "settled";
   const Icon = state === "owed" ? ArrowDownLeft : state === "owes" ? ArrowUpRight : Check;
@@ -28,8 +31,11 @@ export function BalanceStatus({
       )}
     >
       <Icon aria-hidden className="size-4" />
-      <span className="text-sm font-semibold">{label}</span>
-      <span className="amount text-base font-semibold">
+      {sentence && <span className="sr-only">{sentence}</span>}
+      <span aria-hidden={sentence ? true : undefined} className="text-sm font-semibold">
+        {label}
+      </span>
+      <span aria-hidden={sentence ? true : undefined} className="amount text-base font-semibold">
         {formatSignedMoney(amount, currency)}
       </span>
     </span>

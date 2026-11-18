@@ -23,3 +23,16 @@ export function formatSignedMoney(amount: MinorUnits, currency: CurrencyCode): s
 export function pluralize(count: number, singular: string, plural = `${singular}s`) {
   return `${count} ${count === 1 ? singular : plural}`;
 }
+
+/** Today's calendar date where the visitor is (not UTC). */
+export function todayCalendarDate(now = new Date()): CalendarDate {
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+}
+
+/** "Jordan owes $219.49", "Alex gets back $216.46", "Sam is settled up". */
+export function describeBalance(name: string, amount: MinorUnits, currency: CurrencyCode): string {
+  if (amount > 0) return `${name} gets back ${formatMoney(amount, currency)}`;
+  if (amount < 0) return `${name} owes ${formatMoney(-amount, currency)}`;
+  return `${name} is settled up`;
+}

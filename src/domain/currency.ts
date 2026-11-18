@@ -34,6 +34,45 @@ export function toMinorUnits(major: number, currency: CurrencyCode): MinorUnits 
   return minor;
 }
 
+/** Amounts must stay below this many major units. */
+const MAX_MAJOR_UNITS = 10_000_000_000;
+
+export type ParseAmountResult = { ok: true; amount: MinorUnits } | { ok: false; error: string };
+
+/**
+ * Reads an amount typed by a person ("1,234.56") as exact minor units,
+ * without going through floating point.
+ */
+export function parseAmount(text: string, currency: CurrencyCode): ParseAmountResult {
+  const cleaned = text.replace(/[\s,]/g, "");
+  if (cleaned === "") return { ok: false, error: "Enter an amount." };
+  const match = /^(-?)(\d*)(?:\.(\d*))?$/.exec(cleaned);
+  if (!match || (match[2] === "" && !match[3])) {
+    return { ok: false, error: "Enter the amount as a number, like 12.50." };
+  }
+  const [, sign, whole, fraction = ""] = match;
+  const digits = exponentOf(currency);
+  const significant = fraction.replace(/0+$/, "");
+  if (significant.length > digits) {
+    return {
+      ok: false,
+      error:
+        digits === 0
+          ? `${currency} amounts must be whole numbers.`
+          : `${currency} amounts can have at most ${digits} decimal places.`,
+    };
+  }
+  const amount = Number((whole || "0") + significant.padEnd(digits, "0"));
+  if (sign === "-" || amount === 0) {
+    return { ok: false, error: "Enter an amount greater than zero." };
+  }
+  const max = MAX_MAJOR_UNITS * 10 ** digits;
+  if (amount >= max) {
+    return { ok: false, error: `Enter an amount under ${formatMoney(max, currency)}.` };
+  }
+  return { ok: true, amount };
+}
+
 const PLAIN_DECIMAL = /^(\d+)(?:\.(\d+))?$/;
 
 /**
@@ -56,6 +95,15 @@ export function convert(
     10n ** BigInt(fraction.length) * 10n ** BigInt(exponentOf(from));
   const rounded = (numerator * 2n + denominator) / (denominator * 2n);
   return Math.sign(amount) * Number(rounded);
+}
+
+/** Minor units as plain text a person can edit, e.g. 6000 USD → "60.00". */
+export function amountText(amount: MinorUnits, currency: CurrencyCode): string {
+  const digits = exponentOf(currency);
+  if (digits === 0) return String(amount);
+  const text = String(Math.abs(amount)).padStart(digits + 1, "0");
+  const sign = amount < 0 ? "-" : "";
+  return `${sign}${text.slice(0, -digits)}.${text.slice(-digits)}`;
 }
 
 const formatters = new Map<CurrencyCode, Intl.NumberFormat>();
