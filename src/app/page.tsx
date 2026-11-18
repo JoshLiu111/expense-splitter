@@ -8,9 +8,14 @@ export default function Home() {
       <p className="text-lg text-text-secondary">
         Record who paid for what, split it any way you like, and see exactly who owes whom.
       </p>
-      <Button asChild>
-        <Link href="/guest">Try as Guest</Link>
-      </Button>
+      <div className="flex flex-wrap gap-3">
+        <Button asChild>
+          <Link href="/sign-up">Sign up</Link>
+        </Button>
+        <Button asChild variant="outline">
+          <Link href="/guest">Try as Guest</Link>
+        </Button>
+      </div>
     </section>
   );
 }

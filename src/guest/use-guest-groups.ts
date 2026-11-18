@@ -5,24 +5,25 @@ import sampleData from "../../data/sample-groups.json";
 import { importSampleGroups, type GroupSnapshot } from "@/domain";
 import {
   createSessionStorageRepository,
-  type GroupRepository,
+  type GuestGroupRepository,
 } from "./guest-repository";
 
 const CHANGE_EVENT = "expense-splitter:guest-change";
 
-let repository: GroupRepository | undefined;
+let repository: GuestGroupRepository | undefined;
 
 /** The browser session's Guest repository (client only). */
-export function guestRepository(): GroupRepository {
+export function guestRepository(): GuestGroupRepository {
   if (!repository) {
     const inner = createSessionStorageRepository(window.sessionStorage, () =>
       importSampleGroups(sampleData),
     );
     repository = {
       ...inner,
-      saveGroup(group) {
-        inner.saveGroup(group);
+      async createGroup(input) {
+        const group = await inner.createGroup(input);
         window.dispatchEvent(new Event(CHANGE_EVENT));
+        return group;
       },
     };
   }
@@ -38,7 +39,7 @@ function subscribe(onChange: () => void) {
 export function useGuestGroups(): GroupSnapshot[] | null {
   return useSyncExternalStore(
     subscribe,
-    () => guestRepository().listGroups(),
+    () => guestRepository().snapshot(),
     () => null,
   );
 }

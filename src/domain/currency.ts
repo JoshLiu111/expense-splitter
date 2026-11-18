@@ -14,6 +14,8 @@ const EXPONENTS: Record<CurrencyCode, number> = {
   MXN: 2,
 };
 
+/** Every supported currency, in display order. */
+export const CURRENCY_CODES = Object.keys(EXPONENTS) as CurrencyCode[];
 
 export function isCurrencyCode(value: string): value is CurrencyCode {
   return Object.hasOwn(EXPONENTS, value);

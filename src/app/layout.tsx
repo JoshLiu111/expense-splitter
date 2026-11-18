@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { IBM_Plex_Mono, Manrope } from "next/font/google";
 import Link from "next/link";
+import { Suspense } from "react";
+import { UserMenu } from "@/components/user-menu";
 import { ThemeToggle, themeInitScript } from "@/components/theme-toggle";
 import "./globals.css";
 
@@ -38,14 +40,19 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
           Skip to main content
         </a>
         <header className="border-b border-border-subtle bg-bg-secondary">
-          <div className="mx-auto flex max-w-page items-center justify-between gap-4 px-4 py-2">
+          <div className="mx-auto flex max-w-page flex-wrap items-center justify-between gap-x-4 gap-y-1 px-4 py-2">
             <Link
               href="/"
               className="flex min-h-11 items-center rounded-md text-base font-bold"
             >
               Expense Splitter
             </Link>
-            <ThemeToggle />
+            <div className="flex items-center gap-1">
+              <Suspense>
+                <UserMenu />
+              </Suspense>
+              <ThemeToggle />
+            </div>
           </div>
         </header>
         <main id="main-content" tabIndex={-1} className="mx-auto max-w-page px-4 py-8 outline-none">

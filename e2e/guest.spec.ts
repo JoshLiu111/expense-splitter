@@ -25,6 +25,7 @@ test("Guest opens /guest, opens a Group and sees the expected Balances", async (
 
 test("a Group's Expenses and Settlements are listed newest first", async ({ page }) => {
   await page.goto("/guest/groups/grp_birthday");
+  await expect(page.locator("main ol time")).toHaveCount(6);
   const dates = await page.locator("main ol time").evaluateAll((els) =>
     els.map((el) => el.getAttribute("datetime") ?? ""),
   );

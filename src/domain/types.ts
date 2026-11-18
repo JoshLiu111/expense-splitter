@@ -23,6 +23,8 @@ export interface Member {
   id: string;
   name: string;
   email?: string;
+  /** Set for a Linked Member: the User this Member is tied to. */
+  userId?: string;
   avatarColor: string;
 }
 
@@ -70,6 +72,8 @@ export interface GroupSnapshot {
   name: string;
   description: string;
   currency: CurrencyCode;
+  /** The Group Creator's User id; absent for Groups made by a Guest. */
+  creatorUserId?: string;
   members: Member[];
   expenses: Expense[];
   settlements: Settlement[];

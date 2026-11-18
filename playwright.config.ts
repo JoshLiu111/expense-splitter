@@ -20,5 +20,6 @@ export default defineConfig({
     command: `npm run start -- --port ${PORT}`,
     url: `http://localhost:${PORT}`,
     reuseExistingServer: !process.env.CI,
+    env: { BETTER_AUTH_URL: `http://localhost:${PORT}` },
   },
 });

@@ -1,16 +1,17 @@
 import type { GroupSnapshot } from "@/domain";
-
-/** Persistence for a Guest's Groups. Balances are never stored (ADR 0004). */
-export interface GroupRepository {
-  listGroups(): GroupSnapshot[];
-  saveGroup(group: GroupSnapshot): void;
-}
+import { AVATAR_COLORS, type GroupRepository } from "@/groups/group-repository";
 
 const STORAGE_KEY = "expense-splitter:guest:v1";
 
 interface StoredState {
   version: 1;
   groups: GroupSnapshot[];
+}
+
+/** A Guest repository that can also be read synchronously for rendering. */
+export interface GuestGroupRepository extends GroupRepository {
+  /** The current Groups; the same array until something changes. */
+  snapshot(): GroupSnapshot[];
 }
 
 /**
@@ -21,7 +22,8 @@ interface StoredState {
 export function createSessionStorageRepository(
   storage: Storage,
   seed: () => GroupSnapshot[],
-): GroupRepository {
+  newId: () => string = () => crypto.randomUUID(),
+): GuestGroupRepository {
   let cachedRaw: string | null = null;
   let cachedGroups: GroupSnapshot[] = [];
 
@@ -39,17 +41,28 @@ export function createSessionStorageRepository(
     return cachedGroups;
   }
 
+  function write(groups: GroupSnapshot[]) {
+    storage.setItem(STORAGE_KEY, JSON.stringify({ version: 1, groups } satisfies StoredState));
+  }
+
   return {
-    listGroups: read,
-    saveGroup(group) {
-      const groups = read();
-      const next = groups.some((g) => g.id === group.id)
-        ? groups.map((g) => (g.id === group.id ? group : g))
-        : [...groups, group];
-      storage.setItem(
-        STORAGE_KEY,
-        JSON.stringify({ version: 1, groups: next } satisfies StoredState),
-      );
+    snapshot: read,
+    async listGroups() {
+      return read();
+    },
+    async getGroup(id) {
+      return read().find((g) => g.id === id) ?? null;
+    },
+    async createGroup(input) {
+      const group: GroupSnapshot = {
+        id: `grp_${newId()}`,
+        ...input,
+        members: [{ id: `mem_${newId()}`, name: "You", avatarColor: AVATAR_COLORS[0] }],
+        expenses: [],
+        settlements: [],
+      };
+      write([...read(), group]);
+      return group;
     },
   };
 }
