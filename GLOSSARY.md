@@ -30,7 +30,7 @@ A Member added by an email that no User has yet; it becomes a Linked Member when
 _Avoid_: Invitee, invited user
 
 **Former Member**:
-A Member removed from a Group at zero Balance; no longer selectable for new Expenses but still shown on past ones.
+A Member removed from a Group at zero Balance; no longer selectable for new Expenses but still shown on past ones. If an edit to a past Expense or Settlement later gives them a non-zero Balance, they are shown in Balances, labelled as a Former Member, and that Balance can be settled like any other.
 _Avoid_: Deleted member, ex-member
 
 **Group Creator**:
@@ -102,7 +102,7 @@ A recorded payment, always in Group Currency, from a Member with a negative Bala
 _Avoid_: Payment, repayment, transfer
 
 **Small Change**:
-A non-zero Balance under one unit of Group Currency (e.g. under $1); never suggested, but can be cleared in one action that records a real Settlement.
+A non-zero Balance under one unit of Group Currency (e.g. under $1) that is left once every Suggested Settlement is recorded. The payments under one unit that would clear it are never suggested, but can all be recorded in one action as real Settlements. A payment under one unit is still suggested when it involves a Member whose Balance is one unit or more and who has no suggestion of one unit or more, so such a Balance never ends up as Small Change.
 _Avoid_: Dust, rounding leftover
 
 **Suggested Settlement**:

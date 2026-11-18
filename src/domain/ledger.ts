@@ -64,14 +64,15 @@ export interface Ledger {
   currencySubtotals: CurrencySubtotal[];
   /**
    * Suggested Settlements from Debt Simplification, in the order found;
-   * under one unit of Group Currency only when that is the sole payment for
-   * a Member whose Balance is one unit or more.
+   * under one unit of Group Currency only when it involves a Member whose
+   * Balance is one unit or more and who has no suggestion of one unit or
+   * more (paying or receiving).
    */
   suggestions: SuggestedSettlement[];
   /**
-   * Small Change: Debt Simplification's Settlements under one unit of Group
-   * Currency between Members whose Balances are under one unit, or already
-   * covered by a suggestion. Never suggested; recording them clears the rest.
+   * The payments that clear Small Change: Debt Simplification's Settlements
+   * under one unit of Group Currency that are not suggested. Recording them
+   * once every suggestion is recorded leaves the Group Settled Up.
    */
   smallChange: SuggestedSettlement[];
 }
@@ -150,8 +151,9 @@ export function computeLedger(group: GroupSnapshot): Ledger {
   const simplified = simplifyDebts(group, balances);
   const oneUnit = 10 ** exponentOf(group.currency);
   // Small Change is a Balance under one unit. A payment under one unit is
-  // still suggested when it is the only way a Member with a larger Balance
-  // gets one, so that Balance never passes for Small Change.
+  // still suggested when it involves a Member whose Balance is one unit or
+  // more and who has no suggestion of one unit or more (paying or receiving),
+  // so that Balance never passes for Small Change.
   const largeBalance = new Set(balances.filter((b) => Math.abs(b.amount) >= oneUnit).map((b) => b.memberId));
   const covered = new Set(simplified.filter((p) => p.amount >= oneUnit).flatMap((p) => [p.fromId, p.toId]));
   const uncovered = (memberId: string) => largeBalance.has(memberId) && !covered.has(memberId);
