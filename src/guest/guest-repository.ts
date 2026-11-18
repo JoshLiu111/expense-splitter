@@ -1,4 +1,4 @@
-import type { Expense, GroupSnapshot, Member, Settlement } from "@/domain";
+import type { CustomCategory, Expense, GroupSnapshot, Member, Settlement } from "@/domain";
 import {
   AVATAR_COLORS,
   nextAvatarColor,
@@ -90,6 +90,7 @@ export function createSessionStorageRepository(
         id: `grp_${newId()}`,
         ...input,
         members: [{ id: `mem_${newId()}`, name: GUEST_MEMBER_NAME, avatarColor: AVATAR_COLORS[0] }],
+        customCategories: [],
         expenses: [],
         settlements: [],
       };
@@ -168,6 +169,33 @@ export function createSessionStorageRepository(
       changeGroup(groupId, (g) => ({
         ...g,
         members: g.members.map((m) => (m.id === memberId ? { ...m, former: true } : m)),
+      }));
+      return true;
+    },
+    async addCategory(groupId, name) {
+      const category: CustomCategory = { id: `cat_${newId()}`, name };
+      const changed = changeGroup(groupId, (g) => ({
+        ...g,
+        customCategories: [...(g.customCategories ?? []), category],
+      }));
+      return changed ? category : null;
+    },
+    async renameCategory(groupId, categoryId, name) {
+      const group = read().find((g) => g.id === groupId);
+      if (!group?.customCategories?.some((c) => c.id === categoryId)) return null;
+      const category: CustomCategory = { id: categoryId, name };
+      changeGroup(groupId, (g) => ({
+        ...g,
+        customCategories: g.customCategories?.map((c) => (c.id === categoryId ? category : c)),
+      }));
+      return category;
+    },
+    async deleteCategory(groupId, categoryId) {
+      const group = read().find((g) => g.id === groupId);
+      if (!group?.customCategories?.some((c) => c.id === categoryId)) return false;
+      changeGroup(groupId, (g) => ({
+        ...g,
+        customCategories: g.customCategories?.filter((c) => c.id !== categoryId),
       }));
       return true;
     },

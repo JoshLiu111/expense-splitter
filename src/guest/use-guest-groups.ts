@@ -37,6 +37,9 @@ export function guestRepository(): GuestGroupRepository {
       updateGroup: notifying(inner.updateGroup),
       addMember: notifying(inner.addMember),
       removeMember: notifying(inner.removeMember),
+      addCategory: notifying(inner.addCategory),
+      renameCategory: notifying(inner.renameCategory),
+      deleteCategory: notifying(inner.deleteCategory),
       deleteGroup: notifying(inner.deleteGroup),
     };
   }

@@ -2,7 +2,7 @@
 
 import { useId, useMemo, useState, useTransition, type FormEvent } from "react";
 import {
-  CATEGORIES,
+  categoryOptions,
   CURRENCY_CODES,
   amountText,
   MAX_EXPENSE_DESCRIPTION_LENGTH,
@@ -514,11 +514,24 @@ export function ExpenseForm({
               aria-describedby={describedBy}
               className={cn(className, "min-h-11")}
             >
-              {CATEGORIES.map((c) => (
-                <option key={c} value={c}>
-                  {c}
-                </option>
-              ))}
+              {categoryOptions(group)
+                .filter((o) => !o.custom)
+                .map((o) => (
+                  <option key={o.id} value={o.id}>
+                    {o.name}
+                  </option>
+                ))}
+              {(group.customCategories ?? []).length > 0 && (
+                <optgroup label="This Group's Categories">
+                  {categoryOptions(group)
+                    .filter((o) => o.custom)
+                    .map((o) => (
+                      <option key={o.id} value={o.id}>
+                        {o.name}
+                      </option>
+                    ))}
+                </optgroup>
+              )}
             </select>
           )}
         </Field>

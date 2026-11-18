@@ -279,4 +279,38 @@ export function groupRepositoryContract(makeRepository: () => Promise<GroupRepos
     expect(await repo.deleteSettlement(group.id, settlement!.id)).toBe(false);
     expect((await repo.getGroup(other.id))?.settlements).toEqual([settlement]);
   });
+
+  it("adds, renames and deletes a Group's Custom Categories, oldest first", async () => {
+    const repo = await makeRepository();
+    const group = await repo.createGroup({ name: "Flat", description: "", currency: "USD" });
+    const other = await repo.createGroup({ name: "Trip", description: "", currency: "USD" });
+
+    const cleaning = await repo.addCategory(group.id, "Cleaning");
+    const pets = await repo.addCategory(group.id, "Pets");
+    expect(cleaning).toEqual({ id: expect.any(String), name: "Cleaning" });
+    expect((await repo.getGroup(group.id))?.customCategories).toEqual([cleaning, pets]);
+    expect((await repo.getGroup(other.id))?.customCategories ?? []).toEqual([]);
+
+    const past = await repo.addExpense(group.id, lunch(group, { category: cleaning!.id }));
+    const renamed = await repo.renameCategory(group.id, cleaning!.id, "Cleaning supplies");
+    expect(renamed).toEqual({ id: cleaning!.id, name: "Cleaning supplies" });
+    const after = await repo.getGroup(group.id);
+    expect(after?.customCategories).toEqual([renamed, pets]);
+    expect(after?.expenses).toEqual([past]);
+
+    expect(await repo.deleteCategory(group.id, pets!.id)).toBe(true);
+    expect((await repo.getGroup(group.id))?.customCategories).toEqual([renamed]);
+  });
+
+  it("refuses to change Custom Categories that aren't in the Group", async () => {
+    const repo = await makeRepository();
+    const group = await repo.createGroup({ name: "Flat", description: "", currency: "USD" });
+    const other = await repo.createGroup({ name: "Trip", description: "", currency: "USD" });
+    const theirs = await repo.addCategory(other.id, "Souvenirs");
+
+    expect(await repo.addCategory("grp_missing", "Pets")).toBeNull();
+    expect(await repo.renameCategory(group.id, theirs!.id, "Mine")).toBeNull();
+    expect(await repo.deleteCategory(group.id, theirs!.id)).toBe(false);
+    expect((await repo.getGroup(other.id))?.customCategories).toEqual([theirs]);
+  });
 }

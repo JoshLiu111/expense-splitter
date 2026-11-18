@@ -94,9 +94,10 @@ test("S2: a Member sees their own action first, with others' suggestions collaps
   await addExpense("20", "Snacks", "Jo", ["You", "Taylor"]);
 
   await expect(settleUp(page)).toContainText("You owe $45.20 → pay Taylor $45.20");
-  const others = settleUp(page).locator("details");
-  await expect(others.locator("summary")).toHaveText("Other Suggested Settlements (1)");
+  // Each suggestion's sources are collapsed too, so pick the outer list.
+  const others = settleUp(page).locator("details", { hasText: "Other Suggested Settlements" });
+  await expect(others.locator("> summary")).toHaveText("Other Suggested Settlements (1)");
   await expect(others.getByText("Sam pays Jo $10.00")).toBeHidden();
-  await others.locator("summary").click();
+  await others.locator("> summary").click();
   await expect(others.getByText("Sam pays Jo $10.00")).toBeVisible();
 });

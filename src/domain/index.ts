@@ -1,4 +1,13 @@
 export type * from "./types";
+export {
+  categoryDeletionBlock,
+  categoryName,
+  categoryOptions,
+  isCategoryOf,
+  MAX_CATEGORY_NAME_LENGTH,
+  parseCategoryName,
+} from "./categories";
+export type { CategoryOption, ParseCategoryResult } from "./categories";
 export { computeLedger, inGroupCurrency } from "./ledger";
 export type { CurrencySubtotal, Ledger, MemberBalance, OwingLine, TimelineEntry } from "./ledger";
 export type { SuggestedSettlement } from "./settle-up";
@@ -11,6 +20,15 @@ export type {
   ProposedSettlement,
   SettlementCheck,
 } from "./settlement";
+export { explainSettlements } from "./explain-settlements";
+export type {
+  DebtEdge,
+  ExplainedSettlement,
+  SettlementExplanation,
+  SettlementSource,
+} from "./explain-settlements";
+export { computeInsights, isFiltering, monthRange } from "./insights";
+export type { CategoryTotal, ExpenseEntry, ExpenseFilter, Insights, MonthTotal } from "./insights";
 export { importSampleGroups } from "./sample-data";
 export { amountText, CURRENCY_CODES, formatMoney, isCurrencyCode, parseAmount } from "./currency";
 export type { ParseAmountResult } from "./currency";

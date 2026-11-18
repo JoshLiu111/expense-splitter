@@ -63,8 +63,16 @@ export interface Expense {
   date: CalendarDate;
   /** ISO timestamp; breaks ties between Expenses on the same date. */
   createdAt: string;
+  /** A predefined Category's name, or a Custom Category's id. */
   category: string;
   notes?: string;
+}
+
+/** A Category created within one Group and visible only there. */
+export interface CustomCategory {
+  /** Stored on Expenses in place of a name, so a rename applies everywhere. */
+  id: string;
+  name: string;
 }
 
 export interface Settlement {
@@ -86,6 +94,8 @@ export interface GroupSnapshot {
   /** The Group Creator's User id; absent for Groups made by a Guest. */
   creatorUserId?: string;
   members: Member[];
+  /** The Group's own Custom Categories, oldest first; absent means none. */
+  customCategories?: CustomCategory[];
   expenses: Expense[];
   settlements: Settlement[];
 }

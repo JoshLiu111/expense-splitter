@@ -61,6 +61,15 @@
 
   --color-focus: #2a62d6;
 
+  /* Chart series (added): distinguishable, ≥ 3:1 against the surface. */
+  --color-chart-1: #2a62d6;
+  --color-chart-2: #08704b;
+  --color-chart-3: #b45309;
+  --color-chart-4: #b81f2f;
+  --color-chart-5: #7c3aed;
+  --color-chart-6: #0e7490;
+  --color-chart-7: #566073;
+
 
   --text-xs: 0.6875rem;
   --text-sm: 0.8125rem;
@@ -152,6 +161,14 @@
 
     --color-focus: #5b8def;
 
+    --color-chart-1: #5b8def;
+    --color-chart-2: #36d29a;
+    --color-chart-3: #e3b341;
+    --color-chart-4: #fb7185;
+    --color-chart-5: #a78bfa;
+    --color-chart-6: #22d3ee;
+    --color-chart-7: #8b94a6;
+
     --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
     --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.4), 0 2px 4px -2px rgba(0, 0, 0, 0.3);
     --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.5), 0 4px 6px -4px rgba(0, 0, 0, 0.3);
@@ -190,6 +207,14 @@
   --color-owed-subtle: #102a22;
 
   --color-focus: #5b8def;
+
+  --color-chart-1: #5b8def;
+  --color-chart-2: #36d29a;
+  --color-chart-3: #e3b341;
+  --color-chart-4: #fb7185;
+  --color-chart-5: #a78bfa;
+  --color-chart-6: #22d3ee;
+  --color-chart-7: #8b94a6;
 
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
   --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.4), 0 2px 4px -2px rgba(0, 0, 0, 0.3);

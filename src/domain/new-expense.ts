@@ -1,21 +1,11 @@
+import { isCategoryOf } from "./categories";
 import { isCurrencyCode, parseAmount } from "./currency";
 import { todaysRate, type RateSnapshot } from "./exchange-rates";
 import { selectableMembers } from "./manage-group";
 import { computeSplit } from "./split";
 import type { CalendarDate, CurrencyCode, Expense, GroupSnapshot, SplitType } from "./types";
 
-/** The nine predefined Categories shared by all Groups. */
-export const CATEGORIES = [
-  "Food & Drink",
-  "Transport",
-  "Accommodation",
-  "Housing",
-  "Entertainment",
-  "Shopping",
-  "Utilities",
-  "Groceries",
-  "Other",
-] as const;
+export { CATEGORIES } from "./categories";
 
 export const MAX_EXPENSE_DESCRIPTION_LENGTH = 120;
 export const MAX_EXPENSE_NOTES_LENGTH = 1000;
@@ -108,7 +98,7 @@ export function parseNewExpense(
 
   if (!isCalendarDate(fields.date)) errors.date = "Enter a real date, like 2026-01-31.";
 
-  if (!isCategory(fields.category)) errors.category = "Choose one of the Categories.";
+  if (!isCategoryOf(group, fields.category)) errors.category = "Choose one of the Categories.";
 
   if (!memberIds.includes(fields.payerId)) errors.payerId = "Choose who paid.";
 
@@ -228,10 +218,6 @@ function parseRate(text: string): { ok: true; rate: string } | { ok: false; erro
 
 const MAX_RATE_DECIMALS = 12;
 const MAX_RATE_WHOLE_DIGITS = 9;
-
-function isCategory(value: string): boolean {
-  return (CATEGORIES as readonly string[]).includes(value);
-}
 
 /** A real `YYYY-MM-DD` calendar date (rejects 2026-02-30). */
 export function isCalendarDate(value: string): value is CalendarDate {

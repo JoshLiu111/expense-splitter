@@ -3,6 +3,12 @@
 import { refresh } from "next/cache";
 import type { NewExpenseFields } from "@/domain";
 import { requireUser } from "@/auth/session";
+import {
+  addCategory,
+  deleteCategory,
+  renameCategory,
+  type CategoryResult,
+} from "@/categories/manage-categories";
 import { deleteExpense, saveExpense, type ExpenseResult } from "@/expenses/save-expense";
 import {
   addMember,
@@ -111,6 +117,32 @@ export async function clearUserSmallChange(groupId: string, date: unknown): Prom
   const user = await requireUser(`/groups/${groupId}`);
   if (typeof groupId !== "string") return INVALID_SETTLEMENT;
   const result = await clearSmallChange(userGroupRepository(user), groupId, date);
+  if (result.ok) refresh();
+  return result;
+}
+
+const INVALID_CATEGORY: CategoryResult = { ok: false, errors: { form: "That request wasn't valid." } };
+
+export async function addUserCategory(groupId: string, fields: unknown): Promise<CategoryResult> {
+  const user = await requireUser(`/groups/${groupId}`);
+  if (typeof groupId !== "string") return INVALID_CATEGORY;
+  const result = await addCategory(userGroupRepository(user), groupId, fields);
+  if (result.ok) refresh();
+  return result;
+}
+
+export async function renameUserCategory(groupId: string, categoryId: string, fields: unknown): Promise<CategoryResult> {
+  const user = await requireUser(`/groups/${groupId}`);
+  if (typeof groupId !== "string" || typeof categoryId !== "string") return INVALID_CATEGORY;
+  const result = await renameCategory(userGroupRepository(user), groupId, categoryId, fields);
+  if (result.ok) refresh();
+  return result;
+}
+
+export async function deleteUserCategory(groupId: string, categoryId: string): Promise<CategoryResult> {
+  const user = await requireUser(`/groups/${groupId}`);
+  if (typeof groupId !== "string" || typeof categoryId !== "string") return INVALID_CATEGORY;
+  const result = await deleteCategory(userGroupRepository(user), groupId, categoryId);
   if (result.ok) refresh();
   return result;
 }

@@ -117,6 +117,20 @@ export const members = pgTable(
   ],
 );
 
+/** Custom Categories: visible only in their Group. Expenses store the id. */
+export const customCategories = pgTable(
+  "custom_categories",
+  {
+    id: text("id").primaryKey(),
+    groupId: text("group_id")
+      .notNull()
+      .references(() => groups.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("custom_categories_group_id_idx").on(t.groupId)],
+);
+
 export const expenses = pgTable(
   "expenses",
   {

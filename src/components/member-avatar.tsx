@@ -1,6 +1,6 @@
 import type { Member } from "@/domain";
 
-function initials(name: string): string {
+export function initials(name: string): string {
   const parts = name.trim().split(/\s+/);
   const first = parts[0]?.[0] ?? "";
   const last = parts.length > 1 ? parts[parts.length - 1][0] : "";
@@ -16,7 +16,7 @@ function relativeLuminance(hex: string): number {
 }
 
 /** Picks whichever of near-black or white has more contrast on the colour. */
-function textColourOn(hex: string): string {
+export function textColourOn(hex: string): string {
   const l = relativeLuminance(hex);
   const onDark = 1.05 / (l + 0.05);
   const onLight = (l + 0.05) / (0.0039 + 0.05);

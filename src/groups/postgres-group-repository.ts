@@ -1,7 +1,7 @@
 import { and, asc, eq, exists, inArray, isNull, max, notExists, sql } from "drizzle-orm";
 import type { CurrencyCode, Expense, GroupSnapshot, NewExpense, SplitType } from "@/domain";
 import type { Database } from "@/db/client";
-import { expenseShares, expenses, groups, members, settlements, user } from "@/db/schema";
+import { customCategories, expenseShares, expenses, groups, members, settlements, user } from "@/db/schema";
 import { AVATAR_COLORS, nextAvatarColor, type GroupRepository } from "./group-repository";
 
 /** The signed-in User a repository acts for. */
@@ -103,7 +103,7 @@ export function createPostgresGroupRepository(
     if (groupRows.length === 0) return [];
 
     const ids = groupRows.map((g) => g.id);
-    const [memberRows, expenseRows, shareRows, settlementRows] = await Promise.all([
+    const [memberRows, expenseRows, shareRows, settlementRows, categoryRows] = await Promise.all([
       db
         .select()
         .from(members)
@@ -117,6 +117,11 @@ export function createPostgresGroupRepository(
         .where(inArray(expenses.groupId, ids))
         .orderBy(asc(expenseShares.position)),
       db.select().from(settlements).where(inArray(settlements.groupId, ids)),
+      db
+        .select()
+        .from(customCategories)
+        .where(inArray(customCategories.groupId, ids))
+        .orderBy(asc(customCategories.createdAt), asc(customCategories.id)),
     ]);
 
     return groupRows.map((g) => ({
@@ -135,6 +140,9 @@ export function createPostgresGroupRepository(
           ...(m.userId ? { userId: m.userId } : {}),
           ...(m.former ? { former: true } : {}),
         })),
+      customCategories: categoryRows
+        .filter((c) => c.groupId === g.id)
+        .map((c) => ({ id: c.id, name: c.name })),
       expenses: expenseRows
         .filter((e) => e.groupId === g.id)
         .map(
@@ -356,6 +364,41 @@ export function createPostgresGroupRepository(
         .set({ former: true })
         .where(and(eq(members.id, memberId), eq(members.groupId, groupId)))
         .returning({ id: members.id });
+      return rows.length > 0;
+    },
+    async addCategory(groupId, name) {
+      if (!(await canSee(groupId))) return null;
+      const id = `cat_${newId()}`;
+      await db.insert(customCategories).values({ id, groupId, name });
+      return { id, name };
+    },
+    async renameCategory(groupId, categoryId, name) {
+      if (!(await canSee(groupId))) return null;
+      const rows = await db
+        .update(customCategories)
+        .set({ name })
+        .where(and(eq(customCategories.id, categoryId), eq(customCategories.groupId, groupId)))
+        .returning({ id: customCategories.id });
+      return rows.length > 0 ? { id: categoryId, name } : null;
+    },
+    async deleteCategory(groupId, categoryId) {
+      if (!(await canSee(groupId))) return false;
+      // Never delete a Category an Expense uses, even one recorded a moment ago.
+      const rows = await db
+        .delete(customCategories)
+        .where(
+          and(
+            eq(customCategories.id, categoryId),
+            eq(customCategories.groupId, groupId),
+            notExists(
+              db
+                .select({ one: expenses.id })
+                .from(expenses)
+                .where(and(eq(expenses.groupId, groupId), eq(expenses.category, categoryId))),
+            ),
+          ),
+        )
+        .returning({ id: customCategories.id });
       return rows.length > 0;
     },
     async deleteGroup(id) {

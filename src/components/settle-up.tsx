@@ -1,24 +1,37 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { useId, useRef, useState, useTransition, type FormEvent, type RefObject } from "react";
 import { Dialog } from "radix-ui";
-import { Coins, HandCoins, PartyPopper, X } from "lucide-react";
+import { Coins, GitCompareArrows, HandCoins, PartyPopper, X } from "lucide-react";
 import {
   amountText,
   computeLedger,
   currentMembers,
+  explainSettlements,
   formatMoney,
   parseAmount,
   validateSettlement,
   type GroupSnapshot,
   type Ledger,
+  type SettlementSource,
   type NewSettlementFields,
   type SuggestedSettlement,
 } from "@/domain";
 import type { SettlementResult, SettleUp } from "@/settlements/settle-up";
 import { ErrorSummary, Field } from "@/components/form";
 import { Button } from "@/components/ui/button";
-import { todayCalendarDate } from "@/lib/format";
+import { formatCalendarDate, pluralize, todayCalendarDate } from "@/lib/format";
+
+// The graph is secondary, so its code loads only when asked for.
+const WhyThesePayments = dynamic(() => import("@/components/why-these-payments"), {
+  ssr: false,
+  loading: () => (
+    <p className="text-sm text-text-secondary">
+      Loading the graph…
+    </p>
+  ),
+});
 
 type Failure = Extract<SettlementResult, { ok: false }>;
 
@@ -68,6 +81,12 @@ export function SettleUpSection({
   const onlySmallChange = ledger.suggestions.length === 0 && ledger.smallChange.length > 0;
   const mine = ledger.suggestions.filter((s) => s.fromId === me || s.toId === me);
   const others = ledger.suggestions.filter((s) => s.fromId !== me && s.toId !== me);
+  const explanation = explainSettlements(group);
+  const sourcesOf = (s: SuggestedSettlement) =>
+    [...explanation.suggestions, ...explanation.smallChange].find(
+      (e) => e.fromId === s.fromId && e.toId === s.toId,
+    )?.sources ?? [];
+  const [showWhy, setShowWhy] = useState(false);
 
   function recorded(news: string) {
     onNews(news);
@@ -110,6 +129,7 @@ export function SettleUpSection({
           saves the Group a Settlement.
         </p>
       )}
+      <PaymentSources group={group} payerName={nameOf(s.fromId)} amount={s.amount} sources={sourcesOf(s)} />
     </li>
   );
 
@@ -158,7 +178,24 @@ export function SettleUpSection({
         </div>
       ) : (
         <div className="mt-3 flex flex-col gap-3">
-          {me && <PersonalAction me={me} mine={mine} ledger={ledger} nameOf={nameOf} money={money} record={record} />}
+          {me && (
+            <PersonalAction
+              me={me}
+              mine={mine}
+              ledger={ledger}
+              nameOf={nameOf}
+              money={money}
+              record={record}
+              sources={(s) => (
+                <PaymentSources
+                  group={group}
+                  payerName={s.fromId === me ? "you" : nameOf(s.fromId)}
+                  amount={s.amount}
+                  sources={sourcesOf(s)}
+                />
+              )}
+            />
+          )}
           {others.length > 0 &&
             (me ? (
               <details className="rounded-lg border border-border bg-surface">
@@ -180,6 +217,17 @@ export function SettleUpSection({
           <div>{record(null, "Record another Settlement")}</div>
         </div>
       )}
+
+      {!ledger.settledUp && (
+        <div className="mt-3 flex flex-col gap-3">
+          <div>
+            <Button variant="ghost" aria-expanded={showWhy} onClick={() => setShowWhy((v) => !v)}>
+              <GitCompareArrows aria-hidden /> {showWhy ? "Hide why" : "Why these payments?"}
+            </Button>
+          </div>
+          {showWhy && <WhyThesePayments group={group} explanation={explanation} />}
+        </div>
+      )}
     </section>
   );
 }
@@ -192,6 +240,7 @@ function PersonalAction({
   nameOf,
   money,
   record,
+  sources,
 }: {
   me: string;
   mine: SuggestedSettlement[];
@@ -199,6 +248,8 @@ function PersonalAction({
   nameOf: (id: string) => string;
   money: (amount: number) => string;
   record: (suggestion: SuggestedSettlement, label: string) => React.ReactNode;
+  /** Where a suggestion's amount comes from, expandable. */
+  sources: (suggestion: SuggestedSettlement) => React.ReactNode;
 }) {
   const balance = ledger.balances.find((b) => b.memberId === me)?.amount ?? 0;
   const list = (parts: string[]) =>
@@ -247,6 +298,7 @@ function PersonalAction({
                 : `You and ${nameOf(s.fromId)} never shared an Expense; settling with them directly saves the Group a Settlement.`}
             </p>
           )}
+          {sources(s)}
           <div>
             {record(
               s,
@@ -457,5 +509,80 @@ function SettlementForm({
         </Button>
       </div>
     </form>
+  );
+}
+
+/**
+ * Where a Suggested Settlement's amount comes from, collapsed to one line
+ * ("From “Kyoto ryokan (2 nights)” and 3 other expenses") that expands to
+ * every source; the amounts add up to the suggestion.
+ */
+function PaymentSources({
+  group,
+  payerName,
+  amount,
+  sources,
+}: {
+  group: GroupSnapshot;
+  /** Who pays, as the sentence should name them ("you" or a name). */
+  payerName: string;
+  amount: number;
+  sources: SettlementSource[];
+}) {
+  if (sources.length === 0) return null;
+  const money = (value: number) => formatMoney(value, group.currency);
+  const nameOf = (id: string) => group.members.find((m) => m.id === id)?.name ?? "Unknown member";
+  const described = sources.map((source) => {
+    if (source.kind === "expense") {
+      const expense = group.expenses.find((e) => e.id === source.id);
+      return {
+        source,
+        title: `“${expense?.description ?? "Deleted Expense"}”`,
+        detail: expense ? `${nameOf(expense.payerId)} paid · ${formatCalendarDate(expense.date)}` : "",
+      };
+    }
+    const settlement = group.settlements.find((s) => s.id === source.id);
+    return {
+      source,
+      title: settlement ? `Settlement from ${nameOf(settlement.fromId)}` : "A Settlement",
+      detail: settlement ? `received ${formatCalendarDate(settlement.date)}` : "",
+    };
+  });
+  const rest = sources.slice(1);
+  const restNoun = rest.every((s) => s.kind === "expense") ? "expense" : "item";
+  const summary =
+    rest.length === 0
+      ? `From ${described[0].title}`
+      : `From ${described[0].title} and ${pluralize(rest.length, `other ${restNoun}`)}`;
+
+  return (
+    <details className="text-sm">
+      <summary className="inline-flex min-h-11 cursor-pointer items-center rounded-md font-semibold text-accent">
+        {summary}
+      </summary>
+      <ul className="mt-1 flex flex-col gap-1 border-l-2 border-border pl-3">
+        {described.map(({ source, title, detail }) => (
+          <li key={`${source.kind}-${source.id}`} className="flex flex-wrap justify-between gap-x-3">
+            <span className="min-w-0 break-words">
+              <span className="font-semibold">{title}</span>
+              {detail && <span className="text-text-secondary"> · {detail}</span>}
+            </span>
+            <span className="amount">
+              {money(source.amount)}
+              {source.amount < source.full && (
+                <span className="text-text-secondary"> of {money(source.full)}</span>
+              )}
+            </span>
+          </li>
+        ))}
+        <li className="flex flex-wrap justify-between gap-x-3 border-t border-border-subtle pt-1 text-text-secondary">
+          <span>
+            What {payerName} {payerName === "you" ? "owe" : "owes"} from these, after what{" "}
+            {payerName === "you" ? "you" : "they"} paid for others
+          </span>
+          <span className="amount font-semibold text-text-primary">{money(amount)}</span>
+        </li>
+      </ul>
+    </details>
   );
 }

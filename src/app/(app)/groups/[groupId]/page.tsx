@@ -4,7 +4,10 @@ import { requireUser } from "@/auth/session";
 import { GroupDetail } from "@/components/group-detail";
 import { userGroupRepository } from "@/groups/user-groups";
 import {
+  addUserCategory,
   addUserMember,
+  deleteUserCategory,
+  renameUserCategory,
   clearUserSmallChange,
   deleteUserSettlement,
   recordUserSettlement,
@@ -55,6 +58,11 @@ async function UserGroup({ params }: Pick<PageProps<"/groups/[groupId]">, "param
         record: recordUserSettlement.bind(null, groupId),
         delete: deleteUserSettlement.bind(null, groupId),
         clearSmallChange: clearUserSmallChange.bind(null, groupId),
+      }}
+      categories={{
+        add: addUserCategory.bind(null, groupId),
+        rename: renameUserCategory.bind(null, groupId),
+        delete: deleteUserCategory.bind(null, groupId),
       }}
       isGroupCreator={group.creatorUserId === user.id}
     />

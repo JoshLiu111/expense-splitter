@@ -36,3 +36,11 @@ export function describeBalance(name: string, amount: MinorUnits, currency: Curr
   if (amount < 0) return `${name} owes ${formatMoney(-amount, currency)}`;
   return `${name} is settled up`;
 }
+
+const monthFormatter = new Intl.DateTimeFormat("en-US", { month: "long", year: "numeric", timeZone: "UTC" });
+const shortMonthFormatter = new Intl.DateTimeFormat("en-US", { month: "short", year: "2-digit", timeZone: "UTC" });
+
+/** "2024-03" → "March 2024" (or "Mar 24" when `short`). */
+export function formatMonth(month: string, { short = false } = {}): string {
+  return (short ? shortMonthFormatter : monthFormatter).format(new Date(`${month}-01T00:00:00Z`));
+}

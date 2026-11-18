@@ -6,23 +6,30 @@ import { useRef, useState } from "react";
 import { AlertDialog } from "radix-ui";
 import { ArrowLeft, ArrowRightLeft, Pencil, Plus, Trash2 } from "lucide-react";
 import {
+  categoryName,
+  computeInsights,
   computeLedger,
   formatMoney,
+  isFiltering,
   groupDeletionBlock,
   type Expense,
+  type ExpenseFilter,
   type GroupSnapshot,
   type Member,
   type Settlement,
   type TimelineEntry,
 } from "@/domain";
+import type { CategoryManagement } from "@/categories/manage-categories";
 import type { DeleteExpense, SaveExpense } from "@/expenses/save-expense";
 import type { GroupManagement } from "@/groups/manage-group";
 import type { SettleUp } from "@/settlements/settle-up";
 import { BalanceStatus } from "@/components/balance-status";
+import { CategoriesSection } from "@/components/categories-section";
 import { ExpenseEditor } from "@/components/expense-editor";
 import { DeleteGroupSection, EditGroupDetails, MembersSection } from "@/components/group-settings";
 import { MemberAvatar } from "@/components/member-avatar";
 import { SettleUpSection } from "@/components/settle-up";
+import { ExpenseFilters, SpendingInsights } from "@/components/spending";
 import { Button } from "@/components/ui/button";
 import { useTodaysRates } from "@/rates/use-todays-rates";
 import { describeBalance, formatCalendarDate, pluralize } from "@/lib/format";
@@ -40,6 +47,7 @@ export function GroupDetail({
   onDeleteExpense,
   manage,
   settleUp,
+  categories,
   isGroupCreator,
 }: {
   group: GroupSnapshot;
@@ -51,12 +59,17 @@ export function GroupDetail({
   onDeleteExpense: DeleteExpense;
   manage: GroupManagement;
   settleUp: SettleUp;
+  categories: CategoryManagement;
   /** Whether the visitor is the Group Creator, the only one who may delete it. */
   isGroupCreator: boolean;
 }) {
   const router = useRouter();
   const ledger = computeLedger(group);
   const rates = useTodaysRates();
+  const [filter, setFilter] = useState<ExpenseFilter>({});
+  const filtering = isFiltering(filter);
+  const insights = computeInsights(group, filter);
+  const timeline = filtering ? insights.expenses : ledger.timeline;
   const members = new Map(group.members.map((m) => [m.id, m]));
   const nameOf = (id: string) => members.get(id)?.name ?? "Unknown member";
 
@@ -218,6 +231,21 @@ export function GroupDetail({
         onNews={setActionNews}
       />
 
+      {ledger.expenseCount > 0 && (
+        <section aria-labelledby="insights-heading" className="flex flex-col gap-4">
+          <h2 id="insights-heading" className="text-lg font-bold">
+            Insights
+          </h2>
+          <ExpenseFilters group={group} insights={insights} filter={filter} onChange={setFilter} />
+          <SpendingInsights
+            group={group}
+            insights={insights}
+            balances={ledger.balances}
+            filtering={filtering}
+          />
+        </section>
+      )}
+
       <section aria-labelledby="activity-heading">
         <h2
           id="activity-heading"
@@ -227,7 +255,23 @@ export function GroupDetail({
         >
           Expenses and Settlements
         </h2>
-        {ledger.timeline.length === 0 ? (
+        {/* Live, so the count is read out as filters change. */}
+        <div aria-live="polite" className="empty:hidden">
+          {filtering && (
+            <p className="mt-1 flex flex-wrap items-center gap-x-3 text-sm text-text-secondary">
+              Showing {pluralize(insights.expenses.length, "matching Expense")} of {ledger.expenseCount};
+              Settlements are hidden while filtering.
+              <Button variant="ghost" onClick={() => setFilter({})}>
+                Clear filters
+              </Button>
+            </p>
+          )}
+        </div>
+        {timeline.length === 0 && filtering ? (
+          <p className="mt-3 rounded-lg border border-dashed border-border-input p-6 text-text-secondary">
+            No Expenses match these filters.
+          </p>
+        ) : timeline.length === 0 ? (
           <div className="mt-3 flex flex-col items-start gap-3 rounded-lg border border-dashed border-border-input p-6">
             <p className="text-text-secondary">No expenses yet. Add your first one!</p>
             {!editing && (
@@ -238,7 +282,7 @@ export function GroupDetail({
           </div>
         ) : (
           <ol className="mt-3 flex flex-col gap-2">
-            {ledger.timeline.map((entry) => (
+            {timeline.map((entry) => (
               <li key={entry.id}>
                 {entry.kind === "expense" ? (
                   <ExpenseRow
@@ -262,6 +306,8 @@ export function GroupDetail({
           </ol>
         )}
       </section>
+
+      <CategoriesSection group={group} categories={categories} onNews={setActionNews} />
 
       <MembersSection
         group={group}
@@ -326,7 +372,7 @@ function ExpenseRow({
           <p className="text-sm text-text-secondary">
             {payer?.name ?? "Unknown member"} paid ·{" "}
             {pluralize(entry.owing.length, "member")} · {SPLIT_TYPE_LABELS[expense.splitType]} ·{" "}
-            {expense.category} ·{" "}
+            {categoryName(group, expense.category)} ·{" "}
             <time dateTime={expense.date}>{formatCalendarDate(expense.date)}</time>
           </p>
         </div>

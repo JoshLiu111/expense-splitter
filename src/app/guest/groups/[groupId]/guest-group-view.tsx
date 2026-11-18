@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useParams } from "next/navigation";
+import { addCategory, deleteCategory, renameCategory } from "@/categories/manage-categories";
 import { GroupDetail } from "@/components/group-detail";
 import { deleteExpense, saveExpense } from "@/expenses/save-expense";
 import { addMember, deleteGroup, removeMember, updateGroupDetails } from "@/groups/manage-group";
@@ -60,6 +61,11 @@ export function GuestGroupView() {
         record: (fields) => recordSettlement(guestRepository(), group.id, fields),
         delete: (settlementId) => deleteSettlement(guestRepository(), group.id, settlementId),
         clearSmallChange: (date) => clearSmallChange(guestRepository(), group.id, date),
+      }}
+      categories={{
+        add: (fields) => addCategory(guestRepository(), group.id, fields),
+        rename: (categoryId, fields) => renameCategory(guestRepository(), group.id, categoryId, fields),
+        delete: (categoryId) => deleteCategory(guestRepository(), group.id, categoryId),
       }}
       // A Guest made, or was handed, every Group in their session.
       isGroupCreator
