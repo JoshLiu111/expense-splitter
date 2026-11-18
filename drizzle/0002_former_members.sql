@@ -1,0 +1,1 @@
+ALTER TABLE "members" ADD COLUMN "former" boolean DEFAULT false NOT NULL;

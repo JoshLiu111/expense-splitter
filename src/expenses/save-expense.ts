@@ -54,7 +54,8 @@ const formError = (form: string): ExpenseResult => ({ ok: false, errors: { form 
 
 /**
  * Validates the form against the Group as it is now (so the Payer and
- * participants must still be its Members), then records it.
+ * participants must still be its current Members, or already on the
+ * Expense being edited), then records it.
  */
 export async function saveExpense(
   repo: GroupRepository,
@@ -64,7 +65,10 @@ export async function saveExpense(
 ): Promise<ExpenseResult> {
   const group = await repo.getGroup(groupId);
   if (!group) return formError("This Group is no longer available.");
-  const parsed = parseNewExpense(expenseFields(fields), group);
+  // Former Members already on an edited Expense stay selectable for it.
+  const existing = expenseId ? group.expenses.find((e) => e.id === expenseId) : undefined;
+  if (expenseId && !existing) return formError(EXPENSE_GONE);
+  const parsed = parseNewExpense(expenseFields(fields), group, existing);
   if (!parsed.ok) return parsed;
   const saved = expenseId
     ? await repo.updateExpense(groupId, expenseId, parsed.value)

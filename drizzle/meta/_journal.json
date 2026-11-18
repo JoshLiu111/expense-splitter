@@ -15,6 +15,13 @@
       "when": 1795020042716,
       "tag": "0001_split_inputs",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1795020858260,
+      "tag": "0002_former_members",
+      "breakpoints": true
     }
   ]
 }

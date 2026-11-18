@@ -1,20 +1,24 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
 import { AlertDialog } from "radix-ui";
 import { ArrowLeft, ArrowRightLeft, Pencil, Plus, Trash2 } from "lucide-react";
 import {
   computeLedger,
   formatMoney,
+  groupDeletionBlock,
   type Expense,
   type GroupSnapshot,
   type Member,
   type TimelineEntry,
 } from "@/domain";
 import type { DeleteExpense, SaveExpense } from "@/expenses/save-expense";
+import type { GroupManagement } from "@/groups/manage-group";
 import { BalanceStatus } from "@/components/balance-status";
 import { ExpenseEditor } from "@/components/expense-editor";
+import { DeleteGroupSection, EditGroupDetails, MembersSection } from "@/components/group-settings";
 import { MemberAvatar } from "@/components/member-avatar";
 import { Button } from "@/components/ui/button";
 import { describeBalance, formatCalendarDate, pluralize } from "@/lib/format";
@@ -30,6 +34,8 @@ export function GroupDetail({
   currentMemberId,
   onSaveExpense,
   onDeleteExpense,
+  manage,
+  isGroupCreator,
 }: {
   group: GroupSnapshot;
   backHref: string;
@@ -38,7 +44,11 @@ export function GroupDetail({
   currentMemberId: string | undefined;
   onSaveExpense: SaveExpense;
   onDeleteExpense: DeleteExpense;
+  manage: GroupManagement;
+  /** Whether the visitor is the Group Creator, the only one who may delete it. */
+  isGroupCreator: boolean;
 }) {
+  const router = useRouter();
   const ledger = computeLedger(group);
   const members = new Map(group.members.map((m) => [m.id, m]));
   const nameOf = (id: string) => members.get(id)?.name ?? "Unknown member";
@@ -49,6 +59,7 @@ export function GroupDetail({
   const opener = useRef<HTMLElement | null>(null);
   const addButton = useRef<HTMLButtonElement>(null);
   const activityHeading = useRef<HTMLHeadingElement>(null);
+  const membersHeading = useRef<HTMLHeadingElement>(null);
 
   // Announce Balance changes once they arrive (Guest writes are instant;
   // a User's arrive with the refreshed Group).
@@ -95,7 +106,14 @@ export function GroupDetail({
         >
           <ArrowLeft aria-hidden className="size-4" /> {backLabel}
         </Link>
-        <h1 className="mt-2 text-2xl font-extrabold break-words">{group.name}</h1>
+        <div className="mt-2 flex flex-wrap items-start justify-between gap-3">
+          <h1 className="min-w-0 text-2xl font-extrabold break-words">{group.name}</h1>
+          <EditGroupDetails
+            group={group}
+            onSave={manage.updateDetails}
+            onSaved={() => setActionNews("Group details saved.")}
+          />
+        </div>
         {group.description && (
           <p className="mt-1 text-text-secondary">{group.description}</p>
         )}
@@ -137,6 +155,7 @@ export function GroupDetail({
         <ul className="mt-3 divide-y divide-border-subtle rounded-lg border border-border bg-surface">
           {ledger.balances.map((balance) => {
             const member = members.get(balance.memberId)!;
+            if (member.former) return null;
             return (
               <li
                 key={balance.memberId}
@@ -201,6 +220,21 @@ export function GroupDetail({
           </ol>
         )}
       </section>
+
+      <MembersSection
+        group={group}
+        headingRef={membersHeading}
+        onAdd={manage.addMember}
+        onRemove={manage.removeMember}
+        onNews={setActionNews}
+      />
+
+      <DeleteGroupSection
+        group={group}
+        block={groupDeletionBlock(group, { isCreator: isGroupCreator })}
+        onDelete={manage.deleteGroup}
+        onDeleted={() => router.replace(backHref)}
+      />
 
       {!editing && (
         // Always one tap away: a bottom bar on phones, a floating button on

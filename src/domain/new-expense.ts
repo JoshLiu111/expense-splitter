@@ -1,4 +1,5 @@
 import { parseAmount } from "./currency";
+import { selectableMembers } from "./manage-group";
 import { computeSplit } from "./split";
 import type { CalendarDate, Expense, GroupSnapshot, SplitType } from "./types";
 
@@ -65,11 +66,16 @@ export function isSplitType(value: string): value is SplitType {
 /**
  * Validates an Expense for a Group and computes its Shares by its Split
  * Type. The Expense is recorded in the Group Currency, so its Locked Rate
- * is 1.
+ * is 1. Former Members can't join a new Expense, but stay on an `existing`
+ * one being edited.
  */
-export function parseNewExpense(fields: NewExpenseFields, group: GroupSnapshot): ParseExpenseResult {
+export function parseNewExpense(
+  fields: NewExpenseFields,
+  group: GroupSnapshot,
+  existing?: Expense,
+): ParseExpenseResult {
   const currency = group.currency;
-  const memberIds = group.members.map((m) => m.id);
+  const memberIds = selectableMembers(group, existing).map((m) => m.id);
   const description = fields.description.trim();
   const notes = fields.notes.trim();
   const errors: NewExpenseErrors = {};
@@ -105,7 +111,7 @@ export function parseNewExpense(fields: NewExpenseFields, group: GroupSnapshot):
       currency,
       splitType,
       participantIds: fields.participantIds,
-      memberOrder: memberIds,
+      memberOrder: group.members.map((m) => m.id),
       values: fields.splitValues,
     });
     if (!split.ok) errors.split = split.error;

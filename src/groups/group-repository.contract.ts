@@ -130,4 +130,66 @@ export function groupRepositoryContract(makeRepository: () => Promise<GroupRepos
     expect(await repo.deleteExpense(group.id, expense!.id)).toBe(false);
     expect((await repo.getGroup(other.id))?.expenses).toEqual([expense]);
   });
+
+  it("edits a Group's name, description and Group Currency", async () => {
+    const repo = await makeRepository();
+    const group = await repo.createGroup({ name: "Flat", description: "", currency: "USD" });
+
+    const edited = await repo.updateGroup(group.id, {
+      name: "Flat 3B",
+      description: "Rent and bills",
+      currency: "EUR",
+    });
+
+    expect(edited).toEqual({ ...group, name: "Flat 3B", description: "Rent and bills", currency: "EUR" });
+    expect(await repo.getGroup(group.id)).toEqual(edited);
+  });
+
+  it("adds Name-only Members, each keeping its own avatar colour", async () => {
+    const repo = await makeRepository();
+    const group = await repo.createGroup({ name: "Flat", description: "", currency: "USD" });
+
+    const chloe = await repo.addMember(group.id, "Chloe Park");
+    const dev = await repo.addMember(group.id, "Dev Shah");
+
+    expect(chloe).toEqual({ id: expect.any(String), name: "Chloe Park", avatarColor: expect.any(String) });
+    const colours = [group.members[0], chloe!, dev!].map((m) => m.avatarColor);
+    expect(new Set(colours).size).toBe(3);
+    expect((await repo.getGroup(group.id))?.members).toEqual([group.members[0], chloe, dev]);
+  });
+
+  it("removes a Member by making them a Former Member, still on past Expenses", async () => {
+    const repo = await makeRepository();
+    const group = await repo.createGroup({ name: "Flat", description: "", currency: "USD" });
+    const chloe = await repo.addMember(group.id, "Chloe Park");
+    const past = await repo.addExpense(group.id, lunch(group, { payerId: chloe!.id }));
+
+    expect(await repo.removeMember(group.id, chloe!.id)).toBe(true);
+
+    const after = await repo.getGroup(group.id);
+    expect(after?.members).toEqual([group.members[0], { ...chloe, former: true }]);
+    expect(after?.expenses).toEqual([past]);
+  });
+
+  it("deletes a Group with everything in it", async () => {
+    const repo = await makeRepository();
+    const group = await repo.createGroup({ name: "Flat", description: "", currency: "USD" });
+    await repo.addExpense(group.id, lunch(group));
+
+    expect(await repo.deleteGroup(group.id)).toBe(true);
+    expect(await repo.getGroup(group.id)).toBeNull();
+    expect((await repo.listGroups()).map((g) => g.id)).not.toContain(group.id);
+  });
+
+  it("refuses to manage Groups and Members that don't exist", async () => {
+    const repo = await makeRepository();
+    const group = await repo.createGroup({ name: "Flat", description: "", currency: "USD" });
+    const other = await repo.createGroup({ name: "Other", description: "", currency: "USD" });
+
+    expect(await repo.updateGroup("grp_missing", { name: "X", description: "", currency: "USD" })).toBeNull();
+    expect(await repo.addMember("grp_missing", "Chloe")).toBeNull();
+    expect(await repo.removeMember(group.id, other.members[0].id)).toBe(false);
+    expect(await repo.deleteGroup("grp_missing")).toBe(false);
+    expect((await repo.getGroup(other.id))?.members).toEqual(other.members);
+  });
 }

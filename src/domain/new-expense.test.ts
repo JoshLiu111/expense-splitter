@@ -215,6 +215,39 @@ describe("parseNewExpense: advanced Split Types", () => {
   });
 });
 
+describe("parseNewExpense: Former Members", () => {
+  const withFormer: GroupSnapshot = {
+    ...group,
+    members: group.members.map((m) => (m.id === "mem_taylor" ? { ...m, former: true } : m)),
+  };
+
+  it("keeps Former Members out of new Expenses", () => {
+    expect(parseNewExpense(fields({ payerId: "mem_taylor" }), withFormer)).toMatchObject({
+      ok: false,
+      errors: { payerId: "Choose who paid." },
+    });
+    expect(
+      parseNewExpense(fields({ participantIds: ["mem_alex", "mem_taylor"] }), withFormer),
+    ).toMatchObject({
+      ok: false,
+      errors: { participants: "Only members of this Group can share an Expense." },
+    });
+  });
+
+  it("keeps a Former Member on an Expense they were already part of when it is edited", () => {
+    const past = parseNewExpense(fields({ payerId: "mem_taylor", participantIds: ["mem_alex", "mem_taylor"] }), group);
+    if (!past.ok) throw new Error("fixture should be valid");
+    const existing = { ...past.value, id: "exp_past", createdAt: "2026-01-01T00:00:00.000Z" };
+
+    const edited = parseNewExpense(
+      fields({ amount: "80", payerId: "mem_taylor", participantIds: ["mem_alex", "mem_taylor"] }),
+      withFormer,
+      existing,
+    );
+    expect(edited).toMatchObject({ ok: true, value: { amount: 8000, payerId: "mem_taylor" } });
+  });
+});
+
 describe("amountText", () => {
   it.each([
     [6000, "USD", "60.00"],

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { GroupDetail } from "@/components/group-detail";
 import { deleteExpense, saveExpense } from "@/expenses/save-expense";
+import { addMember, deleteGroup, removeMember, updateGroupDetails } from "@/groups/manage-group";
 import { GUEST_MEMBER_NAME } from "@/guest/guest-repository";
 import { guestRepository, useGuestGroups } from "@/guest/use-guest-groups";
 
@@ -46,6 +47,14 @@ export function GuestGroupView() {
         saveExpense(guestRepository(), group.id, expenseId, fields)
       }
       onDeleteExpense={(expenseId) => deleteExpense(guestRepository(), group.id, expenseId)}
+      manage={{
+        updateDetails: (fields) => updateGroupDetails(guestRepository(), group.id, fields),
+        addMember: (name) => addMember(guestRepository(), group.id, name),
+        removeMember: (memberId) => removeMember(guestRepository(), group.id, memberId),
+        deleteGroup: () => deleteGroup(guestRepository(), group.id, { userId: undefined }),
+      }}
+      // A Guest made, or was handed, every Group in their session.
+      isGroupCreator
     />
   );
 }

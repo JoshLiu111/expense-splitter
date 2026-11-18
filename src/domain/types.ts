@@ -26,6 +26,11 @@ export interface Member {
   /** Set for a Linked Member: the User this Member is tied to. */
   userId?: string;
   avatarColor: string;
+  /**
+   * A Former Member: removed at zero Balance, so no longer selectable for
+   * new Expenses but still shown on past ones.
+   */
+  former?: boolean;
 }
 
 export interface Share {

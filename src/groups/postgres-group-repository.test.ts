@@ -2,7 +2,7 @@ import { sql } from "drizzle-orm";
 import { migrate } from "drizzle-orm/node-postgres/migrator";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createDatabase, type Database } from "@/db/client";
-import { user } from "@/db/schema";
+import { members, user } from "@/db/schema";
 import { groupRepositoryContract } from "./group-repository.contract";
 import { createPostgresGroupRepository, type GroupUser } from "./postgres-group-repository";
 
@@ -86,6 +86,69 @@ describe.skipIf(!url)("Postgres GroupRepository", () => {
     expect(await theosRepo.updateExpense(group.id, rent!.id, { ...expense, amount: 1 })).toBeNull();
     expect(await theosRepo.deleteExpense(group.id, rent!.id)).toBe(false);
     expect((await mayasRepo.getGroup(group.id))?.expenses).toEqual([rent]);
+  });
+
+  it("lets only the Group Creator delete a Group", async () => {
+    const maya = await aUser();
+    const theo = await aUser();
+    const group = await createPostgresGroupRepository(db, maya).createGroup({
+      name: "Shared",
+      description: "",
+      currency: "USD",
+    });
+    // Theo is a Linked Member too (fixture: linking isn't built yet).
+    await db.insert(members).values({
+      id: "mem_theo_shared",
+      groupId: group.id,
+      name: theo.name,
+      userId: theo.id,
+      avatarColor: "#10B981",
+      position: 1,
+    });
+
+    const theosRepo = createPostgresGroupRepository(db, theo);
+    expect(await theosRepo.deleteGroup(group.id)).toBe(false);
+    expect(await theosRepo.getGroup(group.id)).not.toBeNull();
+  });
+
+  it("takes the Group away from a Linked Member once they are a Former Member", async () => {
+    const maya = await aUser();
+    const theo = await aUser();
+    const mayasRepo = createPostgresGroupRepository(db, maya);
+    const group = await mayasRepo.createGroup({ name: "Shared", description: "", currency: "USD" });
+    // Theo is a Linked Member too (fixture: linking isn't built yet).
+    await db.insert(members).values({
+      id: "mem_theo_removed",
+      groupId: group.id,
+      name: theo.name,
+      userId: theo.id,
+      avatarColor: "#10B981",
+      position: 1,
+    });
+    const theosRepo = createPostgresGroupRepository(db, theo);
+    expect(await theosRepo.getGroup(group.id)).not.toBeNull();
+
+    await mayasRepo.removeMember(group.id, "mem_theo_removed");
+
+    expect(await theosRepo.getGroup(group.id)).toBeNull();
+    expect(await theosRepo.listGroups()).toEqual([]);
+  });
+
+  it("keeps another User from managing a Group's details and Members", async () => {
+    const mayasRepo = createPostgresGroupRepository(db, await aUser());
+    const group = await mayasRepo.createGroup({ name: "Private", description: "", currency: "USD" });
+    const chloe = await mayasRepo.addMember(group.id, "Chloe");
+
+    const theosRepo = createPostgresGroupRepository(db, await aUser());
+    expect(await theosRepo.updateGroup(group.id, { name: "Mine", description: "", currency: "EUR" })).toBeNull();
+    expect(await theosRepo.addMember(group.id, "Theo")).toBeNull();
+    expect(await theosRepo.removeMember(group.id, chloe!.id)).toBe(false);
+    expect(await theosRepo.deleteGroup(group.id)).toBe(false);
+    expect(await mayasRepo.getGroup(group.id)).toMatchObject({
+      name: "Private",
+      currency: "USD",
+      members: [expect.anything(), chloe],
+    });
   });
 
   it("lists a User's Groups oldest first", async () => {

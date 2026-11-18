@@ -32,6 +32,10 @@ export function guestRepository(): GuestGroupRepository {
       addExpense: notifying(inner.addExpense),
       updateExpense: notifying(inner.updateExpense),
       deleteExpense: notifying(inner.deleteExpense),
+      updateGroup: notifying(inner.updateGroup),
+      addMember: notifying(inner.addMember),
+      removeMember: notifying(inner.removeMember),
+      deleteGroup: notifying(inner.deleteGroup),
     };
   }
   return repository;

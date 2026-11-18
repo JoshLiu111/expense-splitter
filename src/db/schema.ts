@@ -108,6 +108,8 @@ export const members = pgTable(
     avatarColor: text("avatar_color").notNull(),
     /** Member order in the Group; breaks Leftover Cent ties. */
     position: integer("position").notNull(),
+    /** A Former Member: removed at zero Balance, kept for past Expenses. */
+    former: boolean("former").notNull().default(false),
   },
   (t) => [
     uniqueIndex("members_group_user_idx").on(t.groupId, t.userId),

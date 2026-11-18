@@ -3,7 +3,14 @@ import { Suspense } from "react";
 import { requireUser } from "@/auth/session";
 import { GroupDetail } from "@/components/group-detail";
 import { userGroupRepository } from "@/groups/user-groups";
-import { deleteUserExpense, saveUserExpense } from "./actions";
+import {
+  addUserMember,
+  deleteUserExpense,
+  deleteUserGroup,
+  removeUserMember,
+  saveUserExpense,
+  updateUserGroup,
+} from "./actions";
 
 export default function GroupPage({ params }: PageProps<"/groups/[groupId]">) {
   return (
@@ -33,6 +40,13 @@ async function UserGroup({ params }: Pick<PageProps<"/groups/[groupId]">, "param
       currentMemberId={group.members.find((m) => m.userId === user.id)?.id}
       onSaveExpense={saveUserExpense.bind(null, groupId)}
       onDeleteExpense={deleteUserExpense.bind(null, groupId)}
+      manage={{
+        updateDetails: updateUserGroup.bind(null, groupId),
+        addMember: addUserMember.bind(null, groupId),
+        removeMember: removeUserMember.bind(null, groupId),
+        deleteGroup: deleteUserGroup.bind(null, groupId),
+      }}
+      isGroupCreator={group.creatorUserId === user.id}
     />
   );
 }

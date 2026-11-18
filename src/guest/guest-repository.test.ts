@@ -1,21 +1,8 @@
 import { describe, expect, it } from "vitest";
 import type { GroupSnapshot } from "@/domain";
 import { groupRepositoryContract } from "@/groups/group-repository.contract";
+import { memoryStorage } from "@/test/memory-storage";
 import { createSessionStorageRepository } from "./guest-repository";
-
-function memoryStorage(): Storage {
-  const items = new Map<string, string>();
-  return {
-    get length() {
-      return items.size;
-    },
-    clear: () => items.clear(),
-    getItem: (key) => items.get(key) ?? null,
-    key: (index) => [...items.keys()][index] ?? null,
-    removeItem: (key) => void items.delete(key),
-    setItem: (key, value) => void items.set(key, value),
-  };
-}
 
 const seed = (): GroupSnapshot[] => [
   {

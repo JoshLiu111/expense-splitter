@@ -1,8 +1,8 @@
-import { and, asc, eq, exists, inArray } from "drizzle-orm";
+import { and, asc, eq, exists, inArray, max } from "drizzle-orm";
 import type { CurrencyCode, Expense, GroupSnapshot, NewExpense, SplitType } from "@/domain";
 import type { Database } from "@/db/client";
 import { expenseShares, expenses, groups, members, settlements } from "@/db/schema";
-import { AVATAR_COLORS, type GroupRepository } from "./group-repository";
+import { AVATAR_COLORS, nextAvatarColor, type GroupRepository } from "./group-repository";
 
 /** The signed-in User a repository acts for. */
 export interface GroupUser {
@@ -24,7 +24,14 @@ export function createPostgresGroupRepository(
     db
       .select({ one: members.id })
       .from(members)
-      .where(and(eq(members.groupId, groups.id), eq(members.userId, currentUser.id))),
+      // A Former Member no longer sees the Group.
+      .where(
+        and(
+          eq(members.groupId, groups.id),
+          eq(members.userId, currentUser.id),
+          eq(members.former, false),
+        ),
+      ),
   );
 
   async function load(groupId?: string): Promise<GroupSnapshot[]> {
@@ -66,6 +73,7 @@ export function createPostgresGroupRepository(
           avatarColor: m.avatarColor,
           ...(m.email ? { email: m.email } : {}),
           ...(m.userId ? { userId: m.userId } : {}),
+          ...(m.former ? { former: true } : {}),
         })),
       expenses: expenseRows
         .filter((e) => e.groupId === g.id)
@@ -202,6 +210,55 @@ export function createPostgresGroupRepository(
         .delete(expenses)
         .where(and(eq(expenses.id, expenseId), eq(expenses.groupId, groupId)))
         .returning({ id: expenses.id });
+      return rows.length > 0;
+    },
+    async updateGroup(id, details) {
+      if (!(await canSee(id))) return null;
+      await db
+        .update(groups)
+        .set({ name: details.name, description: details.description, currency: details.currency })
+        .where(eq(groups.id, id));
+      const [group] = await load(id);
+      return group ?? null;
+    },
+    async addMember(groupId, name) {
+      if (!(await canSee(groupId))) return null;
+      const memberId = `mem_${newId()}`;
+      await db.transaction(async (tx) => {
+        const existing = await tx
+          .select({ avatarColor: members.avatarColor })
+          .from(members)
+          .where(eq(members.groupId, groupId));
+        const [{ last }] = await tx
+          .select({ last: max(members.position) })
+          .from(members)
+          .where(eq(members.groupId, groupId));
+        await tx.insert(members).values({
+          id: memberId,
+          groupId,
+          name,
+          avatarColor: nextAvatarColor(existing),
+          position: (last ?? -1) + 1,
+        });
+      });
+      const [group] = await load(groupId);
+      return group?.members.find((m) => m.id === memberId) ?? null;
+    },
+    async removeMember(groupId, memberId) {
+      if (!(await canSee(groupId))) return false;
+      const rows = await db
+        .update(members)
+        .set({ former: true })
+        .where(and(eq(members.id, memberId), eq(members.groupId, groupId)))
+        .returning({ id: members.id });
+      return rows.length > 0;
+    },
+    async deleteGroup(id) {
+      // Only the Group Creator may delete a Group, so scope the delete to them.
+      const rows = await db
+        .delete(groups)
+        .where(and(eq(groups.id, id), eq(groups.creatorUserId, currentUser.id)))
+        .returning({ id: groups.id });
       return rows.length > 0;
     },
   };

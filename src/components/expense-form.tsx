@@ -10,6 +10,8 @@ import {
   describeEqualSplit,
   formatMoney,
   parseAmount,
+  currentMembers,
+  selectableMembers,
   type Expense,
   type GroupSnapshot,
   type NewExpenseFields,
@@ -46,13 +48,16 @@ function initialFields(
       splitType: expense.splitType,
     };
   }
+  const current = currentMembers(group);
   return {
     amount: "",
     description: "",
     date: todayCalendarDate(),
     category: "Other",
-    payerId: currentMemberId ?? group.members[0]?.id ?? "",
-    participantIds: group.members.map((m) => m.id),
+    payerId: current.some((m) => m.id === currentMemberId)
+      ? currentMemberId!
+      : (current[0]?.id ?? ""),
+    participantIds: current.map((m) => m.id),
     notes: "",
     splitType: "equal",
   };
@@ -115,6 +120,8 @@ export function ExpenseForm({
   onSaved: () => void;
 }) {
   const [fields, setFields] = useState(() => initialFields(group, expense, currentMemberId));
+  // Former Members appear only on Expenses they were already part of.
+  const pickable = selectableMembers(group, expense);
   const [splitValues, setSplitValues] = useState(() => initialSplitValues(group, expense));
   const [failure, setFailure] = useState<Extract<ExpenseResult, { ok: false }>>();
   const errors = failure?.errors;
@@ -164,7 +171,7 @@ export function ExpenseForm({
     [errors, splitType],
   );
   const nameOf = (id: string) => group.members.find((m) => m.id === id)?.name ?? "Unknown member";
-  const selectedCount = group.members.filter((m) => fields.participantIds.includes(m.id)).length;
+  const selectedCount = pickable.filter((m) => fields.participantIds.includes(m.id)).length;
 
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -229,7 +236,7 @@ export function ExpenseForm({
       >
         <legend className="mb-2 text-sm font-semibold">Paid by</legend>
         <div className="flex flex-wrap gap-2">
-          {group.members.map((member) => (
+          {pickable.map((member) => (
             <label key={member.id} className={chipClass}>
               <input
                 type="radio"
@@ -262,7 +269,7 @@ export function ExpenseForm({
       >
         <legend className="mb-2 text-sm font-semibold">Split between</legend>
         <div className="flex flex-wrap gap-2">
-          {group.members.map((member) => (
+          {pickable.map((member) => (
             <label key={member.id} className={chipClass}>
               <input
                 type="checkbox"
@@ -285,7 +292,7 @@ export function ExpenseForm({
           ))}
         </div>
         <p id={`${ids.participants}-count`} aria-live="polite" className="text-sm text-text-secondary">
-          {selectedCount} of {group.members.length} members selected
+          {selectedCount} of {pickable.length} members selected
         </p>
         {errors?.participants && (
           <p id={`${ids.participants}-error`} className="text-sm font-semibold text-error">
