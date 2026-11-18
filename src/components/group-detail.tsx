@@ -12,14 +12,17 @@ import {
   type Expense,
   type GroupSnapshot,
   type Member,
+  type Settlement,
   type TimelineEntry,
 } from "@/domain";
 import type { DeleteExpense, SaveExpense } from "@/expenses/save-expense";
 import type { GroupManagement } from "@/groups/manage-group";
+import type { SettleUp } from "@/settlements/settle-up";
 import { BalanceStatus } from "@/components/balance-status";
 import { ExpenseEditor } from "@/components/expense-editor";
 import { DeleteGroupSection, EditGroupDetails, MembersSection } from "@/components/group-settings";
 import { MemberAvatar } from "@/components/member-avatar";
+import { SettleUpSection } from "@/components/settle-up";
 import { Button } from "@/components/ui/button";
 import { describeBalance, formatCalendarDate, pluralize } from "@/lib/format";
 
@@ -35,6 +38,7 @@ export function GroupDetail({
   onSaveExpense,
   onDeleteExpense,
   manage,
+  settleUp,
   isGroupCreator,
 }: {
   group: GroupSnapshot;
@@ -45,6 +49,7 @@ export function GroupDetail({
   onSaveExpense: SaveExpense;
   onDeleteExpense: DeleteExpense;
   manage: GroupManagement;
+  settleUp: SettleUp;
   /** Whether the visitor is the Group Creator, the only one who may delete it. */
   isGroupCreator: boolean;
 }) {
@@ -93,6 +98,16 @@ export function GroupDetail({
     const result = await onDeleteExpense(expense.id);
     setActionNews(
       result.ok ? `Deleted “${expense.description}”.` : (result.errors.form ?? "Couldn't delete the Expense."),
+    );
+    activityHeading.current?.focus();
+  }
+
+  async function removeSettlement(settlement: Settlement) {
+    const result = await settleUp.delete(settlement.id).catch(() => null);
+    setActionNews(
+      result?.ok
+        ? `Deleted the Settlement from ${nameOf(settlement.fromId)} to ${nameOf(settlement.toId)}.`
+        : (result?.errors.form ?? "Couldn't delete the Settlement."),
     );
     activityHeading.current?.focus();
   }
@@ -149,9 +164,6 @@ export function GroupDetail({
         <h2 id="balances-heading" className="text-lg font-bold">
           Balances
         </h2>
-        {ledger.settledUp && (
-          <p className="mt-2 font-semibold text-success">All settled up!</p>
-        )}
         <ul className="mt-3 divide-y divide-border-subtle rounded-lg border border-border bg-surface">
           {ledger.balances.map((balance) => {
             const member = members.get(balance.memberId)!;
@@ -176,6 +188,14 @@ export function GroupDetail({
           })}
         </ul>
       </section>
+
+      <SettleUpSection
+        group={group}
+        ledger={ledger}
+        currentMemberId={currentMemberId}
+        settleUp={settleUp}
+        onNews={setActionNews}
+      />
 
       <section aria-labelledby="activity-heading">
         <h2
@@ -213,6 +233,7 @@ export function GroupDetail({
                     currency={group.currency}
                     from={nameOf(entry.settlement.fromId)}
                     to={nameOf(entry.settlement.toId)}
+                    onDelete={() => removeSettlement(entry.settlement)}
                   />
                 )}
               </li>
@@ -307,34 +328,48 @@ function ExpenseRow({
             <Pencil aria-hidden /> Edit
           </Button>
         )}
-        <ConfirmDelete expense={expense} onConfirm={onDelete} />
+        <ConfirmDelete
+          label={`Delete “${expense.description}”`}
+          title="Delete this Expense?"
+          confirmLabel="Delete Expense"
+          onConfirm={onDelete}
+        >
+          “{expense.description}” (
+          <span className="amount">{formatMoney(expense.amount, expense.currency)}</span>)
+        </ConfirmDelete>
       </div>
     </article>
   );
 }
 
 function ConfirmDelete({
-  expense,
+  label,
+  title,
+  confirmLabel,
+  children,
   onConfirm,
 }: {
-  expense: Expense;
+  /** The trigger's accessible name, e.g. Delete “Dinner”. */
+  label: string;
+  title: string;
+  confirmLabel: string;
+  /** What will be removed, for the dialog's description. */
+  children: React.ReactNode;
   onConfirm: () => void;
 }) {
   return (
     <AlertDialog.Root>
       <AlertDialog.Trigger asChild>
-        <Button variant="ghost" aria-label={`Delete “${expense.description}”`}>
+        <Button variant="ghost" aria-label={label}>
           <Trash2 aria-hidden /> Delete
         </Button>
       </AlertDialog.Trigger>
       <AlertDialog.Portal>
         <AlertDialog.Overlay className="fixed inset-0 z-40 bg-black/50" />
         <AlertDialog.Content className="fixed top-1/2 left-1/2 z-50 w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-lg border border-border bg-surface p-6 shadow-lg outline-none">
-          <AlertDialog.Title className="text-lg font-bold">Delete this Expense?</AlertDialog.Title>
+          <AlertDialog.Title className="text-lg font-bold">{title}</AlertDialog.Title>
           <AlertDialog.Description className="mt-2 text-text-secondary">
-            “{expense.description}” (
-            <span className="amount">{formatMoney(expense.amount, expense.currency)}</span>) will be
-            removed and Balances recomputed. This can&apos;t be undone.
+            {children} will be removed and Balances recomputed. This can&apos;t be undone.
           </AlertDialog.Description>
           <div className="mt-6 flex flex-wrap justify-end gap-3">
             <AlertDialog.Cancel asChild>
@@ -342,7 +377,7 @@ function ConfirmDelete({
             </AlertDialog.Cancel>
             <AlertDialog.Action asChild>
               <Button onClick={onConfirm} className="bg-error text-white hover:bg-error/90">
-                Delete Expense
+                {confirmLabel}
               </Button>
             </AlertDialog.Action>
           </div>
@@ -357,28 +392,41 @@ function SettlementRow({
   currency,
   from,
   to,
+  onDelete,
 }: {
   entry: Extract<TimelineEntry, { kind: "settlement" }>;
   currency: GroupSnapshot["currency"];
   from: string;
   to: string;
+  onDelete: () => void;
 }) {
+  const amount = formatMoney(entry.settlement.amount, currency);
   return (
-    <article className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 rounded-lg border border-dashed border-border-input bg-bg-secondary px-4 py-3">
-      <div className="flex min-w-0 flex-1 items-center gap-3">
-        <ArrowRightLeft aria-hidden className="size-5 shrink-0 text-accent" />
-        <div className="min-w-0">
-          <h3 className="font-semibold break-words">
-            Settlement: {from} paid {to}
-          </h3>
-          <p className="text-sm text-text-secondary">
-            <time dateTime={entry.date}>{formatCalendarDate(entry.date)}</time>
-          </p>
+    <article className="flex flex-col gap-2 rounded-lg border border-dashed border-border-input bg-bg-secondary px-4 py-3">
+      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
+        <div className="flex min-w-0 flex-1 items-center gap-3">
+          <ArrowRightLeft aria-hidden className="size-5 shrink-0 text-accent" />
+          <div className="min-w-0">
+            <h3 className="font-semibold break-words">
+              Settlement: {from} paid {to}
+            </h3>
+            <p className="text-sm text-text-secondary">
+              <time dateTime={entry.date}>{formatCalendarDate(entry.date)}</time>
+            </p>
+          </div>
         </div>
+        <span className="amount font-semibold">{amount}</span>
       </div>
-      <span className="amount font-semibold">
-        {formatMoney(entry.settlement.amount, currency)}
-      </span>
+      <div className="-mb-1 flex justify-end">
+        <ConfirmDelete
+          label={`Delete Settlement: ${from} paid ${to} ${amount}`}
+          title="Delete this Settlement?"
+          confirmLabel="Delete Settlement"
+          onConfirm={onDelete}
+        >
+          The Settlement from {from} to {to} (<span className="amount">{amount}</span>)
+        </ConfirmDelete>
+      </div>
     </article>
   );
 }

@@ -192,4 +192,47 @@ export function groupRepositoryContract(makeRepository: () => Promise<GroupRepos
     expect(await repo.deleteGroup("grp_missing")).toBe(false);
     expect((await repo.getGroup(other.id))?.members).toEqual(other.members);
   });
+
+  it("records and deletes Settlements", async () => {
+    const repo = await makeRepository();
+    const group = await repo.createGroup({ name: "Flat", description: "", currency: "USD" });
+    const chloe = await repo.addMember(group.id, "Chloe");
+    const me = group.members[0].id;
+    await repo.addExpense(group.id, lunch(group, { shares: [{ memberId: chloe!.id, amount: 2450 }] }));
+
+    const first = await repo.addSettlement(group.id, { fromId: chloe!.id, toId: me, amount: 1000, date: "2026-03-02" });
+    const second = await repo.addSettlement(group.id, { fromId: chloe!.id, toId: me, amount: 450, date: "2026-03-03" });
+
+    expect(first).toEqual({
+      id: expect.any(String),
+      fromId: chloe!.id,
+      toId: me,
+      amount: 1000,
+      date: "2026-03-02",
+      createdAt: expect.any(String),
+    });
+    expect((await repo.getGroup(group.id))?.settlements).toEqual(expect.arrayContaining([first, second]));
+
+    expect(await repo.deleteSettlement(group.id, first!.id)).toBe(true);
+    expect((await repo.getGroup(group.id))?.settlements).toEqual([second]);
+  });
+
+  it("refuses to change Settlements that aren't in the Group", async () => {
+    const repo = await makeRepository();
+    const group = await repo.createGroup({ name: "Flat", description: "", currency: "USD" });
+    const other = await repo.createGroup({ name: "Other", description: "", currency: "USD" });
+    const chloe = await repo.addMember(other.id, "Chloe");
+    const settlement = await repo.addSettlement(other.id, {
+      fromId: chloe!.id,
+      toId: other.members[0].id,
+      amount: 100,
+      date: "2026-03-02",
+    });
+
+    expect(
+      await repo.addSettlement("grp_missing", { fromId: "a", toId: "b", amount: 100, date: "2026-03-02" }),
+    ).toBeNull();
+    expect(await repo.deleteSettlement(group.id, settlement!.id)).toBe(false);
+    expect((await repo.getGroup(other.id))?.settlements).toEqual([settlement]);
+  });
 }

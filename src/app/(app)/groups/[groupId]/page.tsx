@@ -5,6 +5,9 @@ import { GroupDetail } from "@/components/group-detail";
 import { userGroupRepository } from "@/groups/user-groups";
 import {
   addUserMember,
+  clearUserSmallChange,
+  deleteUserSettlement,
+  recordUserSettlement,
   deleteUserExpense,
   deleteUserGroup,
   removeUserMember,
@@ -45,6 +48,11 @@ async function UserGroup({ params }: Pick<PageProps<"/groups/[groupId]">, "param
         addMember: addUserMember.bind(null, groupId),
         removeMember: removeUserMember.bind(null, groupId),
         deleteGroup: deleteUserGroup.bind(null, groupId),
+      }}
+      settleUp={{
+        record: recordUserSettlement.bind(null, groupId),
+        delete: deleteUserSettlement.bind(null, groupId),
+        clearSmallChange: clearUserSmallChange.bind(null, groupId),
       }}
       isGroupCreator={group.creatorUserId === user.id}
     />

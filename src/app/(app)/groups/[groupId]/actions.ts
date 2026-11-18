@@ -12,6 +12,12 @@ import {
   type ManageResult,
 } from "@/groups/manage-group";
 import { userGroupRepository } from "@/groups/user-groups";
+import {
+  clearSmallChange,
+  deleteSettlement,
+  recordSettlement,
+  type SettlementResult,
+} from "@/settlements/settle-up";
 
 // Server Actions are public endpoints: each one re-checks the session, and the
 // repository only reaches Groups the User is a Linked Member of.
@@ -71,4 +77,30 @@ export async function deleteUserGroup(groupId: string): Promise<ManageResult> {
   const user = await requireUser(`/groups/${groupId}`);
   if (typeof groupId !== "string") return INVALID;
   return deleteGroup(userGroupRepository(user), groupId, { userId: user.id });
+}
+
+const INVALID_SETTLEMENT: SettlementResult = { ok: false, errors: { form: "That request wasn't valid." } };
+
+export async function recordUserSettlement(groupId: string, fields: unknown): Promise<SettlementResult> {
+  const user = await requireUser(`/groups/${groupId}`);
+  if (typeof groupId !== "string") return INVALID_SETTLEMENT;
+  const result = await recordSettlement(userGroupRepository(user), groupId, fields);
+  if (result.ok) refresh();
+  return result;
+}
+
+export async function deleteUserSettlement(groupId: string, settlementId: string): Promise<SettlementResult> {
+  const user = await requireUser(`/groups/${groupId}`);
+  if (typeof groupId !== "string" || typeof settlementId !== "string") return INVALID_SETTLEMENT;
+  const result = await deleteSettlement(userGroupRepository(user), groupId, settlementId);
+  if (result.ok) refresh();
+  return result;
+}
+
+export async function clearUserSmallChange(groupId: string, date: unknown): Promise<SettlementResult> {
+  const user = await requireUser(`/groups/${groupId}`);
+  if (typeof groupId !== "string") return INVALID_SETTLEMENT;
+  const result = await clearSmallChange(userGroupRepository(user), groupId, date);
+  if (result.ok) refresh();
+  return result;
 }

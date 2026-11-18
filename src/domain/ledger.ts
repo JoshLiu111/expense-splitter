@@ -1,4 +1,5 @@
-import { convert } from "./currency";
+import { convert, exponentOf } from "./currency";
+import { simplifyDebts, type SuggestedSettlement } from "./settle-up";
 import type {
   CalendarDate,
   Expense,
@@ -49,6 +50,16 @@ export interface Ledger {
   expenseCount: number;
   /** Total of all Expenses in the Group Currency. */
   totalSpent: MinorUnits;
+  /**
+   * Suggested Settlements from Debt Simplification, in the order found;
+   * never under one unit of Group Currency.
+   */
+  suggestions: SuggestedSettlement[];
+  /**
+   * Small Change: Debt Simplification's Settlements under one unit of Group
+   * Currency. Never suggested, but recording them clears the rest.
+   */
+  smallChange: SuggestedSettlement[];
 }
 
 /**
@@ -122,12 +133,17 @@ export function computeLedger(group: GroupSnapshot): Ledger {
     amount: totals.get(m.id) ?? 0,
   }));
 
+  const simplified = simplifyDebts(group, balances);
+  const oneUnit = 10 ** exponentOf(group.currency);
+
   return {
     balances,
     settledUp: balances.every((b) => b.amount === 0),
     timeline: entries.map(({ entry }) => entry),
     expenseCount: group.expenses.length,
     totalSpent,
+    suggestions: simplified.filter((p) => p.amount >= oneUnit),
+    smallChange: simplified.filter((p) => p.amount < oneUnit),
   };
 }
 

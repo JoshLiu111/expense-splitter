@@ -1,4 +1,4 @@
-import type { Expense, GroupSnapshot, Member } from "@/domain";
+import type { Expense, GroupSnapshot, Member, Settlement } from "@/domain";
 import {
   AVATAR_COLORS,
   nextAvatarColor,
@@ -114,6 +114,24 @@ export function createSessionStorageRepository(
     async deleteExpense(groupId, expenseId) {
       if (!findExpense(groupId, expenseId)) return false;
       return updateExpenses(groupId, (expenses) => expenses.filter((e) => e.id !== expenseId));
+    },
+    async addSettlement(groupId, input) {
+      const settlement: Settlement = {
+        ...input,
+        id: `stl_${newId()}`,
+        createdAt: new Date().toISOString(),
+      };
+      const changed = changeGroup(groupId, (g) => ({ ...g, settlements: [...g.settlements, settlement] }));
+      return changed ? settlement : null;
+    },
+    async deleteSettlement(groupId, settlementId) {
+      const group = read().find((g) => g.id === groupId);
+      if (!group?.settlements.some((s) => s.id === settlementId)) return false;
+      changeGroup(groupId, (g) => ({
+        ...g,
+        settlements: g.settlements.filter((s) => s.id !== settlementId),
+      }));
+      return true;
     },
     async updateGroup(id, details) {
       return changeGroup(id, (g) => ({ ...g, ...details }));

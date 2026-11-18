@@ -1,6 +1,16 @@
 export type * from "./types";
 export { computeLedger } from "./ledger";
 export type { Ledger, MemberBalance, OwingLine, TimelineEntry } from "./ledger";
+export type { SuggestedSettlement } from "./settle-up";
+export { parseNewSettlement, validateSettlement } from "./settlement";
+export type {
+  NewSettlement,
+  NewSettlementErrors,
+  NewSettlementFields,
+  ParseSettlementResult,
+  ProposedSettlement,
+  SettlementCheck,
+} from "./settlement";
 export { importSampleGroups } from "./sample-data";
 export { amountText, CURRENCY_CODES, formatMoney, isCurrencyCode, parseAmount } from "./currency";
 export type { ParseAmountResult } from "./currency";

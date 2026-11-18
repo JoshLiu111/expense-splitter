@@ -207,3 +207,35 @@ test("a Guest creates a Group that lasts for the session", async ({ page }) => {
   await page.getByRole("link", { name: "All Groups" }).click();
   await expect(page.getByRole("list").getByRole("link")).toHaveCount(6);
 });
+
+test("a signed-in User sees their own Suggested Settlement and records it", async ({ page }) => {
+  await signUp(page, uniqueEmail());
+  await page.getByRole("link", { name: "New Group" }).click();
+  await field(page, "Name").fill("Flat");
+  await page.getByRole("button", { name: "Create Group" }).click();
+  await expect(page.getByRole("heading", { level: 1, name: "Flat" })).toBeVisible();
+  await field(page, "Add a Member by name").fill("Taylor");
+  await page.getByRole("button", { name: "Add Member" }).click();
+  await expect(page.getByText("Added Taylor.")).toBeVisible();
+  // Wait for the refreshed Group, so the Split includes Taylor.
+  await expect(
+    page.getByRole("region", { name: "Members" }).getByText("Taylor", { exact: true }),
+  ).toBeVisible();
+
+  // Maya pays $90.40, split equally with Taylor.
+  await page.getByRole("button", { name: "Add Expense", exact: true }).click();
+  await field(page, "Amount (USD)").fill("90.40");
+  await field(page, "Description").fill("Groceries");
+  await page.getByRole("button", { name: "Add Expense", exact: true }).click();
+  await expect(page.getByText("Expense added.")).toBeVisible();
+
+  const settleUp = page.getByRole("region", { name: "Settle up" });
+  await expect(settleUp).toContainText("You get back $45.20 → Taylor pays you $45.20");
+  await settleUp.getByRole("button", { name: /^Record: Taylor pays you/ }).click();
+  await page.getByRole("button", { name: "Record Settlement" }).click();
+
+  await expect(settleUp).toContainText("All settled up!");
+  await page.reload();
+  await expect(page.getByRole("region", { name: "Settle up" })).toContainText("All settled up!");
+  await expect(page.getByRole("heading", { name: "Settlement: Taylor paid Maya Chen" })).toBeVisible();
+});

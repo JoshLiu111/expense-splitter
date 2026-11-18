@@ -1,4 +1,12 @@
-import type { Expense, GroupSnapshot, Member, NewExpense, NewGroup } from "@/domain";
+import type {
+  Expense,
+  GroupSnapshot,
+  Member,
+  NewExpense,
+  NewGroup,
+  NewSettlement,
+  Settlement,
+} from "@/domain";
 
 /**
  * Persistence for the Groups one visitor can see: a Guest's session Groups,
@@ -20,6 +28,10 @@ export interface GroupRepository {
   updateExpense(groupId: string, expenseId: string, expense: NewExpense): Promise<Expense | null>;
   /** Deletes an Expense; `false` if it isn't in that visible Group. */
   deleteExpense(groupId: string, expenseId: string): Promise<boolean>;
+  /** Records a Settlement; `null` if the Group isn't visible here. */
+  addSettlement(groupId: string, settlement: NewSettlement): Promise<Settlement | null>;
+  /** Deletes a Settlement; `false` if it isn't in that visible Group. */
+  deleteSettlement(groupId: string, settlementId: string): Promise<boolean>;
   /** Replaces a Group's name, description and Group Currency; `null` if not visible. */
   updateGroup(id: string, details: NewGroup): Promise<GroupSnapshot | null>;
   /**

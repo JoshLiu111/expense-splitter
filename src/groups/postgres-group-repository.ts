@@ -212,6 +212,34 @@ export function createPostgresGroupRepository(
         .returning({ id: expenses.id });
       return rows.length > 0;
     },
+    async addSettlement(groupId, input) {
+      if (!(await canSee(groupId))) return null;
+      // Both Members must belong to this Group, not merely exist.
+      const found = await db
+        .select({ id: members.id })
+        .from(members)
+        .where(and(eq(members.groupId, groupId), inArray(members.id, [input.fromId, input.toId])));
+      if (found.length !== new Set([input.fromId, input.toId]).size) return null;
+      const settlementId = `stl_${newId()}`;
+      await db.insert(settlements).values({
+        id: settlementId,
+        groupId,
+        fromMemberId: input.fromId,
+        toMemberId: input.toId,
+        amount: input.amount,
+        date: input.date,
+      });
+      const [group] = await load(groupId);
+      return group?.settlements.find((s) => s.id === settlementId) ?? null;
+    },
+    async deleteSettlement(groupId, settlementId) {
+      if (!(await canSee(groupId))) return false;
+      const rows = await db
+        .delete(settlements)
+        .where(and(eq(settlements.id, settlementId), eq(settlements.groupId, groupId)))
+        .returning({ id: settlements.id });
+      return rows.length > 0;
+    },
     async updateGroup(id, details) {
       if (!(await canSee(id))) return null;
       await db

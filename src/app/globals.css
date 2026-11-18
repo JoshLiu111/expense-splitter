@@ -126,6 +126,21 @@
   }
 }
 
+/* "All settled up!": a short pop; the reduced-motion rule above stills it. */
+@keyframes celebrate {
+  0% {
+    opacity: 0;
+    transform: scale(0.92);
+  }
+  60% {
+    opacity: 1;
+    transform: scale(1.03);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
 /* Every monetary figure: IBM Plex Mono with tabular numerals, never truncated. */
 @utility amount {
   font-family: var(--font-plex-mono), ui-monospace, "SF Mono", monospace;

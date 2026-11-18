@@ -5,6 +5,7 @@ import { useParams } from "next/navigation";
 import { GroupDetail } from "@/components/group-detail";
 import { deleteExpense, saveExpense } from "@/expenses/save-expense";
 import { addMember, deleteGroup, removeMember, updateGroupDetails } from "@/groups/manage-group";
+import { clearSmallChange, deleteSettlement, recordSettlement } from "@/settlements/settle-up";
 import { GUEST_MEMBER_NAME } from "@/guest/guest-repository";
 import { guestRepository, useGuestGroups } from "@/guest/use-guest-groups";
 
@@ -52,6 +53,11 @@ export function GuestGroupView() {
         addMember: (name) => addMember(guestRepository(), group.id, name),
         removeMember: (memberId) => removeMember(guestRepository(), group.id, memberId),
         deleteGroup: () => deleteGroup(guestRepository(), group.id, { userId: undefined }),
+      }}
+      settleUp={{
+        record: (fields) => recordSettlement(guestRepository(), group.id, fields),
+        delete: (settlementId) => deleteSettlement(guestRepository(), group.id, settlementId),
+        clearSmallChange: (date) => clearSmallChange(guestRepository(), group.id, date),
       }}
       // A Guest made, or was handed, every Group in their session.
       isGroupCreator
