@@ -87,6 +87,26 @@ describe("Debt Simplification", () => {
     ]);
   });
 
+  it("still suggests payments under $1 for a debtor whose Balance is $1 or more, since that isn't Small Change", () => {
+    // M0 owes $1.50, split into two $0.75 payments.
+    const ledger = computeLedger(groupWithBalances([-150, 75, 75]));
+    expect(ledger.suggestions).toEqual([
+      { fromId: "m0", toId: "m1", amount: 75, sharedAnExpense: true },
+      { fromId: "m0", toId: "m2", amount: 75, sharedAnExpense: true },
+    ]);
+    expect(ledger.smallChange).toEqual([]);
+  });
+
+  it("still suggests payments under $1 to a creditor whose Balance is $1 or more", () => {
+    // M0 is owed $1.50, from two Members who each owe $0.75.
+    const ledger = computeLedger(groupWithBalances([150, -75, -75]));
+    expect(ledger.suggestions).toEqual([
+      { fromId: "m1", toId: "m0", amount: 75, sharedAnExpense: true },
+      { fromId: "m2", toId: "m0", amount: 75, sharedAnExpense: true },
+    ]);
+    expect(ledger.smallChange).toEqual([]);
+  });
+
   it("flags a payment between Members who never shared an Expense", () => {
     // M1 paid for M0, and M0 paid for M2: M2 ends up paying M1 directly.
     expect(computeLedger(groupWithBalances([0, 1000, -1000])).suggestions).toEqual([

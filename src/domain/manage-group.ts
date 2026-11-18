@@ -23,9 +23,28 @@ export function parseGroupDetails(fields: NewGroupFields, group: GroupSnapshot):
   return { ok: false, errors: { ...(parsed.ok ? {} : parsed.errors), currency: lock } };
 }
 
+/** What follows a Former Member's name wherever it is shown. */
+export const FORMER_MEMBER_SUFFIX = " (Former Member)";
+
+/** A Member's name as shown in lists and charts, marking a Former Member. */
+export function memberLabel(member: Member): string {
+  return member.former ? member.name + FORMER_MEMBER_SUFFIX : member.name;
+}
+
 /** The Members taking part in the Group now, in Group order: not Former Members. */
 export function currentMembers(group: GroupSnapshot): Member[] {
   return group.members.filter((m) => !m.former);
+}
+
+/**
+ * The Members shown in Balances and offered in the Settlement form, in Group
+ * order: current Members, plus any Former Member whose Balance is no longer
+ * zero (a past Expense or Settlement changed after they were removed), so
+ * that Balance stays visible and can still be settled.
+ */
+export function membersInBalances(group: GroupSnapshot): Member[] {
+  const balances = new Map(computeLedger(group).balances.map((b) => [b.memberId, b.amount]));
+  return group.members.filter((m) => !m.former || (balances.get(m.id) ?? 0) !== 0);
 }
 
 /**

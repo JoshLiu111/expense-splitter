@@ -64,12 +64,15 @@ export interface Ledger {
   currencySubtotals: CurrencySubtotal[];
   /**
    * Suggested Settlements from Debt Simplification, in the order found;
-   * never under one unit of Group Currency.
+   * under one unit of Group Currency only when it involves a Member whose
+   * Balance is one unit or more and who has no suggestion of one unit or
+   * more (paying or receiving).
    */
   suggestions: SuggestedSettlement[];
   /**
-   * Small Change: Debt Simplification's Settlements under one unit of Group
-   * Currency. Never suggested, but recording them clears the rest.
+   * The payments that clear Small Change: Debt Simplification's Settlements
+   * under one unit of Group Currency that are not suggested. Recording them
+   * once every suggestion is recorded leaves the Group Settled Up.
    */
   smallChange: SuggestedSettlement[];
 }
@@ -147,6 +150,14 @@ export function computeLedger(group: GroupSnapshot): Ledger {
 
   const simplified = simplifyDebts(group, balances);
   const oneUnit = 10 ** exponentOf(group.currency);
+  // Small Change is a Balance under one unit. A payment under one unit is
+  // still suggested when it involves a Member whose Balance is one unit or
+  // more and who has no suggestion of one unit or more (paying or receiving),
+  // so that Balance never passes for Small Change.
+  const largeBalance = new Set(balances.filter((b) => Math.abs(b.amount) >= oneUnit).map((b) => b.memberId));
+  const covered = new Set(simplified.filter((p) => p.amount >= oneUnit).flatMap((p) => [p.fromId, p.toId]));
+  const uncovered = (memberId: string) => largeBalance.has(memberId) && !covered.has(memberId);
+  const suggested = (p: SuggestedSettlement) => p.amount >= oneUnit || uncovered(p.fromId) || uncovered(p.toId);
 
   return {
     balances,
@@ -157,8 +168,8 @@ export function computeLedger(group: GroupSnapshot): Ledger {
     currencySubtotals: [group.currency, ...CURRENCY_CODES]
       .filter((code, i, codes) => codes.indexOf(code) === i)
       .flatMap((code) => subtotals.get(code) ?? []),
-    suggestions: simplified.filter((p) => p.amount >= oneUnit),
-    smallChange: simplified.filter((p) => p.amount < oneUnit),
+    suggestions: simplified.filter(suggested),
+    smallChange: simplified.filter((p) => !suggested(p)),
   };
 }
 

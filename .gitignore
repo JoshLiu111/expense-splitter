@@ -54,3 +54,6 @@ Thumbs.db
 
 # Emails written by the app during end-to-end tests
 /.e2e-outbox/
+
+# local scratch notes (reviews, drafts)
+/.scratch/

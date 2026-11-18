@@ -184,33 +184,37 @@ function ChartFigure({
 }
 
 function DataTable({ headers, rows }: { headers: string[]; rows: string[][] }) {
+  // `sr-only` goes on a wrapper: a table never shrinks below its content, so
+  // on the table itself a long row would widen the page on a phone.
   return (
-    <table className="sr-only">
-      <thead>
-        <tr>
-          {headers.map((h) => (
-            <th key={h} scope="col">
-              {h}
-            </th>
-          ))}
-        </tr>
-      </thead>
-      <tbody>
-        {rows.map((row) => (
-          <tr key={row[0]}>
-            {row.map((cell, i) =>
-              i === 0 ? (
-                <th key={i} scope="row">
-                  {cell}
-                </th>
-              ) : (
-                <td key={i}>{cell}</td>
-              ),
-            )}
+    <div className="sr-only">
+      <table>
+        <thead>
+          <tr>
+            {headers.map((h) => (
+              <th key={h} scope="col">
+                {h}
+              </th>
+            ))}
           </tr>
-        ))}
-      </tbody>
-    </table>
+        </thead>
+        <tbody>
+          {rows.map((row) => (
+            <tr key={row[0]}>
+              {row.map((cell, i) =>
+                i === 0 ? (
+                  <th key={i} scope="row">
+                    {cell}
+                  </th>
+                ) : (
+                  <td key={i}>{cell}</td>
+                ),
+              )}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
   );
 }
 

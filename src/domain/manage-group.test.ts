@@ -3,6 +3,8 @@ import type { Expense, GroupSnapshot, Member, Settlement } from "./types";
 import {
   groupDeletionBlock,
   memberRemovalBlock,
+  memberLabel,
+  membersInBalances,
   parseGroupDetails,
   memberEmailBlock,
   parseMemberEmail,
@@ -228,6 +230,35 @@ describe("memberRemovalBlock", () => {
     const flat = group({ members: [member("mem_ana"), member("mem_ben", { name: "Ben", former: true })] });
     expect(memberRemovalBlock(flat, "mem_ben")).toBe("Ben has already been removed.");
     expect(memberRemovalBlock(flat, "mem_zed")).toBe("That Member isn't in this Group.");
+  });
+});
+
+describe("membersInBalances", () => {
+  it("leaves out a Former Member whose Balance is zero", () => {
+    const flat = group({ members: [member("mem_ana"), member("mem_ben", { former: true })] });
+    expect(membersInBalances(flat).map((m) => m.id)).toEqual(["mem_ana"]);
+  });
+
+  it("brings back a Former Member whose Balance is no longer zero, so it can be settled", () => {
+    // Ben was removed at zero, then the Settlement that zeroed him was deleted.
+    const reopened = group({
+      members: [member("mem_ana"), member("mem_ben", { former: true })],
+      expenses: [expense("mem_ana", [["mem_ben", 500]])],
+    });
+    expect(membersInBalances(reopened).map((m) => m.id)).toEqual(["mem_ana", "mem_ben"]);
+    expect(groupDeletionBlock(reopened, { isCreator: true })).toBe(
+      "Everyone must be Settled Up before this Group can be deleted.",
+    );
+  });
+});
+
+describe("memberLabel", () => {
+  it("is a current Member's name", () => {
+    expect(memberLabel(member("mem_ana", { name: "Ana" }))).toBe("Ana");
+  });
+
+  it("marks a Former Member", () => {
+    expect(memberLabel(member("mem_ben", { name: "Ben", former: true }))).toBe("Ben (Former Member)");
   });
 });
 

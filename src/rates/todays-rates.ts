@@ -11,12 +11,15 @@ import { CURRENCY_CODES, type CalendarDate, type CurrencyCode, type RateSnapshot
  * `stale` ("rates may be outdated"); `null` only if none were ever cached.
  *
  * `FIXED_EXCHANGE_RATES` (JSON units per US dollar, e.g. `{"JPY":150}`)
- * replaces the API and cache with fixed rates, for end-to-end tests.
+ * replaces the API and cache with fixed rates, for end-to-end tests only:
+ * it is ignored, with a logged error, unless `E2E=1` is also set.
  */
 export async function todaysRates(): Promise<RateSnapshot | null> {
   const today: CalendarDate = new Date().toISOString().slice(0, 10);
   const fixed = process.env.FIXED_EXCHANGE_RATES;
-  if (fixed) return { perUsd: { USD: 1, ...parsePerUsd(JSON.parse(fixed)) }, fetchedOn: today, stale: false };
+  if (fixed && process.env.E2E !== "1")
+    console.error("FIXED_EXCHANGE_RATES is ignored without E2E=1; using real exchange rates");
+  else if (fixed) return { perUsd: { USD: 1, ...parsePerUsd(JSON.parse(fixed)) }, fetchedOn: today, stale: false };
 
   const cached = await readCache().catch((error: unknown) => {
     console.error("Couldn't read the exchange rate cache", error);

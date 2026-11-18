@@ -101,3 +101,35 @@ test("S2: a Member sees their own action first, with others' suggestions collaps
   await others.locator("> summary").click();
   await expect(others.getByText("Sam pays Jo $10.00")).toBeVisible();
 });
+
+test("S2: a Former Member whose Balance reopens shows in Balances and can be settled", async ({ page }) => {
+  await page.goto("/guest/groups/grp_birthday");
+
+  // Olivia is removed at a zero Balance and drops out of Balances.
+  await page.getByRole("button", { name: "Remove Olivia Hayes" }).click();
+  await page
+    .getByRole("alertdialog", { name: "Remove Olivia Hayes from the Group?" })
+    .getByRole("button", { name: "Remove Member" })
+    .click();
+  await expect(page.getByText("Removed Olivia Hayes.")).toBeVisible();
+  await expect(page.getByTestId("balance-mem_olivia")).toHaveCount(0);
+
+  // Deleting the Settlement that zeroed her brings her Balance back.
+  await page.getByRole("button", { name: "Delete Settlement: Chloe Yun paid Olivia Hayes $18.75" }).click();
+  await page
+    .getByRole("alertdialog", { name: "Delete this Settlement?" })
+    .getByRole("button", { name: "Delete Settlement" })
+    .click();
+  const olivia = page.getByTestId("balance-mem_olivia");
+  await expect(olivia).toContainText("Olivia Hayes (Former Member)");
+  await expect(olivia).toContainText("$18.75");
+  // The Balance chart labels her the same way.
+  await expect(page.getByRole("rowheader", { name: "Olivia Hayes (Former Member)" })).toHaveCount(1);
+
+  // ...and it can still be settled from the suggestion.
+  await settleUp(page).getByRole("button", { name: /^Record: Chloe Yun pays Olivia Hayes/ }).click();
+  await expect(field(page, "Paid to")).toHaveValue("mem_olivia");
+  await page.getByRole("button", { name: "Record Settlement" }).click();
+  await expect(page.getByText("Settlement recorded.", { exact: false })).toBeVisible();
+  await expect(page.getByTestId("balance-mem_olivia")).toHaveCount(0);
+});

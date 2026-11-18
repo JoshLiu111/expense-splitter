@@ -7,6 +7,8 @@ import {
   categoryOptions,
   formatMoney,
   isFiltering,
+  memberLabel,
+  membersInBalances,
   monthRange,
   type ExpenseFilter,
   type GroupSnapshot,
@@ -99,8 +101,7 @@ export function ExpenseFilters({
           <option value="">Everyone</option>
           {group.members.map((m) => (
             <option key={m.id} value={m.id}>
-              {m.name}
-              {m.former ? " (Former Member)" : ""}
+              {memberLabel(m)}
             </option>
           ))}
         </select>
@@ -179,6 +180,7 @@ export function SpendingInsights({
 }) {
   const money = (amount: number) => formatMoney(amount, group.currency);
   const members = new Map(group.members.map((m) => [m.id, m]));
+  const inBalances = new Set(membersInBalances(group).map((m) => m.id));
   return (
     <div className="flex flex-col gap-4">
       <div>
@@ -224,8 +226,11 @@ export function SpendingInsights({
           breakdown={insights.breakdown}
           byMonth={insights.byMonth}
           balances={balances
-            .filter((b) => !members.get(b.memberId)?.former)
-            .map((b) => ({ name: members.get(b.memberId)?.name ?? "Unknown member", amount: b.amount }))}
+            .filter((b) => inBalances.has(b.memberId))
+            .map((b) => {
+              const member = members.get(b.memberId);
+              return { name: member ? memberLabel(member) : "Unknown member", amount: b.amount };
+            })}
         />
       )}
     </div>
