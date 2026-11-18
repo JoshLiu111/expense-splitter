@@ -29,6 +29,17 @@ export function currentMembers(group: GroupSnapshot): Member[] {
 }
 
 /**
+ * The Members shown in Balances and offered in the Settlement form, in Group
+ * order: current Members, plus any Former Member whose Balance is no longer
+ * zero (a past Expense or Settlement changed after they were removed), so
+ * that Balance stays visible and can still be settled.
+ */
+export function membersInBalances(group: GroupSnapshot): Member[] {
+  const balances = new Map(computeLedger(group).balances.map((b) => [b.memberId, b.amount]));
+  return group.members.filter((m) => !m.former || (balances.get(m.id) ?? 0) !== 0);
+}
+
+/**
  * The Members who can pay or share an Expense: current Members, plus, when
  * editing, any Former Members already on it. In Group order.
  */

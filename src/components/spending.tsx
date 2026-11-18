@@ -7,6 +7,7 @@ import {
   categoryOptions,
   formatMoney,
   isFiltering,
+  membersInBalances,
   monthRange,
   type ExpenseFilter,
   type GroupSnapshot,
@@ -179,6 +180,7 @@ export function SpendingInsights({
 }) {
   const money = (amount: number) => formatMoney(amount, group.currency);
   const members = new Map(group.members.map((m) => [m.id, m]));
+  const inBalances = new Set(membersInBalances(group).map((m) => m.id));
   return (
     <div className="flex flex-col gap-4">
       <div>
@@ -224,7 +226,7 @@ export function SpendingInsights({
           breakdown={insights.breakdown}
           byMonth={insights.byMonth}
           balances={balances
-            .filter((b) => !members.get(b.memberId)?.former)
+            .filter((b) => inBalances.has(b.memberId))
             .map((b) => ({ name: members.get(b.memberId)?.name ?? "Unknown member", amount: b.amount }))}
         />
       )}

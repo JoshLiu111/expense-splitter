@@ -7,9 +7,9 @@ import { Coins, GitCompareArrows, HandCoins, PartyPopper, X } from "lucide-react
 import {
   amountText,
   computeLedger,
-  currentMembers,
   explainSettlements,
   formatMoney,
+  membersInBalances,
   parseAmount,
   validateSettlement,
   type GroupSnapshot,
@@ -391,7 +391,7 @@ function SettlementForm({
   onRecord: SettleUp["record"];
   onRecorded: (news: string) => void;
 }) {
-  const members = currentMembers(group);
+  const members = membersInBalances(group);
   const [fields, setFields] = useState<NewSettlementFields>({
     fromId: suggestion?.fromId ?? "",
     toId: suggestion?.toId ?? "",
@@ -450,6 +450,7 @@ function SettlementForm({
           {members.map((m) => (
             <option key={m.id} value={m.id}>
               {m.name}
+              {m.former ? " (Former Member)" : ""}
             </option>
           ))}
         </select>

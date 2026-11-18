@@ -65,6 +65,7 @@ export {
   EMAIL_PATTERN,
   memberEmailBlock,
   memberRemovalBlock,
+  membersInBalances,
   MAX_MEMBER_NAME_LENGTH,
   parseMemberEmail,
   parseGroupDetails,

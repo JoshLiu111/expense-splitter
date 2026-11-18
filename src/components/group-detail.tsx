@@ -12,6 +12,7 @@ import {
   formatMoney,
   isFiltering,
   groupDeletionBlock,
+  membersInBalances,
   type Expense,
   type ExpenseFilter,
   type GroupSnapshot,
@@ -71,6 +72,7 @@ export function GroupDetail({
   const insights = computeInsights(group, filter);
   const timeline = filtering ? insights.expenses : ledger.timeline;
   const members = new Map(group.members.map((m) => [m.id, m]));
+  const inBalances = new Set(membersInBalances(group).map((m) => m.id));
   const nameOf = (id: string) => members.get(id)?.name ?? "Unknown member";
 
   // `null`: closed; `{ expense: null }`: adding; otherwise editing that Expense.
@@ -201,7 +203,7 @@ export function GroupDetail({
         <ul className="mt-3 divide-y divide-border-subtle rounded-lg border border-border bg-surface">
           {ledger.balances.map((balance) => {
             const member = members.get(balance.memberId)!;
-            if (member.former) return null;
+            if (!inBalances.has(member.id)) return null;
             return (
               <li
                 key={balance.memberId}
@@ -210,7 +212,12 @@ export function GroupDetail({
               >
                 <span className="flex min-w-0 items-center gap-3">
                   <MemberAvatar member={member} />
-                  <span className="font-semibold break-words">{member.name}</span>
+                  <span className="font-semibold break-words">
+                    {member.name}
+                    {member.former && (
+                      <span className="font-normal text-text-secondary"> (Former Member)</span>
+                    )}
+                  </span>
                 </span>
                 <BalanceStatus
                   amount={balance.amount}
