@@ -22,7 +22,7 @@ interface RawExpense {
   exchangeRate: number;
   paidBy: string;
   splitType: string;
-  splits: { memberId: string; amount: number }[];
+  splits: { memberId: string; amount: number; percentage?: number; shares?: number }[];
   date: string;
   category: string;
   notes?: string;
@@ -85,6 +85,8 @@ function importExpense(raw: RawExpense): Expense {
     shares: raw.splits.map((s) => ({
       memberId: s.memberId,
       amount: toMinorUnits(s.amount, expenseCurrency),
+      ...(s.percentage !== undefined ? { percentage: String(s.percentage) } : {}),
+      ...(s.shares !== undefined ? { ratio: String(s.shares) } : {}),
     })),
     date: calendarDate(raw.date),
     createdAt: new Date(raw.date).toISOString(),

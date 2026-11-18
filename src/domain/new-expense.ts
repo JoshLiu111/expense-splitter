@@ -1,6 +1,6 @@
 import { parseAmount } from "./currency";
 import { computeSplit } from "./split";
-import type { CalendarDate, Expense, GroupSnapshot } from "./types";
+import type { CalendarDate, Expense, GroupSnapshot, SplitType } from "./types";
 
 /** The nine predefined Categories shared by all Groups. */
 export const CATEGORIES = [
@@ -30,19 +30,42 @@ export interface NewExpenseFields {
   payerId: string;
   participantIds: string[];
   notes: string;
+  splitType: string;
+  /**
+   * What was typed per Member for an Exact, Percentage or Shares Split;
+   * kept for every Member so switching Split Type loses nothing.
+   */
+  splitValues: Record<string, string>;
 }
 
 export type NewExpenseErrors = Partial<
-  Record<Exclude<keyof NewExpenseFields, "participantIds"> | "participants", string>
+  Record<
+    | Exclude<keyof NewExpenseFields, "participantIds" | "splitValues">
+    | "participants"
+    | "split",
+    string
+  >
 >;
 
 export type ParseExpenseResult =
   | { ok: true; value: NewExpense }
-  | { ok: false; errors: NewExpenseErrors };
+  | {
+      ok: false;
+      errors: NewExpenseErrors;
+      /** Problems with individual Members' Split values, by Member id. */
+      splitValueErrors?: Record<string, string>;
+    };
+
+const SPLIT_TYPES: readonly SplitType[] = ["equal", "exact", "percentage", "shares"];
+
+export function isSplitType(value: string): value is SplitType {
+  return (SPLIT_TYPES as readonly string[]).includes(value);
+}
 
 /**
- * Validates an Equal Expense for a Group and computes its Shares. The
- * Expense is recorded in the Group Currency, so its Locked Rate is 1.
+ * Validates an Expense for a Group and computes its Shares by its Split
+ * Type. The Expense is recorded in the Group Currency, so its Locked Rate
+ * is 1.
  */
 export function parseNewExpense(fields: NewExpenseFields, group: GroupSnapshot): ParseExpenseResult {
   const currency = group.currency;
@@ -72,16 +95,26 @@ export function parseNewExpense(fields: NewExpenseFields, group: GroupSnapshot):
   if (notes.length > MAX_EXPENSE_NOTES_LENGTH)
     errors.notes = `Keep notes to ${MAX_EXPENSE_NOTES_LENGTH} characters or fewer.`;
 
-  if (!amount.ok || Object.keys(errors).length > 0) return { ok: false, errors };
+  const splitType = fields.splitType;
+  if (!isSplitType(splitType)) errors.splitType = "Choose how to split the Expense.";
 
-  const split = computeSplit({
-    amount: amount.amount,
-    currency,
-    splitType: "equal",
-    participantIds: fields.participantIds,
-    memberOrder: memberIds,
-  });
-  if (!split.ok) return { ok: false, errors: { participants: split.error } };
+  let split: ReturnType<typeof computeSplit> | null = null;
+  if (amount.ok && isSplitType(splitType) && !errors.participants) {
+    split = computeSplit({
+      amount: amount.amount,
+      currency,
+      splitType,
+      participantIds: fields.participantIds,
+      memberOrder: memberIds,
+      values: fields.splitValues,
+    });
+    if (!split.ok) errors.split = split.error;
+  }
+
+  if (!amount.ok || !split?.ok || !isSplitType(splitType) || Object.keys(errors).length > 0) {
+    const splitValueErrors = split && !split.ok ? split.memberErrors : undefined;
+    return { ok: false, errors, ...(splitValueErrors ? { splitValueErrors } : {}) };
+  }
 
   return {
     ok: true,
@@ -91,7 +124,7 @@ export function parseNewExpense(fields: NewExpenseFields, group: GroupSnapshot):
       currency,
       lockedRate: "1",
       payerId: fields.payerId,
-      splitType: "equal",
+      splitType,
       shares: split.shares,
       date: fields.date,
       category: fields.category,

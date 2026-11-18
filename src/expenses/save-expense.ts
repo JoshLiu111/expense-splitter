@@ -4,7 +4,12 @@ import type { GroupRepository } from "@/groups/group-repository";
 /** What the Expense form shows after a save or delete. */
 export type ExpenseResult =
   | { ok: true }
-  | { ok: false; errors: NewExpenseErrors & { form?: string } };
+  | {
+      ok: false;
+      errors: NewExpenseErrors & { form?: string };
+      /** Problems with individual Members' Split values, by Member id. */
+      splitValueErrors?: Record<string, string>;
+    };
 
 /** Saves the Expense form: adds a new Expense, or edits `expenseId`. */
 export type SaveExpense = (
@@ -24,6 +29,12 @@ export function expenseFields(input: unknown): NewExpenseFields {
   const ids = Array.isArray(record.participantIds)
     ? record.participantIds.filter((id): id is string => typeof id === "string")
     : [];
+  const values =
+    typeof record.splitValues === "object" && record.splitValues !== null
+      ? Object.entries(record.splitValues).filter(
+          (entry): entry is [string, string] => typeof entry[1] === "string",
+        )
+      : [];
   return {
     amount: text("amount"),
     description: text("description"),
@@ -32,6 +43,8 @@ export function expenseFields(input: unknown): NewExpenseFields {
     payerId: text("payerId"),
     participantIds: [...new Set(ids)],
     notes: text("notes"),
+    splitType: text("splitType"),
+    splitValues: Object.fromEntries(values),
   };
 }
 
@@ -52,7 +65,7 @@ export async function saveExpense(
   const group = await repo.getGroup(groupId);
   if (!group) return formError("This Group is no longer available.");
   const parsed = parseNewExpense(expenseFields(fields), group);
-  if (!parsed.ok) return { ok: false, errors: parsed.errors };
+  if (!parsed.ok) return parsed;
   const saved = expenseId
     ? await repo.updateExpense(groupId, expenseId, parsed.value)
     : await repo.addExpense(groupId, parsed.value);

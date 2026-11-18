@@ -32,6 +32,10 @@ export interface Share {
   memberId: string;
   /** In the Expense Currency's minor unit. */
   amount: MinorUnits;
+  /** Percentage Split only: the percentage typed, e.g. "33.33". */
+  percentage?: string;
+  /** Shares Split only: the ratio typed, e.g. "2" in a 2:1 Split. */
+  ratio?: string;
 }
 
 export interface Expense {

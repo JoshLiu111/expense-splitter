@@ -149,6 +149,10 @@ export const expenseShares = pgTable(
       .notNull()
       .references(() => members.id),
     amount: bigint("amount", { mode: "number" }).notNull(),
+    /** Percentage Split only: the percentage entered, as a decimal string. */
+    percentage: text("percentage"),
+    /** Shares Split only: the ratio entered, as a decimal string. */
+    ratio: text("ratio"),
     position: integer("position").notNull(),
   },
   (t) => [primaryKey({ columns: [t.expenseId, t.memberId] })],

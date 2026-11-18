@@ -4,7 +4,8 @@ import { AVATAR_COLORS, type GroupRepository } from "@/groups/group-repository";
 /** The Name-only Member standing for the Guest in Groups they create. */
 export const GUEST_MEMBER_NAME = "You";
 
-const STORAGE_KEY = "expense-splitter:guest:v1";
+// v2: Shares keep the percentages and ratios they were entered with.
+const STORAGE_KEY = "expense-splitter:guest:v2";
 
 interface StoredState {
   version: 1;

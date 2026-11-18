@@ -17,6 +17,7 @@ export {
   CATEGORIES,
   MAX_EXPENSE_DESCRIPTION_LENGTH,
   MAX_EXPENSE_NOTES_LENGTH,
+  isSplitType,
   parseNewExpense,
 } from "./new-expense";
 export type {

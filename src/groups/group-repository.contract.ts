@@ -86,6 +86,29 @@ export function groupRepositoryContract(makeRepository: () => Promise<GroupRepos
     expect((await repo.getGroup(group.id))?.expenses).toEqual([edited]);
   });
 
+  it("keeps the percentages and ratios a Split was entered with", async () => {
+    const repo = await makeRepository();
+    const group = await repo.createGroup({ name: "Flat", description: "", currency: "USD" });
+    const me = group.members[0].id;
+    const byPercentage = lunch(group, {
+      splitType: "percentage",
+      shares: [{ memberId: me, amount: 2450, percentage: "100" }],
+    });
+    const added = await repo.addExpense(group.id, byPercentage);
+    expect((await repo.getGroup(group.id))?.expenses).toEqual([
+      { ...byPercentage, id: added!.id, createdAt: added!.createdAt },
+    ]);
+
+    const byRatio = lunch(group, {
+      splitType: "shares",
+      shares: [{ memberId: me, amount: 2450, ratio: "1.5" }],
+    });
+    await repo.updateExpense(group.id, added!.id, byRatio);
+    expect((await repo.getGroup(group.id))?.expenses).toEqual([
+      { ...byRatio, id: added!.id, createdAt: added!.createdAt },
+    ]);
+  });
+
   it("deletes an Expense", async () => {
     const repo = await makeRepository();
     const group = await repo.createGroup({ name: "Flat", description: "", currency: "USD" });

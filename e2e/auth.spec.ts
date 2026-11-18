@@ -89,6 +89,31 @@ test("a signed-in User's Expense is saved to their Group", async ({ page }) => {
   await expect(page.getByText("$24.50 spent")).toBeVisible();
 });
 
+test("a signed-in User's Percentage Split reloads on edit", async ({ page }) => {
+  await signUp(page, uniqueEmail());
+  await page.getByRole("link", { name: "New Group" }).click();
+  await field(page, "Name").fill("Solo");
+  await page.getByRole("button", { name: "Create Group" }).click();
+  await expect(page.getByRole("heading", { level: 1, name: "Solo" })).toBeVisible();
+
+  await page.getByRole("button", { name: "Add Expense", exact: true }).click();
+  await field(page, "Amount (USD)").fill("12");
+  await field(page, "Description").fill("Books");
+  await page
+    .locator("label")
+    .filter({ has: page.getByRole("radio", { name: "Percentage", exact: true }) })
+    .filter({ visible: true })
+    .click();
+  await field(page, "Maya Chen (%)").fill("100");
+  await page.getByRole("button", { name: "Add Expense", exact: true }).click();
+  await expect(page.getByText("Expense added.")).toBeVisible();
+
+  await page.reload();
+  await page.getByRole("button", { name: "Edit “Books”" }).click();
+  await expect(page.getByRole("radio", { name: "Percentage", exact: true })).toBeChecked();
+  await expect(field(page, "Maya Chen (%)")).toHaveValue("100");
+});
+
 test("the session cookie outlives the browser", async ({ page, context }) => {
   await signUp(page, uniqueEmail());
   const cookies = await context.cookies();

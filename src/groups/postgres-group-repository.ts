@@ -80,7 +80,12 @@ export function createPostgresGroupRepository(
             splitType: e.splitType as SplitType,
             shares: shareRows
               .filter((s) => s.share.expenseId === e.id)
-              .map((s) => ({ memberId: s.share.memberId, amount: s.share.amount })),
+              .map((s) => ({
+                memberId: s.share.memberId,
+                amount: s.share.amount,
+                ...(s.share.percentage !== null ? { percentage: s.share.percentage } : {}),
+                ...(s.share.ratio !== null ? { ratio: s.share.ratio } : {}),
+              })),
             date: e.date,
             createdAt: e.createdAt.toISOString(),
             category: e.category,
@@ -122,6 +127,8 @@ export function createPostgresGroupRepository(
         expenseId,
         memberId: share.memberId,
         amount: share.amount,
+        percentage: share.percentage ?? null,
+        ratio: share.ratio ?? null,
         position,
       })),
     );

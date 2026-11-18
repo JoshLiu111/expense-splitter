@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, useState, useTransition, type FormEvent } from "react";
+import { useId, useMemo, useState, useTransition, type FormEvent } from "react";
 import {
   CATEGORIES,
   amountText,
@@ -13,6 +13,7 @@ import {
   type Expense,
   type GroupSnapshot,
   type NewExpenseFields,
+  type SplitType,
 } from "@/domain";
 import type { ExpenseResult } from "@/expenses/save-expense";
 import { GUEST_MEMBER_NAME } from "@/guest/guest-repository";
@@ -22,12 +23,17 @@ import { Button } from "@/components/ui/button";
 import { todayCalendarDate } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
+type FormFields = Omit<NewExpenseFields, "splitValues">;
+type AdvancedSplitType = Exclude<SplitType, "equal">;
+/** What was typed per Member, kept per Split Type so switching loses nothing. */
+type SplitValues = Record<AdvancedSplitType, Record<string, string>>;
+
 /** Form values for a new Expense: paid by me, split equally among everyone. */
 function initialFields(
   group: GroupSnapshot,
   expense: Expense | null,
   currentMemberId: string | undefined,
-): NewExpenseFields {
+): FormFields {
   if (expense) {
     return {
       amount: amountText(expense.amount, expense.currency),
@@ -37,6 +43,7 @@ function initialFields(
       payerId: expense.payerId,
       participantIds: expense.shares.map((s) => s.memberId),
       notes: expense.notes ?? "",
+      splitType: expense.splitType,
     };
   }
   return {
@@ -47,15 +54,49 @@ function initialFields(
     payerId: currentMemberId ?? group.members[0]?.id ?? "",
     participantIds: group.members.map((m) => m.id),
     notes: "",
+    splitType: "equal",
   };
 }
+
+/** The values an edited Expense was entered with; one share each by default. */
+function initialSplitValues(group: GroupSnapshot, expense: Expense | null): SplitValues {
+  const values: SplitValues = {
+    exact: {},
+    percentage: {},
+    shares: Object.fromEntries(group.members.map((m) => [m.id, "1"])),
+  };
+  for (const share of expense?.shares ?? []) {
+    if (expense?.splitType === "exact") {
+      values.exact[share.memberId] = amountText(share.amount, expense.currency);
+    } else if (expense?.splitType === "percentage" && share.percentage !== undefined) {
+      values.percentage[share.memberId] = share.percentage;
+    } else if (expense?.splitType === "shares" && share.ratio !== undefined) {
+      values.shares[share.memberId] = share.ratio;
+    }
+  }
+  return values;
+}
+
+const SPLIT_TYPE_OPTIONS: { value: SplitType; label: string }[] = [
+  { value: "equal", label: "Equal" },
+  { value: "exact", label: "Exact" },
+  { value: "percentage", label: "Percentage" },
+  { value: "shares", label: "Shares" },
+];
+
+const SPLIT_VALUE_LEGENDS: Record<AdvancedSplitType, string> = {
+  exact: "Amount each Member owes",
+  percentage: "Percentage each Member owes",
+  shares: "Shares each Member takes",
+};
 
 const chipClass =
   "inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-full border border-border-input bg-surface py-1 pr-4 pl-1 text-sm font-semibold transition-colors duration-(--duration-fast) has-checked:border-accent has-checked:bg-accent-subtle has-focus-visible:ring-[3px] has-focus-visible:ring-ring";
 
 /**
- * Add or edit an Equal Expense. Amount comes first; the default is paid by
- * the current Member and split equally among everyone, with a live preview.
+ * Add or edit an Expense. Amount comes first; the default is paid by the
+ * current Member and split equally among everyone, with a live preview.
+ * Exact, Percentage and Shares Splits take a value per participant.
  */
 export function ExpenseForm({
   group,
@@ -74,7 +115,9 @@ export function ExpenseForm({
   onSaved: () => void;
 }) {
   const [fields, setFields] = useState(() => initialFields(group, expense, currentMemberId));
-  const [errors, setErrors] = useState<Extract<ExpenseResult, { ok: false }>["errors"]>();
+  const [splitValues, setSplitValues] = useState(() => initialSplitValues(group, expense));
+  const [failure, setFailure] = useState<Extract<ExpenseResult, { ok: false }>>();
+  const errors = failure?.errors;
   const [pending, startTransition] = useTransition();
   const formId = useId();
   const ids = {
@@ -85,9 +128,16 @@ export function ExpenseForm({
     date: `${formId}-date`,
     category: `${formId}-category`,
     notes: `${formId}-notes`,
+    splitType: `${formId}-split-type`,
+    split: `${formId}-split`,
   };
-  const set = <K extends keyof NewExpenseFields>(key: K, value: NewExpenseFields[K]) =>
+  const set = <K extends keyof FormFields>(key: K, value: FormFields[K]) =>
     setFields((f) => ({ ...f, [key]: value }));
+  const splitType = fields.splitType as SplitType;
+  const values = splitType === "equal" ? {} : splitValues[splitType];
+  const setValue = (memberId: string, value: string) =>
+    splitType !== "equal" &&
+    setSplitValues((v) => ({ ...v, [splitType]: { ...v[splitType], [memberId]: value } }));
 
   const amount = parseAmount(fields.amount, group.currency);
   const liveAmountError = fields.amount.trim() !== "" && !amount.ok ? amount.error : undefined;
@@ -95,11 +145,24 @@ export function ExpenseForm({
     ? computeSplit({
         amount: amount.amount,
         currency: group.currency,
-        splitType: "equal",
+        splitType,
         participantIds: fields.participantIds,
         memberOrder: group.members.map((m) => m.id),
+        values,
       })
     : null;
+  // Problems with a Member's value show as they type, once there's an amount.
+  const valueErrors = split ? (split.ok ? undefined : split.memberErrors) : failure?.splitValueErrors;
+  const participants = group.members.filter((m) => fields.participantIds.includes(m.id));
+  // After a failed save, the Split's problem tracks what's typed now, so it
+  // never contradicts the preview.
+  const splitError = errors?.split && (split ? (split.ok ? undefined : split.error) : errors.split);
+  // A Split problem no longer applies once the Expense is split equally.
+  // Memoised: the summary takes focus whenever its errors object changes.
+  const summaryErrors = useMemo(
+    () => (splitType === "equal" && errors?.split ? { ...errors, split: undefined } : errors),
+    [errors, splitType],
+  );
   const nameOf = (id: string) => group.members.find((m) => m.id === id)?.name ?? "Unknown member";
   const selectedCount = group.members.filter((m) => fields.participantIds.includes(m.id)).length;
 
@@ -107,11 +170,14 @@ export function ExpenseForm({
     event.preventDefault();
     startTransition(async () => {
       try {
-        const result = await onSave(fields);
+        const result = await onSave({ ...fields, splitValues: values });
         if (result.ok) onSaved();
-        else setErrors(result.errors);
+        else setFailure(result);
       } catch {
-        setErrors({ form: "Couldn't save the Expense. Check your connection and try again." });
+        setFailure({
+          ok: false,
+          errors: { form: "Couldn't save the Expense. Check your connection and try again." },
+        });
       }
     });
   }
@@ -120,7 +186,7 @@ export function ExpenseForm({
 
   return (
     <form onSubmit={submit} noValidate className="flex flex-col gap-5">
-      <ErrorSummary errors={errors} fieldIds={ids} />
+      <ErrorSummary errors={summaryErrors} fieldIds={ids} />
 
       <Field id={ids.amount} label={`Amount (${group.currency})`} error={shownErrors.amount}>
         {(describedBy, className) => (
@@ -194,7 +260,7 @@ export function ExpenseForm({
           .filter(Boolean)
           .join(" ")}
       >
-        <legend className="mb-2 text-sm font-semibold">Split equally between</legend>
+        <legend className="mb-2 text-sm font-semibold">Split between</legend>
         <div className="flex flex-wrap gap-2">
           {group.members.map((member) => (
             <label key={member.id} className={chipClass}>
@@ -228,12 +294,100 @@ export function ExpenseForm({
         )}
       </fieldset>
 
+      <fieldset
+        id={ids.splitType}
+        tabIndex={-1}
+        className="flex flex-col gap-2 outline-none"
+        aria-describedby={errors?.splitType ? `${ids.splitType}-error` : undefined}
+      >
+        <legend className="mb-2 text-sm font-semibold">Split type</legend>
+        <div className="flex flex-wrap gap-2">
+          {SPLIT_TYPE_OPTIONS.map((option) => (
+            <label key={option.value} className={cn(chipClass, "pl-4")}>
+              <input
+                type="radio"
+                name="splitType"
+                value={option.value}
+                checked={splitType === option.value}
+                onChange={() => set("splitType", option.value)}
+                className="sr-only"
+              />
+              {option.label}
+            </label>
+          ))}
+        </div>
+        {errors?.splitType && (
+          <p id={`${ids.splitType}-error`} className="text-sm font-semibold text-error">
+            {errors.splitType}
+          </p>
+        )}
+      </fieldset>
+
+      {splitType !== "equal" && (
+        <fieldset
+          id={ids.split}
+          tabIndex={-1}
+          className="flex flex-col gap-3 outline-none"
+          aria-describedby={splitError ? `${ids.split}-error` : undefined}
+        >
+          <legend className="mb-2 text-sm font-semibold">{SPLIT_VALUE_LEGENDS[splitType]}</legend>
+          <div className="grid gap-3 sm:grid-cols-2">
+            {participants.map((member) => {
+              const id = `${ids.split}-${member.id}`;
+              const error = valueErrors?.[member.id];
+              return (
+                <Field
+                  key={member.id}
+                  id={id}
+                  label={`${member.name} (${splitType === "exact" ? group.currency : splitType === "percentage" ? "%" : "shares"})`}
+                  error={error}
+                >
+                  {(describedBy, className) => (
+                    <input
+                      id={id}
+                      inputMode="decimal"
+                      autoComplete="off"
+                      value={values[member.id] ?? ""}
+                      onChange={(e) => setValue(member.id, e.target.value)}
+                      aria-invalid={error ? true : undefined}
+                      aria-describedby={describedBy}
+                      className={cn(className, "amount")}
+                      placeholder="0"
+                    />
+                  )}
+                </Field>
+              );
+            })}
+          </div>
+          {splitError && (
+            <p id={`${ids.split}-error`} className="text-sm font-semibold text-error">
+              {splitError}
+            </p>
+          )}
+        </fieldset>
+      )}
+
       {/* Not a live region: it changes on every keystroke. */}
       <div
         data-testid="split-preview"
         className="rounded-md bg-bg-secondary px-4 py-3 text-sm"
       >
-        {split?.ok && amount.ok ? (
+        {split?.ok && amount.ok && splitType !== "equal" ? (
+          <ul>
+            {split.shares.map((share) => (
+              <li key={share.memberId}>
+                {nameOf(share.memberId)}:{" "}
+                {share.amount === 0 ? (
+                  <span className="text-text-secondary">not charged</span>
+                ) : (
+                  <span className="amount font-semibold">
+                    {formatMoney(share.amount, group.currency)}
+                  </span>
+                )}
+              </li>
+            ))}
+          </ul>
+        ) : split?.ok && amount.ok ? (
           <>
             <p className="amount font-semibold">
               {describeEqualSplit(amount.amount, group.currency, split.shares)}

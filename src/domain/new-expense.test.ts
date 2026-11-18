@@ -23,6 +23,8 @@ const fields = (overrides: Partial<NewExpenseFields> = {}): NewExpenseFields => 
   payerId: "mem_alex",
   participantIds: ["mem_alex", "mem_jordan", "mem_sam"],
   notes: "",
+  splitType: "equal",
+  splitValues: {},
   ...overrides,
 });
 
@@ -141,6 +143,75 @@ describe("parseNewExpense", () => {
     expect(withNotes.ok && withNotes.value.notes).toBe("extra cheese");
     const blank = parseNewExpense(fields({ notes: "   " }), group);
     expect(blank.ok && "notes" in blank.value).toBe(false);
+  });
+});
+
+describe("parseNewExpense: advanced Split Types", () => {
+  it("records a Shares Split with each ratio", () => {
+    const result = parseNewExpense(
+      fields({
+        amount: "10",
+        splitType: "shares",
+        participantIds: ["mem_alex", "mem_jordan"],
+        splitValues: { mem_alex: "2", mem_jordan: "1", mem_sam: "5" },
+      }),
+      group,
+    );
+    expect(result.ok && result.value.splitType).toBe("shares");
+    expect(result.ok && result.value.shares).toEqual([
+      { memberId: "mem_alex", amount: 667, ratio: "2" },
+      { memberId: "mem_jordan", amount: 333, ratio: "1" },
+    ]);
+  });
+
+  it("reports a Split that doesn't add up against the Split, with other problems", () => {
+    expect(
+      parseNewExpense(
+        fields({
+          description: "",
+          splitType: "percentage",
+          splitValues: { mem_alex: "50", mem_jordan: "25", mem_sam: "20" },
+        }),
+        group,
+      ),
+    ).toEqual({
+      ok: false,
+      errors: {
+        description: "Describe what the Expense was for.",
+        split: "Percentages must add up to 100%. Currently: 95%",
+      },
+    });
+  });
+
+  it("reports which Member's value is wrong", () => {
+    expect(
+      parseNewExpense(
+        fields({
+          splitType: "exact",
+          participantIds: ["mem_alex", "mem_jordan"],
+          splitValues: { mem_alex: "60", mem_jordan: "abc" },
+        }),
+        group,
+      ),
+    ).toEqual({
+      ok: false,
+      errors: { split: "Fix the highlighted Shares." },
+      splitValueErrors: { mem_jordan: "Enter the amount as a number, like 12.50." },
+    });
+  });
+
+  it("doesn't judge the Split until the amount is valid", () => {
+    expect(parseNewExpense(fields({ amount: "", splitType: "exact" }), group)).toEqual({
+      ok: false,
+      errors: { amount: "Enter an amount." },
+    });
+  });
+
+  it("rejects an unknown Split Type", () => {
+    expect(parseNewExpense(fields({ splitType: "itemised" }), group)).toEqual({
+      ok: false,
+      errors: { splitType: "Choose how to split the Expense." },
+    });
   });
 });
 

@@ -219,6 +219,13 @@ export function GroupDetail({
   );
 }
 
+const SPLIT_TYPE_LABELS: Record<Expense["splitType"], string> = {
+  equal: "Split equally",
+  exact: "Exact amounts",
+  percentage: "By percentage",
+  shares: "By shares",
+};
+
 function ExpenseRow({
   entry,
   group,
@@ -234,9 +241,9 @@ function ExpenseRow({
 }) {
   const { expense } = entry;
   const foreign = expense.currency !== group.currency;
-  // This form only edits Equal Expenses in the Group Currency; others would
-  // lose their Split or Locked Rate.
-  const editable = expense.splitType === "equal" && !foreign;
+  // This form only edits Expenses in the Group Currency; others would lose
+  // their Locked Rate.
+  const editable = !foreign;
   return (
     <article className="flex flex-col gap-2 rounded-lg border border-border bg-surface px-4 py-3">
       <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-1">
@@ -244,7 +251,8 @@ function ExpenseRow({
           <h3 className="font-semibold break-words">{expense.description}</h3>
           <p className="text-sm text-text-secondary">
             {payer?.name ?? "Unknown member"} paid ·{" "}
-            {pluralize(entry.owing.length, "member")} · {expense.category} ·{" "}
+            {pluralize(entry.owing.length, "member")} · {SPLIT_TYPE_LABELS[expense.splitType]} ·{" "}
+            {expense.category} ·{" "}
             <time dateTime={expense.date}>{formatCalendarDate(expense.date)}</time>
           </p>
         </div>
