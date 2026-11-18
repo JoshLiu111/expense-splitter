@@ -1,0 +1,156 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-11-18T00:00:00Z",
+  "title": "Design System: Expense Splitter",
+  "extensions": {
+    "colorMeta": {
+      "accent": { "role": "primary", "displayName": "Ledger Cobalt", "canonical": "#2a62d6", "tonalRamp": ["oklch(25% 0.08 264)", "oklch(35% 0.12 264)", "oklch(45% 0.16 264)", "oklch(53% 0.19 264)", "oklch(64% 0.15 264)", "oklch(75% 0.10 264)", "oklch(86% 0.05 264)", "oklch(95% 0.02 264)"] },
+      "owe": { "role": "secondary", "displayName": "Debt Red", "canonical": "#b81f2f", "tonalRamp": ["oklch(25% 0.08 20)", "oklch(35% 0.12 20)", "oklch(45% 0.17 20)", "oklch(52% 0.19 20)", "oklch(64% 0.17 15)", "oklch(75% 0.11 15)", "oklch(86% 0.05 15)", "oklch(95% 0.02 15)"] },
+      "owed": { "role": "secondary", "displayName": "Credit Green", "canonical": "#08704b", "tonalRamp": ["oklch(25% 0.05 162)", "oklch(35% 0.08 162)", "oklch(46% 0.10 162)", "oklch(55% 0.12 162)", "oklch(66% 0.13 162)", "oklch(77% 0.11 162)", "oklch(88% 0.05 162)", "oklch(95% 0.02 162)"] },
+      "success": { "role": "tertiary", "displayName": "Confirmation Green", "canonical": "#0a7e55" },
+      "warning": { "role": "tertiary", "displayName": "Ochre Caution", "canonical": "#8a5a00" },
+      "error": { "role": "tertiary", "displayName": "Alarm Red", "canonical": "#d32637" },
+      "bg-primary": { "role": "neutral", "displayName": "Statement Paper", "canonical": "#f6f8fb", "tonalRamp": ["#0a0d13", "#151a24", "#212935", "#566073", "#7d8799", "#dbe1ea", "#edf1f6", "#f6f8fb"] },
+      "bg-secondary": { "role": "neutral", "displayName": "Header Slate", "canonical": "#edf1f6" },
+      "bg-tertiary": { "role": "neutral", "displayName": "Hover Slate", "canonical": "#e3e9f1" },
+      "surface": { "role": "neutral", "displayName": "Sheet White", "canonical": "#ffffff" },
+      "border": { "role": "neutral", "displayName": "Hairline", "canonical": "#dbe1ea" },
+      "border-subtle": { "role": "neutral", "displayName": "Faint Hairline", "canonical": "#e7ecf3" },
+      "border-input": { "role": "neutral", "displayName": "Control Edge", "canonical": "#7d8799" },
+      "text-primary": { "role": "neutral", "displayName": "Ink", "canonical": "#131a26" },
+      "text-secondary": { "role": "neutral", "displayName": "Graphite", "canonical": "#566073" },
+      "text-tertiary": { "role": "neutral", "displayName": "Pewter", "canonical": "#646e7c" },
+      "chart-series": { "role": "neutral", "displayName": "Chart Series (light / dark)", "canonical": "#2a62d6", "tonalRamp": ["#2a62d6", "#08704b", "#b45309", "#b81f2f", "#7c3aed", "#0e7490", "#566073", "#5b8def"] }
+    },
+    "typographyMeta": {
+      "display": { "displayName": "Display", "purpose": "Landing page hero heading only." },
+      "headline": { "displayName": "Headline", "purpose": "One per page: the page or Group name." },
+      "title": { "displayName": "Title", "purpose": "Section headings: Balances, Insights, Expenses." },
+      "body": { "displayName": "Body", "purpose": "Prose, Member names, Expense descriptions." },
+      "label": { "displayName": "Label", "purpose": "Buttons, field labels, legends, chips, metadata." },
+      "caption": { "displayName": "Caption", "purpose": "Secondary conversions under an amount; avatar initials." },
+      "amount": { "displayName": "Amount", "purpose": "Every monetary figure; tabular numerals, never truncated." }
+    },
+    "shadows": [
+      { "name": "shadow-sm", "value": "0 1px 2px rgba(15, 23, 42, 0.05)", "purpose": "Subtle rest lift; rarely used." },
+      { "name": "shadow-md", "value": "0 4px 6px -1px rgba(15, 23, 42, 0.07), 0 2px 4px -2px rgba(15, 23, 42, 0.05)", "purpose": "The open inline expense editor." },
+      { "name": "shadow-lg", "value": "0 10px 15px -3px rgba(15, 23, 42, 0.08), 0 4px 6px -4px rgba(15, 23, 42, 0.04)", "purpose": "Dialogs, sheets, the floating Add expense button, the skip link." }
+    ],
+    "motion": [
+      { "name": "duration-fast", "value": "120ms", "purpose": "Colour transitions on buttons, chips and inputs." },
+      { "name": "duration-base", "value": "200ms", "purpose": "Standard state changes." },
+      { "name": "duration-slow", "value": "360ms", "purpose": "The Settled Up celebration pop." },
+      { "name": "ease-standard", "value": "cubic-bezier(0.2, 0, 0, 1)", "purpose": "Default easing." },
+      { "name": "ease-emphasized", "value": "cubic-bezier(0.3, 0, 0, 1.2)", "purpose": "Emphasised entrances with slight overshoot." }
+    ],
+    "breakpoints": [
+      { "name": "sm", "value": "640px" },
+      { "name": "md", "value": "768px" },
+      { "name": "lg", "value": "1024px" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "The main action: Add expense, Save, Record settlement.",
+      "html": "<button class=\"ds-btn-primary\">Add expense</button>",
+      "css": ".ds-btn-primary { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px; padding: 8px 16px; border: none; border-radius: 8px; background: var(--color-accent, #2a62d6); color: var(--color-on-accent, #fff); font-family: Manrope, system-ui, sans-serif; font-size: 13px; font-weight: 600; cursor: pointer; transition: background-color 120ms cubic-bezier(0.2, 0, 0, 1); } .ds-btn-primary:hover { background: var(--color-accent-hover, #2156c9); } .ds-btn-primary:focus-visible { outline: none; box-shadow: 0 0 0 2px var(--color-bg-primary, #f6f8fb), 0 0 0 5px var(--color-focus, #2a62d6); }"
+    },
+    {
+      "name": "Outline Button",
+      "kind": "button",
+      "refersTo": "button-outline",
+      "description": "Secondary actions beside a primary one.",
+      "html": "<button class=\"ds-btn-outline\">Cancel</button>",
+      "css": ".ds-btn-outline { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; padding: 8px 16px; border: 1px solid var(--color-border-input, #7d8799); border-radius: 8px; background: var(--color-surface, #fff); color: var(--color-text-primary, #131a26); font-family: Manrope, system-ui, sans-serif; font-size: 13px; font-weight: 600; cursor: pointer; transition: background-color 120ms cubic-bezier(0.2, 0, 0, 1); } .ds-btn-outline:hover { background: var(--color-bg-tertiary, #e3e9f1); } .ds-btn-outline:focus-visible { outline: none; box-shadow: 0 0 0 2px var(--color-bg-primary, #f6f8fb), 0 0 0 5px var(--color-focus, #2a62d6); }"
+    },
+    {
+      "name": "Ghost Button",
+      "kind": "button",
+      "refersTo": "button-ghost",
+      "description": "Header controls: user menu, theme toggle.",
+      "html": "<button class=\"ds-btn-ghost\">Sign in</button>",
+      "css": ".ds-btn-ghost { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; padding: 8px 16px; border: none; border-radius: 8px; background: transparent; color: var(--color-text-primary, #131a26); font-family: Manrope, system-ui, sans-serif; font-size: 13px; font-weight: 600; cursor: pointer; transition: background-color 120ms cubic-bezier(0.2, 0, 0, 1); } .ds-btn-ghost:hover { background: var(--color-bg-tertiary, #e3e9f1); } .ds-btn-ghost:focus-visible { outline: none; box-shadow: 0 0 0 2px var(--color-bg-primary, #f6f8fb), 0 0 0 5px var(--color-focus, #2a62d6); }"
+    },
+    {
+      "name": "Text Field",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "Labelled control with hint and error wired through aria-describedby.",
+      "html": "<label class=\"ds-field\"><span class=\"ds-field-label\">Description</span><input class=\"ds-input\" placeholder=\"Dinner in Shibuya\"></label>",
+      "css": ".ds-field { display: flex; flex-direction: column; gap: 6px; font-family: Manrope, system-ui, sans-serif; } .ds-field-label { font-size: 13px; font-weight: 600; color: var(--color-text-primary, #131a26); } .ds-input { width: 100%; padding: 8px 12px; border: 1px solid var(--color-border-input, #7d8799); border-radius: 8px; background: var(--color-surface, #fff); color: var(--color-text-primary, #131a26); font: inherit; font-size: 16px; outline: none; transition: border-color 120ms; } .ds-input:focus-visible { box-shadow: 0 0 0 3px var(--color-focus, #2a62d6); } .ds-input[aria-invalid=\"true\"] { border-color: var(--color-error, #d32637); }"
+    },
+    {
+      "name": "Member Chip",
+      "kind": "chip",
+      "refersTo": "chip",
+      "description": "Selectable pill wrapping a hidden native checkbox or radio; used for Payer, participants and Split Type.",
+      "html": "<label class=\"ds-chip\"><input type=\"checkbox\" checked><span class=\"ds-chip-avatar\">JO</span>Jordan</label>",
+      "css": ".ds-chip { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 4px 16px 4px 4px; border: 1px solid var(--color-border-input, #7d8799); border-radius: 9999px; background: var(--color-surface, #fff); color: var(--color-text-primary, #131a26); font-family: Manrope, system-ui, sans-serif; font-size: 13px; font-weight: 600; cursor: pointer; transition: background-color 120ms, border-color 120ms; } .ds-chip input { position: absolute; opacity: 0; width: 1px; height: 1px; } .ds-chip:has(input:checked) { border-color: var(--color-accent, #2a62d6); background: var(--color-accent-subtle, #e7eefc); } .ds-chip:has(input:focus-visible) { box-shadow: 0 0 0 3px var(--color-focus, #2a62d6); } .ds-chip-avatar { display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 9999px; background: #0e7490; color: #fff; font-size: 11px; font-weight: 700; }"
+    },
+    {
+      "name": "Balance Status",
+      "kind": "custom",
+      "refersTo": "balance-owes",
+      "description": "A Balance as a pill: arrow icon, word and signed mono amount; never colour alone.",
+      "html": "<div class=\"ds-balances\"><span class=\"ds-balance ds-balance-owes\"><svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M7 7h10v10\"/><path d=\"M7 17 17 7\"/></svg><span class=\"ds-balance-word\">owes</span><span class=\"ds-amount\">−$219.49</span></span><span class=\"ds-balance ds-balance-owed\"><svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M17 7 7 17\"/><path d=\"M17 17H7V7\"/></svg><span class=\"ds-balance-word\">gets back</span><span class=\"ds-amount\">+$219.49</span></span><span class=\"ds-balance ds-balance-settled\"><svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M20 6 9 17l-5-5\"/></svg><span class=\"ds-balance-word\">settled up</span><span class=\"ds-amount\">$0.00</span></span></div>",
+      "css": ".ds-balances { display: flex; flex-wrap: wrap; gap: 8px; } .ds-balance { display: inline-flex; align-items: center; gap: 8px; padding: 4px 8px; border-radius: 8px; font-family: Manrope, system-ui, sans-serif; } .ds-balance-word { font-size: 13px; font-weight: 600; } .ds-amount { font-family: 'IBM Plex Mono', ui-monospace, monospace; font-variant-numeric: tabular-nums; white-space: nowrap; font-size: 16px; font-weight: 600; } .ds-balance-owes { background: var(--color-owe-subtle, #fce7ea); color: var(--color-owe, #b81f2f); } .ds-balance-owed { background: var(--color-owed-subtle, #dcf1e9); color: var(--color-owed, #08704b); } .ds-balance-settled { background: var(--color-bg-tertiary, #e3e9f1); color: var(--color-text-secondary, #566073); }"
+    },
+    {
+      "name": "Ledger Panel",
+      "kind": "card",
+      "refersTo": "ledger-panel",
+      "description": "A bordered white list container with hairline-divided rows; no shadow.",
+      "html": "<ul class=\"ds-ledger\"><li><span>Ramen at Ichiran</span><span class=\"ds-ledger-amt\">¥4,800</span></li><li><span>Shinkansen tickets</span><span class=\"ds-ledger-amt\">¥58,000</span></li></ul>",
+      "css": ".ds-ledger { list-style: none; margin: 0; padding: 0; border: 1px solid var(--color-border, #dbe1ea); border-radius: 10px; background: var(--color-surface, #fff); font-family: Manrope, system-ui, sans-serif; color: var(--color-text-primary, #131a26); } .ds-ledger li { display: flex; justify-content: space-between; gap: 12px; padding: 12px 16px; font-size: 16px; } .ds-ledger li + li { border-top: 1px solid var(--color-border-subtle, #e7ecf3); } .ds-ledger-amt { font-family: 'IBM Plex Mono', ui-monospace, monospace; font-variant-numeric: tabular-nums; font-weight: 600; white-space: nowrap; }"
+    },
+    {
+      "name": "Site Header",
+      "kind": "nav",
+      "refersTo": "button-ghost",
+      "description": "Header band with product name and ghost-button controls.",
+      "html": "<header class=\"ds-header\"><a class=\"ds-header-brand\" href=\"#\">Expense Splitter</a><div class=\"ds-header-actions\"><button class=\"ds-header-btn\">Sign in</button><button class=\"ds-header-btn\" aria-label=\"Toggle theme\"><svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" aria-hidden=\"true\"><path d=\"M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z\"/></svg></button></div></header>",
+      "css": ".ds-header { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 4px 16px; padding: 8px 16px; background: var(--color-bg-secondary, #edf1f6); border-bottom: 1px solid var(--color-border-subtle, #e7ecf3); font-family: Manrope, system-ui, sans-serif; } .ds-header-brand { display: flex; align-items: center; min-height: 44px; font-size: 16px; font-weight: 700; color: var(--color-text-primary, #131a26); text-decoration: none; border-radius: 8px; } .ds-header-actions { display: flex; gap: 4px; } .ds-header-btn { display: inline-flex; align-items: center; justify-content: center; min-width: 44px; min-height: 44px; padding: 8px 12px; border: none; border-radius: 8px; background: transparent; color: var(--color-text-primary, #131a26); font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; } .ds-header-btn:hover { background: var(--color-bg-tertiary, #e3e9f1); } .ds-header-btn:focus-visible, .ds-header-brand:focus-visible { outline: 2px solid var(--color-focus, #2a62d6); outline-offset: 2px; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Reconciled Ledger",
+    "overview": "Every screen reads like a ledger that has just been reconciled: quiet, cool, exact, and finished. The interface is a precision instrument for money, so its identity lives in correctness made visible rather than in decoration. A single cobalt accent marks what can be acted on; a red and green pair, always doubled by sign, icon and words, marks who owes whom; everything else is cool blue-grey paper and hairline rules.\n\nDensity is moderate and calm. Content sits in one narrow reading column (672px) so a Group's Balances, Expenses and Settlements scan top to bottom like a statement. Type is a confident grotesque (Manrope) set heavy for headings and plain for prose, while every monetary figure switches to a tabular monospace (IBM Plex Mono) so columns of amounts align to the digit. Surfaces are flat, separated by borders and tonal steps; shadows appear only on things that float.\n\nLight and dark themes are equal citizens: tokens swap, layouts do not. Dark is a cool graphite, not inverted grey. Motion is brief and functional, with one sanctioned moment of celebration when a Group is Settled Up.",
+    "keyCharacteristics": [
+      "One cool-blue accent on cool blue-grey neutrals; no secondary brand colour.",
+      "Money in IBM Plex Mono with tabular numerals, never truncated.",
+      "Owing and being owed are never told apart by colour alone.",
+      "Flat surfaces with hairline borders; elevation reserved for floating layers.",
+      "Every interactive target is at least 44×44px.",
+      "Every text pairing meets WCAG AA in both themes."
+    ],
+    "rules": [
+      { "name": "The One Accent Rule", "body": "Cobalt is the only brand hue. If something is not interactive or selected, it is not cobalt.", "section": "colors" },
+      { "name": "The Never Colour Alone Rule", "body": "Owe and owed always carry a sign, an arrow icon, a word (\"owes\", \"gets back\") and a screen-reader sentence. A Balance stripped of its colour must still be unambiguous.", "section": "colors" },
+      { "name": "The Red and Green Are Money Rule", "body": "`owe` and `owed` describe Balances and nothing else. Errors use `error`; confirmations use `success`.", "section": "colors" },
+      { "name": "The Figures in Mono Rule", "body": "Every monetary amount uses the `amount` utility: IBM Plex Mono, tabular numerals, `white-space: nowrap`. Never truncate or ellipsize a figure.", "section": "typography" },
+      { "name": "The Two Weights of Voice Rule", "body": "Headings are 700 or 800; labels are 600; prose is 400. Weight 500 is reserved and almost never used.", "section": "typography" },
+      { "name": "The 44 Pixel Floor Rule", "body": "Every button, chip, link-button and toggle is at least 44×44px, on every breakpoint.", "section": "layout" },
+      { "name": "The Only What Floats Rule", "body": "A shadow means \"this sits above the page\". Lists, panels and cards in the flow have a border and no shadow.", "section": "elevation" }
+    ],
+    "dos": [
+      "Do use the `amount` utility (IBM Plex Mono, tabular numerals, no wrapping) for every monetary figure.",
+      "Do pair every owe/owed colour with a sign, an arrow icon, a word and a screen-reader sentence.",
+      "Do keep every interactive target at least 44×44px.",
+      "Do use `border-input` (≥ 3:1) for any control boundary; keep `border` and `border-subtle` for decoration.",
+      "Do style through the CSS variables in `tokens.css` so both themes follow automatically.",
+      "Do keep transitions on the motion tokens (120 / 200 / 360ms, `cubic-bezier(0.2, 0, 0, 1)`), which collapse to 0ms under reduced motion.",
+      "Do keep reading content within the 42rem content column."
+    ],
+    "donts": [
+      "Don't use `dark:` classes; theme switching swaps variables only.",
+      "Don't introduce a second brand hue or use cobalt for non-interactive decoration.",
+      "Don't use the `owe`/`owed` tokens for errors or success; charts use their own `chart-*` series tokens.",
+      "Don't put shadows on in-flow panels, lists or cards.",
+      "Don't truncate or ellipsize amounts.",
+      "Don't map shadcn's `accent` to a hover background; `accent` is the brand cobalt and hover uses `bg-tertiary`."
+    ]
+  }
+}
