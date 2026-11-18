@@ -18,6 +18,10 @@ Default five-role vocabulary (needs-triage, needs-info, ready-for-agent, ready-f
 
 Single-context: `GLOSSARY.md` + `docs/adr/` at the repo root. See `docs/agents/domain.md`.
 
+### Deploying
+
+Vercel. After every push or merge, confirm the deployment as in `docs/agents/deploy.md`.
+
 ## Workflow
 
 - Before implementing, if on `main`, create a branch: `git switch -c <issue-number>-<slug>`.
