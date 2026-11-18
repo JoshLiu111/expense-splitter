@@ -64,12 +64,14 @@ export interface Ledger {
   currencySubtotals: CurrencySubtotal[];
   /**
    * Suggested Settlements from Debt Simplification, in the order found;
-   * never under one unit of Group Currency.
+   * under one unit of Group Currency only when that is the sole payment for
+   * a Member whose Balance is one unit or more.
    */
   suggestions: SuggestedSettlement[];
   /**
    * Small Change: Debt Simplification's Settlements under one unit of Group
-   * Currency. Never suggested, but recording them clears the rest.
+   * Currency between Members whose Balances are under one unit, or already
+   * covered by a suggestion. Never suggested; recording them clears the rest.
    */
   smallChange: SuggestedSettlement[];
 }
@@ -147,6 +149,13 @@ export function computeLedger(group: GroupSnapshot): Ledger {
 
   const simplified = simplifyDebts(group, balances);
   const oneUnit = 10 ** exponentOf(group.currency);
+  // Small Change is a Balance under one unit. A payment under one unit is
+  // still suggested when it is the only way a Member with a larger Balance
+  // gets one, so that Balance never passes for Small Change.
+  const largeBalance = new Set(balances.filter((b) => Math.abs(b.amount) >= oneUnit).map((b) => b.memberId));
+  const covered = new Set(simplified.filter((p) => p.amount >= oneUnit).flatMap((p) => [p.fromId, p.toId]));
+  const uncovered = (memberId: string) => largeBalance.has(memberId) && !covered.has(memberId);
+  const suggested = (p: SuggestedSettlement) => p.amount >= oneUnit || uncovered(p.fromId) || uncovered(p.toId);
 
   return {
     balances,
@@ -157,8 +166,8 @@ export function computeLedger(group: GroupSnapshot): Ledger {
     currencySubtotals: [group.currency, ...CURRENCY_CODES]
       .filter((code, i, codes) => codes.indexOf(code) === i)
       .flatMap((code) => subtotals.get(code) ?? []),
-    suggestions: simplified.filter((p) => p.amount >= oneUnit),
-    smallChange: simplified.filter((p) => p.amount < oneUnit),
+    suggestions: simplified.filter(suggested),
+    smallChange: simplified.filter((p) => !suggested(p)),
   };
 }
 
