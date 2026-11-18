@@ -23,6 +23,9 @@ A push is done when its deployment is Ready and its logs are clean, not when `gi
 
 - **Malformed `DATABASE_URL`**: builds fine, then fails at the first query with `getaddrinfo ENOTFOUND <host>`. The value must be the bare `postgresql://…` URL.
 - **Missing environment variable**: compare the dashboard against `.env.example`.
+- **pg SSL mode warning** (`SECURITY WARNING: The SSL modes 'prefer', 'require', and 'verify-ca' are treated as aliases for 'verify-full'`, logged at level `error`): `DATABASE_URL` uses `sslmode=require`. Change it to `sslmode=verify-full`; pg already behaves that way, so only the warning goes away.
+  - pg doesn't read `channel_binding` from the connection string; it ignores it.
+  - pg turns channel binding on only with the client option `enableChannelBinding: true` (`node_modules/pg/lib/client.js:87`), which defaults to `false`.
 - **Framework Preset "Other"**: the build passes, but Vercel publishes only `public/` as static files, so every page is a 404. `vercel.json` pins the framework to `nextjs`.
 
 Environment variable changes apply only to new deployments. After changing one, redeploy the current production deployment:
