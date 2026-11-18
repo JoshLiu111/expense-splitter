@@ -1,0 +1,3 @@
+# Money as integer minor units, rounded per line
+
+All amounts are stored and computed as integers in each currency's minor unit (with a per-currency exponent table: JPY 0, USD 2, …), never as floats; the seed data's float major units are converted on import. When an Expense's Shares are converted into the Group Currency, each Share is rounded to the minor unit immediately (per-line), and Balances are sums of those rounded lines. We chose per-line over per-total rounding so every line on screen adds up exactly to the Balance shown, and a decimal library was rejected as unnecessary once the exponent table exists.
