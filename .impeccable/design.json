@@ -117,7 +117,7 @@
   ],
   "narrative": {
     "northStar": "The Reconciled Ledger",
-    "overview": "Every screen reads like a ledger that has just been reconciled: quiet, cool, exact, and finished. The interface is a precision instrument for money, so its identity lives in correctness made visible rather than in decoration. A single cobalt accent marks what can be acted on; a red and green pair, always doubled by sign, icon and words, marks who owes whom; everything else is cool blue-grey paper and hairline rules.\n\nDensity is moderate and calm. Content sits in one narrow reading column (672px) so a Group's Balances, Expenses and Settlements scan top to bottom like a statement. Type is a confident grotesque (Manrope) set heavy for headings and plain for prose, while every monetary figure switches to a tabular monospace (IBM Plex Mono) so columns of amounts align to the digit. Surfaces are flat, separated by borders and tonal steps; shadows appear only on things that float.\n\nLight and dark themes are equal citizens: tokens swap, layouts do not. Dark is a cool graphite, not inverted grey. Motion is brief and functional, with one sanctioned moment of celebration when a Group is Settled Up.",
+    "overview": "Every screen reads like a ledger that has just been reconciled: quiet, cool, exact, and finished. The interface is a precision instrument for money, so its identity lives in correctness made visible rather than in decoration. A single cobalt accent marks what can be acted on; a red and green pair, always doubled by sign, icon and words, marks who owes whom; everything else is cool blue-grey paper and hairline rules.\n\nDensity is moderate and calm. Content sits in one narrow reading column (672px) so a Group's Balances, Expenses and Settlements scan top to bottom like a statement. Type is a confident grotesque (Manrope) set heavy for headings and plain for prose, while every monetary figure switches to a tabular monospace (IBM Plex Mono) so columns of amounts align to the digit. Surfaces are flat, separated by borders and tonal steps; shadows appear only on things that float.\n\nLight and dark themes are equal citizens: tokens swap, layouts do not. Dark is a cool graphite, not inverted grey. Motion is brief and functional, with one sanctioned moment of celebration when a Group is Settled Up and one deliberate piece of narrative motion when Simplify explains Debt Simplification.",
     "keyCharacteristics": [
       "One cool-blue accent on cool blue-grey neutrals; no secondary brand colour.",
       "Money in IBM Plex Mono with tabular numerals, never truncated.",
@@ -141,7 +141,7 @@
       "Do keep every interactive target at least 44×44px.",
       "Do use `border-input` (≥ 3:1) for any control boundary; keep `border` and `border-subtle` for decoration.",
       "Do style through the CSS variables in `tokens.css` so both themes follow automatically.",
-      "Do keep transitions on the motion tokens (120 / 200 / 360ms, `cubic-bezier(0.2, 0, 0, 1)`), which collapse to 0ms under reduced motion.",
+      "Do keep transitions on the motion tokens (120 / 200 / 360ms, `cubic-bezier(0.2, 0, 0, 1)`), which collapse to 0ms under reduced motion. The one exception is the Simplify Animation.",
       "Do keep reading content within the 42rem content column."
     ],
     "donts": [

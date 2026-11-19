@@ -176,7 +176,7 @@ Every screen reads like a ledger that has just been reconciled: quiet, cool, exa
 
 Density is moderate and calm. Content sits in one narrow reading column (672px) so a Group's Balances, Expenses and Settlements scan top to bottom like a statement. Type is a confident grotesque (Manrope) set heavy for headings and plain for prose, while every monetary figure switches to a tabular monospace (IBM Plex Mono) so columns of amounts align to the digit. Surfaces are flat, separated by borders and tonal steps; shadows appear only on things that float.
 
-Light and dark themes are equal citizens: tokens swap, layouts do not. Dark is a cool graphite, not inverted grey. Motion is brief and functional, with one sanctioned moment of celebration when a Group is Settled Up.
+Light and dark themes are equal citizens: tokens swap, layouts do not. Dark is a cool graphite, not inverted grey. Motion is brief and functional, with one sanctioned moment of celebration when a Group is Settled Up and one deliberate piece of narrative motion when Simplify explains Debt Simplification.
 
 **Key Characteristics:**
 - One cool-blue accent on cool blue-grey neutrals; no secondary brand colour.
@@ -324,6 +324,11 @@ The signature component: a Balance as a pill.
 ### Settled Up Moment
 When every Balance reaches zero, a credit-mint panel with a success border announces "All settled up!" in 20px extrabold success green and pops in once (scale 0.92 → 1.03 → 1 over 360ms). It is the system's only celebratory motion and is stilled under reduced motion.
 
+### Simplify Animation
+In "Why these payments?", Simplify plays the Group's debts turning into the Suggested Settlements: once the graph has scrolled into view, Before's arrows draw in one at a time from payer to recipient, each amount appearing as its arrow lands; Before holds, fades out, and After's arrows draw in the same way. For Japan's six debts and three Suggested Settlements this runs about six seconds.
+
+It deliberately runs past the motion tokens. It is narrative, not feedback: the point is the comparison, and when Before only flashed for 0.6s (fading while After drew, about a second in all) people could not read it or see the contrast. Its durations and easings are defined in one place, `SIMPLIFY_TIMING` in `src/components/simplify-timing.ts`, rather than in `tokens.css`. Under reduced motion it switches straight to After with no transition; the global reduced-motion rule collapses durations but not delays, so the panel drops its transitions itself. The Before/After toggle stays a plain crossfade.
+
 ## Do's and Don'ts
 
 ### Do:
@@ -332,7 +337,7 @@ When every Balance reaches zero, a credit-mint panel with a success border annou
 - **Do** keep every interactive target at least 44×44px.
 - **Do** use `border-input` (≥ 3:1) for any control boundary; keep `border` and `border-subtle` for decoration.
 - **Do** style through the CSS variables in `tokens.css` so both themes follow automatically.
-- **Do** keep transitions on the motion tokens (120 / 200 / 360ms, `cubic-bezier(0.2, 0, 0, 1)`), which collapse to 0ms under reduced motion.
+- **Do** keep transitions on the motion tokens (120 / 200 / 360ms, `cubic-bezier(0.2, 0, 0, 1)`), which collapse to 0ms under reduced motion. The one exception is the Simplify Animation.
 - **Do** keep reading content within the 42rem content column.
 
 ### Don't:
