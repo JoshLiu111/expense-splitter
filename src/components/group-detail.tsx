@@ -1,17 +1,15 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
 import { AlertDialog } from "radix-ui";
-import { ArrowLeft, ArrowRightLeft, Pencil, Plus, Trash2 } from "lucide-react";
+import { ArrowLeft, ArrowRightLeft, Pencil, Plus, Settings, Trash2 } from "lucide-react";
 import {
   categoryName,
   computeInsights,
   computeLedger,
   formatMoney,
   isFiltering,
-  groupDeletionBlock,
   FORMER_MEMBER_SUFFIX,
   membersInBalances,
   type Expense,
@@ -21,14 +19,10 @@ import {
   type Settlement,
   type TimelineEntry,
 } from "@/domain";
-import type { CategoryManagement } from "@/categories/manage-categories";
 import type { DeleteExpense, SaveExpense } from "@/expenses/save-expense";
-import type { GroupManagement } from "@/groups/manage-group";
 import type { SettleUp } from "@/settlements/settle-up";
 import { BalanceStatus } from "@/components/balance-status";
-import { CategoriesSection } from "@/components/categories-section";
 import { ExpenseEditor } from "@/components/expense-editor";
-import { DeleteGroupSection, EditGroupDetails, MembersSection } from "@/components/group-settings";
 import { MemberAvatar } from "@/components/member-avatar";
 import { SettleUpSection } from "@/components/settle-up";
 import { ExpenseFilters, SpendingInsights } from "@/components/spending";
@@ -38,34 +32,31 @@ import { describeBalance, formatCalendarDate, pluralize } from "@/lib/format";
 
 /**
  * A Group's summary, Balances and newest-first timeline, with Expense entry.
- * Balances are recomputed from the Group on every render (ADR 0004).
+ * Details, Categories, Members and deletion live in Group settings, linked
+ * from the header. Balances are recomputed from the Group on every render
+ * (ADR 0004).
  */
 export function GroupDetail({
   group,
   backHref,
   backLabel,
+  settingsHref,
   currentMemberId,
   onSaveExpense,
   onDeleteExpense,
-  manage,
   settleUp,
-  categories,
-  isGroupCreator,
 }: {
   group: GroupSnapshot;
   backHref: string;
   backLabel: string;
+  /** The Group's settings page. */
+  settingsHref: string;
   /** The visitor's own Member: the default Payer. */
   currentMemberId: string | undefined;
   onSaveExpense: SaveExpense;
   onDeleteExpense: DeleteExpense;
-  manage: GroupManagement;
   settleUp: SettleUp;
-  categories: CategoryManagement;
-  /** Whether the visitor is the Group Creator, the only one who may delete it. */
-  isGroupCreator: boolean;
 }) {
-  const router = useRouter();
   const ledger = computeLedger(group);
   const rates = useTodaysRates();
   const [filter, setFilter] = useState<ExpenseFilter>({});
@@ -82,7 +73,6 @@ export function GroupDetail({
   const opener = useRef<HTMLElement | null>(null);
   const addButton = useRef<HTMLButtonElement>(null);
   const activityHeading = useRef<HTMLHeadingElement>(null);
-  const membersHeading = useRef<HTMLHeadingElement>(null);
 
   // Announce Balance changes once they arrive (Guest writes are instant;
   // a User's arrive with the refreshed Group).
@@ -141,11 +131,11 @@ export function GroupDetail({
         </Link>
         <div className="mt-2 flex flex-wrap items-start justify-between gap-3">
           <h1 className="min-w-0 text-2xl font-extrabold break-words">{group.name}</h1>
-          <EditGroupDetails
-            group={group}
-            onSave={manage.updateDetails}
-            onSaved={() => setActionNews("Group details saved.")}
-          />
+          <Button asChild variant="outline">
+            <Link href={settingsHref}>
+              <Settings aria-hidden /> Group settings
+            </Link>
+          </Button>
         </div>
         {group.description && (
           <p className="mt-1 text-text-secondary">{group.description}</p>
@@ -314,24 +304,6 @@ export function GroupDetail({
           </ol>
         )}
       </section>
-
-      <CategoriesSection group={group} categories={categories} onNews={setActionNews} />
-
-      <MembersSection
-        group={group}
-        headingRef={membersHeading}
-        onAdd={manage.addMember}
-        onSetEmail={manage.setMemberEmail}
-        onRemove={manage.removeMember}
-        onNews={setActionNews}
-      />
-
-      <DeleteGroupSection
-        group={group}
-        block={groupDeletionBlock(group, { isCreator: isGroupCreator })}
-        onDelete={manage.deleteGroup}
-        onDeleted={() => router.replace(backHref)}
-      />
 
       {!editing && (
         // Always one tap away: a bottom bar on phones, a floating button on

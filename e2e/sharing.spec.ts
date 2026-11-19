@@ -51,13 +51,17 @@ async function createGroup(page: Page, name: string) {
   await expect(page.getByRole("heading", { level: 1, name })).toBeVisible();
 }
 
-async function addMember(page: Page, name: string, email = "") {
+/** Adds a Member from Group settings, then returns to the Group. */
+async function addMember(page: Page, group: string, name: string, email = "") {
+  await page.getByRole("link", { name: "Group settings" }).click();
   await field(page, "Add a Member by name").fill(name);
   await field(page, "Email (optional)").fill(email);
   await page.getByRole("button", { name: "Add Member" }).click();
   await expect(page.getByText(`Added ${name}.`)).toBeVisible();
   // Wait for the refreshed Group, so new Splits include them.
   await expect(members(page).getByText(name, { exact: true })).toBeVisible();
+  await page.getByRole("link", { name: `Back to ${group}` }).click();
+  await expect(page.getByRole("heading", { level: 1, name: group })).toBeVisible();
 }
 
 test("S2: User A adds User B by email; B signs in and sees and edits the Group", async ({ page }) => {
@@ -69,7 +73,8 @@ test("S2: User A adds User B by email; B signs in and sees and edits the Group",
 
   await signUp(page, uniqueEmail(), "Maya Chen");
   await createGroup(page, "Flat 3B");
-  await addMember(page, "Theo", bEmail);
+  await addMember(page, "Flat 3B", "Theo", bEmail);
+  await page.getByRole("link", { name: "Group settings" }).click();
   await expect(members(page)).toContainText(`${bEmail} · Linked`);
   await signOut(page);
 
@@ -86,6 +91,7 @@ test("S2: User A adds User B by email; B signs in and sees and edits the Group",
   await expect(page.getByText("Expense added.")).toBeVisible();
 
   // Only the Group Creator can delete the Group.
+  await page.getByRole("link", { name: "Group settings" }).click();
   await expect(page.getByRole("button", { name: "Delete Group" })).toBeDisabled();
   await expect(page.getByText("Only the Group Creator, Maya Chen, can delete this Group.")).toBeVisible();
 });
@@ -94,7 +100,8 @@ test("a Pending Member is claimed when that User verifies their email", async ({
   const cEmail = uniqueEmail();
   await signUp(page, uniqueEmail(), "Maya Chen");
   await createGroup(page, "Ski trip");
-  await addMember(page, "Chloe", cEmail);
+  await addMember(page, "Ski trip", "Chloe", cEmail);
+  await page.getByRole("link", { name: "Group settings" }).click();
   await expect(members(page)).toContainText(`${cEmail} · Pending`);
   await signOut(page);
 
@@ -118,13 +125,14 @@ test("a Name-only Member given an email keeps their history and is linked", asyn
 
   await signUp(page, uniqueEmail(), "Maya Chen");
   await createGroup(page, "Lunch club");
-  await addMember(page, "Dev");
+  await addMember(page, "Lunch club", "Dev");
   await page.getByRole("button", { name: "Add Expense", exact: true }).click();
   await field(page, "Amount (USD)").fill("20");
   await field(page, "Description").fill("Pizza");
   await page.getByRole("button", { name: "Add Expense", exact: true }).click();
   await expect(page.getByText("Expense added.")).toBeVisible();
 
+  await page.getByRole("link", { name: "Group settings" }).click();
   await page.getByRole("button", { name: "Add email for Dev" }).click();
   await field(page, "Email").fill(dEmail);
   await page.getByRole("button", { name: "Save email" }).click();

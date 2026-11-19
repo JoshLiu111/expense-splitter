@@ -7,6 +7,18 @@ function field(page: Page, label: string) {
 
 const members = (page: Page) => page.getByRole("region", { name: "Members" });
 
+/** Opens Group settings from the Group page. */
+async function openSettings(page: Page) {
+  await page.getByRole("link", { name: "Group settings" }).click();
+  await expect(page.getByRole("heading", { level: 1, name: "Group settings" })).toBeVisible();
+}
+
+/** Returns from Group settings to the Group page. */
+async function backToGroup(page: Page, name: string) {
+  await page.getByRole("link", { name: `Back to ${name}` }).click();
+  await expect(page.getByRole("heading", { level: 1, name })).toBeVisible();
+}
+
 async function createGuestGroup(page: Page, name: string) {
   await page.goto("/guest/groups/new");
   await field(page, "Name").fill(name);
@@ -14,43 +26,52 @@ async function createGuestGroup(page: Page, name: string) {
   await expect(page.getByRole("heading", { level: 1, name })).toBeVisible();
 }
 
+test("the Group page links to Group settings and no longer manages the Group itself", async ({ page }) => {
+  await page.goto("/guest/groups/grp_birthday");
+  await expect(page.getByRole("heading", { level: 1, name: "Sarah's Birthday Present" })).toBeVisible();
+  for (const name of ["Categories", "Members", "Delete Group"]) {
+    await expect(page.getByRole("region", { name })).toHaveCount(0);
+  }
+  await expect(page.getByRole("button", { name: "Edit Group" })).toHaveCount(0);
+
+  await openSettings(page);
+  for (const name of ["Details", "Categories", "Members", "Delete Group"]) {
+    await expect(page.getByRole("region", { name })).toBeVisible();
+  }
+  await backToGroup(page, "Sarah's Birthday Present");
+});
+
 test("S1: Guest edits a Group's details; the Group Currency is locked once anything is recorded", async ({
   page,
 }) => {
   await page.goto("/guest/groups/grp_birthday");
-  const edit = page.getByRole("button", { name: "Edit Group" });
-  await edit.click();
+  await openSettings(page);
 
-  const dialog = page.getByRole("dialog", { name: "Edit Group" });
-  await expect(dialog).toBeVisible();
   await expect(field(page, "Group Currency")).toBeDisabled();
-  await expect(dialog).toContainText(
+  await expect(page.getByRole("region", { name: "Details" })).toContainText(
     "The Group Currency can't change once the Group has Expenses or Settlements.",
   );
 
-  // Focus stays inside the dialog and returns to the Edit button on close.
-  await expect(dialog.locator(":focus")).toHaveCount(1);
-  await page.keyboard.press("Escape");
-  await expect(dialog).toBeHidden();
-  await expect(edit).toBeFocused();
-
-  await edit.click();
   await field(page, "Name").fill("Sarah's 30th");
   await field(page, "Description (optional)").fill("Gift and dinner");
   await page.getByRole("button", { name: "Save changes" }).click();
-
   await expect(page.getByText("Group details saved.")).toBeVisible();
-  await expect(page.getByRole("heading", { level: 1, name: "Sarah's 30th" })).toBeVisible();
-  await expect(page.getByText("Gift and dinner")).toBeVisible();
-  await expect(edit).toBeFocused();
+
+  // Guest changes last the session.
+  await page.reload();
+  await expect(field(page, "Name")).toHaveValue("Sarah's 30th");
+  await backToGroup(page, "Sarah's 30th");
+  await expect(page.getByText("Gift and dinner").filter({ visible: true })).toBeVisible();
 });
 
 test("S1: Guest changes the Group Currency of a Group with nothing recorded", async ({ page }) => {
   await createGuestGroup(page, "Picnic");
-  await page.getByRole("button", { name: "Edit Group" }).click();
+  await openSettings(page);
   await field(page, "Group Currency").selectOption("EUR");
   await page.getByRole("button", { name: "Save changes" }).click();
+  await expect(page.getByText("Group details saved.")).toBeVisible();
 
+  await backToGroup(page, "Picnic");
   await expect(page.getByText("Balances in EUR")).toBeVisible();
 });
 
@@ -58,6 +79,7 @@ test("S1: Guest adds a Name-only Member and removes a settled-up one, who stays 
   page,
 }) => {
   await page.goto("/guest/groups/grp_birthday");
+  await openSettings(page);
 
   // A Member who owes money can't be removed, and says why.
   await expect(page.getByTestId("member-mem_ben")).toContainText(
@@ -89,6 +111,7 @@ test("S1: Guest adds a Name-only Member and removes a settled-up one, who stays 
   await expect(members(page).getByRole("heading", { name: "Former Members" })).toBeVisible();
 
   // Still on the past Expense she paid for...
+  await backToGroup(page, "Sarah's Birthday Present");
   const airpods = page.locator("article").filter({ hasText: "AirPods gift" });
   await expect(airpods).toContainText("Olivia Hayes paid");
 
@@ -106,12 +129,14 @@ test("S1: Guest adds a Name-only Member and removes a settled-up one, who stays 
 
 test("S1: only a Settled Up Group can be deleted, after confirmation", async ({ page }) => {
   await page.goto("/guest/groups/grp_birthday");
+  await openSettings(page);
   await expect(page.getByRole("button", { name: "Delete Group" })).toBeDisabled();
   await expect(page.getByRole("region", { name: "Delete Group" })).toContainText(
     "Everyone must be Settled Up before this Group can be deleted.",
   );
 
   await createGuestGroup(page, "Throwaway");
+  await openSettings(page);
   const del = page.getByRole("button", { name: "Delete Group" });
   await del.click();
   const confirm = page.getByRole("alertdialog", { name: "Delete “Throwaway”?" });
@@ -140,10 +165,13 @@ test("a signed-in User manages their Group's details and Members, then deletes i
   await page.getByRole("button", { name: "Create Group" }).click();
   await expect(page.getByRole("heading", { level: 1, name: "Book club" })).toBeVisible();
 
-  await page.getByRole("button", { name: "Edit Group" }).click();
+  await openSettings(page);
   await field(page, "Group Currency").selectOption("GBP");
   await page.getByRole("button", { name: "Save changes" }).click();
+  await expect(page.getByText("Group details saved.")).toBeVisible();
+  await backToGroup(page, "Book club");
   await expect(page.getByText("Balances in GBP")).toBeVisible();
+  await openSettings(page);
 
   await field(page, "Add a Member by name").fill("Sam Rivera");
   await page.getByRole("button", { name: "Add Member" }).click();

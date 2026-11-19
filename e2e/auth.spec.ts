@@ -235,6 +235,7 @@ test("a signed-in User sees their own Suggested Settlement and records it", asyn
   await field(page, "Name").fill("Flat");
   await page.getByRole("button", { name: "Create Group" }).click();
   await expect(page.getByRole("heading", { level: 1, name: "Flat" })).toBeVisible();
+  await page.getByRole("link", { name: "Group settings" }).click();
   await field(page, "Add a Member by name").fill("Taylor");
   await page.getByRole("button", { name: "Add Member" }).click();
   await expect(page.getByText("Added Taylor.")).toBeVisible();
@@ -242,6 +243,7 @@ test("a signed-in User sees their own Suggested Settlement and records it", asyn
   await expect(
     page.getByRole("region", { name: "Members" }).getByText("Taylor", { exact: true }),
   ).toBeVisible();
+  await page.getByRole("link", { name: "Back to Flat" }).click();
 
   // Maya pays $90.40, split equally with Taylor.
   await page.getByRole("button", { name: "Add Expense", exact: true }).click();

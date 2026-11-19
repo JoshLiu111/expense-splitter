@@ -70,12 +70,14 @@ test("S2: a Member sees their own action first, with others' suggestions collaps
   await page.getByRole("button", { name: "Create Group" }).click();
   await expect(page.getByRole("heading", { level: 1, name: "Road trip" })).toBeVisible();
 
+  await page.getByRole("link", { name: "Group settings" }).click();
   const members = page.getByRole("region", { name: "Members" });
   for (const name of ["Taylor", "Sam", "Jo"]) {
     await field(page, "Add a Member by name").fill(name);
     await page.getByRole("button", { name: "Add Member" }).click();
     await expect(members.getByText(name, { exact: true })).toBeVisible();
   }
+  await page.getByRole("link", { name: "Back to Road trip" }).click();
 
   // Taylor paid $90.40 shared by You and Taylor; Jo paid $20 shared by Jo and Sam.
   // The chips a person clicks: labels around visually hidden inputs.
@@ -106,12 +108,14 @@ test("S2: a Former Member whose Balance reopens shows in Balances and can be set
   await page.goto("/guest/groups/grp_birthday");
 
   // Olivia is removed at a zero Balance and drops out of Balances.
+  await page.getByRole("link", { name: "Group settings" }).click();
   await page.getByRole("button", { name: "Remove Olivia Hayes" }).click();
   await page
     .getByRole("alertdialog", { name: "Remove Olivia Hayes from the Group?" })
     .getByRole("button", { name: "Remove Member" })
     .click();
   await expect(page.getByText("Removed Olivia Hayes.")).toBeVisible();
+  await page.getByRole("link", { name: "Back to Sarah's Birthday Present" }).click();
   await expect(page.getByTestId("balance-mem_olivia")).toHaveCount(0);
 
   // Deleting the Settlement that zeroed her brings her Balance back.

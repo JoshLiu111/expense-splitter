@@ -19,9 +19,11 @@ test("S2: Guest adds a Custom Category, files an Expense under it, renames it, a
   page,
 }) => {
   await page.goto("/guest/groups/grp_apt_4b");
+  await page.getByRole("link", { name: "Group settings" }).click();
   await field(page, "Add a Category").fill("Cleaning supplies");
   await categories(page).getByRole("button", { name: "Add Category" }).click();
   await expect(page.getByText("Added the Category Cleaning supplies.")).toBeVisible();
+  await page.getByRole("link", { name: "Back to Apartment 4B" }).click();
 
   // Only this Group offers it.
   await page.getByRole("button", { name: "Add Expense", exact: true }).click();
@@ -32,12 +34,14 @@ test("S2: Guest adds a Custom Category, files an Expense under it, renames it, a
   await expect(page.getByText("Expense added.")).toBeVisible();
   await expect(timeline(page).first()).toContainText("Cleaning supplies");
 
+  await page.getByRole("link", { name: "Group settings" }).click();
   await categories(page).getByRole("button", { name: "Rename Cleaning supplies" }).click();
   await page.getByRole("dialog").getByLabel("Name").fill("Cleaning");
   await page.getByRole("button", { name: "Save name" }).click();
-  await expect(timeline(page).first()).toContainText("Cleaning ·");
   await expect(categories(page)).toContainText("1 Expense uses Cleaning. Move it to another Category first.");
   await expect(categories(page).getByRole("button", { name: "Delete Cleaning" })).toHaveCount(0);
+  await page.getByRole("link", { name: "Back to Apartment 4B" }).click();
+  await expect(timeline(page).first()).toContainText("Cleaning ·");
 
   await page.goto("/guest/groups/grp_birthday");
   await page.getByRole("button", { name: "Add Expense", exact: true }).click();
@@ -243,9 +247,11 @@ test.describe("with reduced motion", () => {
     await field(page, "Name").fill("Lunch club");
     await page.getByRole("button", { name: "Create Group" }).click();
     await expect(page.getByRole("heading", { level: 1, name: "Lunch club" })).toBeVisible();
+    await page.getByRole("link", { name: "Group settings" }).click();
     await field(page, "Add a Member by name").fill("Sam Rivera");
     await page.getByRole("button", { name: "Add Member" }).click();
     await expect(page.getByRole("region", { name: "Members" }).getByText("Sam Rivera", { exact: true })).toBeVisible();
+    await page.getByRole("link", { name: "Back to Lunch club" }).click();
 
     // One Payer, so the only debt is already the only Suggested Settlement.
     await page.getByRole("button", { name: "Add Expense", exact: true }).click();
@@ -279,6 +285,7 @@ test("a signed-in User's Custom Category is saved to their Group", async ({ page
   await field(page, "Name").fill("Flat");
   await page.getByRole("button", { name: "Create Group" }).click();
   await expect(page.getByRole("heading", { level: 1, name: "Flat" })).toBeVisible();
+  await page.getByRole("link", { name: "Group settings" }).click();
 
   await field(page, "Add a Category").fill("Pets");
   await categories(page).getByRole("button", { name: "Add Category" }).click();

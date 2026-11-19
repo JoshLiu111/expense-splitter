@@ -2,7 +2,7 @@
 
 import { useId, useRef, useState, useTransition, type FormEvent, type RefObject } from "react";
 import { AlertDialog, Dialog } from "radix-ui";
-import { Mail, Pencil, Trash2, UserPlus, X } from "lucide-react";
+import { Mail, Trash2, UserPlus, X } from "lucide-react";
 import {
   CURRENCY_CODES,
   currencyLock,
@@ -43,11 +43,10 @@ const dialogClass =
 const dangerClass = "bg-error text-white hover:bg-error/90";
 
 /**
- * Edit a Group's name, description and Group Currency in a dialog that traps
- * focus and returns it to the Edit button. The Group Currency is locked,
- * with the reason shown, once anything has been recorded.
+ * Edit a Group's name, description and Group Currency. The Group Currency is
+ * locked, with the reason shown, once anything has been recorded.
  */
-export function EditGroupDetails({
+export function GroupDetailsSection({
   group,
   onSave,
   onSaved,
@@ -56,37 +55,15 @@ export function EditGroupDetails({
   onSave: (fields: NewGroupFields) => Promise<ManageResult>;
   onSaved: () => void;
 }) {
-  const [open, setOpen] = useState(false);
   return (
-    <Dialog.Root open={open} onOpenChange={setOpen}>
-      <Dialog.Trigger asChild>
-        <Button variant="outline">
-          <Pencil aria-hidden /> Edit Group
-        </Button>
-      </Dialog.Trigger>
-      <Dialog.Portal>
-        <Dialog.Overlay className="fixed inset-0 z-40 bg-black/50" />
-        <Dialog.Content aria-describedby={undefined} className={dialogClass}>
-          <div className="mb-4 flex items-center justify-between gap-2">
-            <Dialog.Title className="text-lg font-bold">Edit Group</Dialog.Title>
-            <Dialog.Close asChild>
-              <Button variant="ghost" size="icon" aria-label="Close">
-                <X aria-hidden />
-              </Button>
-            </Dialog.Close>
-          </div>
-          {/* Remounted on every open, so it starts from the Group as it is now. */}
-          <GroupDetailsForm
-            group={group}
-            onSave={onSave}
-            onSaved={() => {
-              setOpen(false);
-              onSaved();
-            }}
-          />
-        </Dialog.Content>
-      </Dialog.Portal>
-    </Dialog.Root>
+    <section aria-labelledby="details-heading">
+      <h2 id="details-heading" className="text-lg font-bold">
+        Details
+      </h2>
+      <div className="mt-3">
+        <GroupDetailsForm group={group} onSave={onSave} onSaved={onSaved} />
+      </div>
+    </section>
   );
 }
 
@@ -120,8 +97,10 @@ function GroupDetailsForm({
     event.preventDefault();
     startTransition(async () => {
       const result = await attempt(() => onSave(fields));
-      if (result.ok) onSaved();
-      else setFailure(result);
+      if (result.ok) {
+        setFailure(undefined);
+        onSaved();
+      } else setFailure(result);
     });
   }
 
@@ -180,12 +159,7 @@ function GroupDetailsForm({
           </select>
         )}
       </Field>
-      <div className="flex flex-wrap justify-end gap-3">
-        <Dialog.Close asChild>
-          <Button type="button" variant="outline">
-            Cancel
-          </Button>
-        </Dialog.Close>
+      <div>
         <Button type="submit" disabled={pending}>
           {pending ? "Saving…" : "Save changes"}
         </Button>
