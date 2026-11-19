@@ -88,13 +88,45 @@ test("S2: each suggestion traces back to its Expenses, and Why these payments? s
   await settleUp(page).getByRole("button", { name: "Why these payments?" }).click();
   const graph = settleUp(page).getByRole("img", { name: /Before Debt Simplification/ });
   await expect(graph).toBeVisible();
-  await expect(settleUp(page)).toContainText(/Before: \d payments/);
-  await expect(settleUp(page)).toContainText("After: 3 payments");
+  await expect(settleUp(page)).toContainText("Before: 6 debts");
+  await expect(settleUp(page)).toContainText("After: 3 Suggested Settlements");
+  await expect(settleUp(page)).toContainText("Every Balance is the same either way.");
+  // Debts read as who owes whom, not as payments to make.
+  await expect(settleUp(page).getByRole("listitem").filter({ hasText: /^\S+ \S+ owes / }).first()).toBeVisible();
   // The graph plays from before to after by itself.
   await expect(settleUp(page).getByRole("button", { name: "After", exact: true })).toHaveAttribute(
     "aria-pressed",
     "true",
   );
+});
+
+test("Why these payments? says when the debts are already as simple as they get", async ({ page }) => {
+  await page.goto("/sign-up");
+  await field(page, "Name").fill("Maya Chen");
+  await field(page, "Email").fill(uniqueEmail());
+  await field(page, "Password").fill("correct-horse-battery");
+  await page.getByRole("button", { name: "Sign up", exact: true }).click();
+  await expect(page).toHaveURL(/\/dashboard$/);
+  await page.getByRole("link", { name: "New Group" }).click();
+  await field(page, "Name").fill("Lunch club");
+  await page.getByRole("button", { name: "Create Group" }).click();
+  await expect(page.getByRole("heading", { level: 1, name: "Lunch club" })).toBeVisible();
+  await field(page, "Add a Member by name").fill("Sam Rivera");
+  await page.getByRole("button", { name: "Add Member" }).click();
+  await expect(page.getByRole("region", { name: "Members" }).getByText("Sam Rivera", { exact: true })).toBeVisible();
+
+  // One Payer, so the only debt is already the only Suggested Settlement.
+  await page.getByRole("button", { name: "Add Expense", exact: true }).click();
+  await field(page, "Amount (USD)").fill("24.50");
+  await field(page, "Description").fill("Ramen");
+  await expect(page.getByRole("checkbox", { name: "Sam Rivera" })).toBeChecked();
+  await page.getByRole("button", { name: "Add Expense", exact: true }).click();
+  await expect(page.getByText("Expense added.")).toBeVisible();
+
+  await settleUp(page).getByRole("button", { name: "Why these payments?" }).click();
+  await expect(settleUp(page)).toContainText("These are already in their simplest form");
+  await expect(settleUp(page)).toContainText("Sam Rivera owes Maya Chen $12.25");
+  await expect(settleUp(page)).not.toContainText("fewer than before");
 });
 
 test.describe("with reduced motion", () => {

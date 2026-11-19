@@ -63,16 +63,28 @@ export default function WhyThesePayments({
   );
   const nameOf = (id: string) => group.members.find((m) => m.id === id)?.name ?? "Unknown member";
   const saved = before.length - after.length;
+  // E.g. every Expense paid by one Member: the debts are the Suggested Settlements already.
+  const edgeKeys = (edges: DebtEdge[]) => edges.map((e) => `${e.fromId}-${e.toId}-${e.amount}`).sort().join();
+  const alreadySimplest = edgeKeys(before) === edgeKeys(after);
 
   return (
     <div className="flex flex-col gap-4 rounded-lg border border-border bg-surface p-4">
       <p id={summaryId}>
-        Before Debt Simplification, the Group&apos;s debts take{" "}
-        <strong>{pluralize(before.length, "payment")}</strong> between the people who shared
-        Expenses. Using only Balances, <strong>{pluralize(after.length, "Suggested Settlement")}</strong>{" "}
-        {after.length === 1 ? "settles" : "settle"} everyone up
-        {saved > 0 ? `, ${saved} fewer than before` : ""}
-        {smallChange.length > 0 ? ", apart from Small Change" : ""}.
+        Before Debt Simplification, the people who shared Expenses owe each other in{" "}
+        <strong>{pluralize(before.length, "debt")}</strong>.{" "}
+        {alreadySimplest ? (
+          <>
+            These are already in their simplest form: each one is a Suggested Settlement as it
+            stands, so there is nothing to simplify.
+          </>
+        ) : (
+          <>
+            Using only Balances, <strong>{pluralize(after.length, "Suggested Settlement")}</strong>{" "}
+            {after.length === 1 ? "settles" : "settle"} everyone up
+            {smallChange.length > 0 ? " apart from Small Change" : ""}
+            {saved > 0 ? `, ${saved} fewer than before` : ""}. Every Balance is the same either way.
+          </>
+        )}
       </p>
 
       <div className="flex flex-wrap items-center gap-2" role="group" aria-label="Show the graph">
@@ -161,14 +173,16 @@ export default function WhyThesePayments({
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <PaymentList
-          title={`Before: ${pluralize(before.length, "payment")}`}
+          title={`Before: ${pluralize(before.length, "debt")}`}
+          verb="owes"
           current={phase === "before"}
           edges={before}
           nameOf={nameOf}
           money={money}
         />
         <PaymentList
-          title={`After: ${pluralize(after.length, "payment")}`}
+          title={`After: ${pluralize(after.length, "Suggested Settlement")}`}
+          verb="pays"
           note={smallChange.length > 0 ? "Plus Small Change, which is never suggested." : undefined}
           current={phase === "after"}
           edges={after}
@@ -262,11 +276,14 @@ function PaymentList({
   title,
   current,
   edges,
+  verb,
   nameOf,
   money,
   note,
 }: {
   title: string;
+  /** "owes" for debts, "pays" for Suggested Settlements. */
+  verb: "owes" | "pays";
   /** A line under the list, e.g. about Small Change. */
   note?: string;
   current: boolean;
@@ -283,7 +300,7 @@ function PaymentList({
       <ul className="mt-2 flex flex-col gap-1 text-sm">
         {edges.map((e) => (
           <li key={`${e.fromId}-${e.toId}`}>
-            {nameOf(e.fromId)} pays {nameOf(e.toId)} <span className="amount">{money(e.amount)}</span>
+            {nameOf(e.fromId)} {verb} {nameOf(e.toId)} <span className="amount">{money(e.amount)}</span>
           </li>
         ))}
       </ul>
