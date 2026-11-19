@@ -326,7 +326,7 @@ Firm, compact and unadorned. Cobalt marks every action; how much of it a button 
 - **Link:** cobalt text, underline on hover.
 - **Disabled:** 50% opacity, no pointer events.
 
-**The Three Cobalt Roles Rule.** Every button shares the 10px radius and is cobalt in one of three roles: filled for the one primary action in a block, outlined for a secondary one, quiet text for the rest. Neutral ghost buttons are chrome only.
+**The Three Cobalt Roles Rule.** Every button shares the 10px radius and is cobalt in one of three roles: filled for the one primary action in a block, outlined for a secondary one, quiet text for the rest. Neutral ghost buttons are chrome only. Tabs are not actions but places: the Expenses | Insights tabs stay ink and graphite with an ink underline and no radius (see Expenses | Insights Tabs).
 
 ### Chips
 Selectable pills for Payer, participants and Split Type.
@@ -345,12 +345,12 @@ The Group page's Settle up and Balances panels: the page's focal point, so they 
 
 ### Expenses | Insights Tabs
 Below the hero panels, Expenses and Insights are two views of one filtered set of Expenses, switched by underline tabs on the page background. There is no separate Insights heading and no always-open filter form.
-- **Tab row:** "Expenses" and "Insights" in 16px semibold, 24px apart, each at least 44px tall; the selected tab in ink with a 2px ink underline sitting on the row's hairline (`border`), the other in graphite (ink on hover). Expenses is selected by default. The tabs follow the ARIA tabs pattern: arrow keys, Home and End move between them and select them; only the selected tab is in the tab order.
+- **Tab row:** "Expenses" and "Insights" in 16px semibold, 24px apart, each at least 44px tall and square-cornered, with the standard focus ring; the selected tab in ink with a 2px ink underline sitting on the row's hairline (`border`), the other in graphite (ink on hover). Expenses is selected by default. The tabs follow the ARIA tabs pattern: arrow keys, Home and End move between them and select them; only the selected tab is in the tab order.
 - **Filter button:** a quiet cobalt button with a sliders icon at the right end of the tab row, pulled back 12px so its text lines up with the column's edge. It reads "Filter", or "Filter (2)" with two filters active (read out as "2 active"). It opens and closes the filter panel (Category, Member paid or included, month, and a From / To date range on a white sheet, the ledger panel's style), which is collapsed by default. It shows only once the Group has an Expense.
-- **Filter chips:** each active filter, in the panel's order, is a fully round chip below the tab row (cobalt border and cobalt wash, 13px semibold ink label, a graphite ×, at least 44px tall) that removes that filter on click; a whole calendar month reads as one chip ("March 2024"), any other range as "From …" and "To …" chips. A quiet Clear all follows the chips and removes every filter at once.
+- **Filter chips:** each active filter, in the panel's order, is a fully round chip below the tab row (cobalt border and cobalt wash, 13px semibold ink label, a graphite ×, at least 44px tall; hover tints it hover slate) that removes that filter on click; a whole calendar month reads as one chip ("March 2024"), any other range as "From …" and "To …" chips, and the Filter button counts chips. A quiet Clear all follows the chips and removes every filter at once. Keyboard focus never drops to the page: a removed chip hands it to the chip now in its place, and the last chip or Clear all hands it to the Filter button.
 - **Count line:** while filtering, 13px graphite text under the chips reads "Showing 4 matching Expenses of 13", adding "; Settlements are hidden while filtering" in the Expenses view. It is a polite live region, so the count is read out as filters change.
 - **Switching views keeps the filters.** Only the selected view renders, so Insights' charts (with their text alternatives) load the first time the Insights tab opens.
-- **Spacing:** with nothing between them, the tab row's hairline is the ledger's top rule; the panel, chips and count line each sit 12px apart, and Insights starts 20px below the tab row.
+- **Spacing:** with nothing between them, the ledger's top rule tucks under the tab row's hairline (and under the selected tab's underline), so one rule shows; the panel, chips and count line each sit 12px apart, and Insights starts 20px below the tab row.
 - **Empty:** with nothing recorded, neither the tabs nor the ledger show; the Settle up hero leads to the first Expense. A Group whose only entries are Settlements shows the tabs without the Filter button, and its Insights view reads "Insights appear once there are Expenses." in a dashed empty-state outline.
 
 ### Dated Ledger

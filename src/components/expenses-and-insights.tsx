@@ -46,6 +46,8 @@ export function ExpensesAndInsights({
   const [filter, setFilter] = useState<ExpenseFilter>({});
   const [filtersOpen, setFiltersOpen] = useState(false);
   const tabs = useRef<Partial<Record<View, HTMLButtonElement | null>>>({});
+  const filterButton = useRef<HTMLButtonElement>(null);
+  const chipList = useRef<HTMLUListElement>(null);
 
   const insights = computeInsights(group, filter);
   const filtering = isFiltering(filter);
@@ -54,6 +56,20 @@ export function ExpensesAndInsights({
   const tabId = (v: View) => `${id}-${v}-tab`;
   const panelId = (v: View) => `${id}-${v}-panel`;
   const filtersId = `${id}-filters`;
+  // Nothing between the tabs and the ledger: the ledger's top rule lies on the tab row's.
+  const ledgerMeetsTabs = !filtersOpen && !filtering;
+
+  // A removed chip takes keyboard focus with it: hand it to the chip now in
+  // its place, or to the Filter button once no filter is left.
+  function removeFilter(next: ExpenseFilter, index: number) {
+    setFilter(next);
+    const left = filterChips(group, next).length;
+    requestAnimationFrame(() => {
+      const target =
+        left > 0 ? chipList.current?.querySelectorAll("button")[Math.min(index, left - 1)] : filterButton.current;
+      (target ?? tabs.current[view])?.focus();
+    });
+  }
 
   // The ARIA tabs pattern: arrows, Home and End move between the tabs and select them.
   function onTabKeyDown(event: KeyboardEvent) {
@@ -73,7 +89,8 @@ export function ExpensesAndInsights({
   return (
     <div className="flex flex-col">
       <div className="flex items-center justify-between gap-3 border-b border-border">
-        <div role="tablist" aria-label="Expenses and Insights" className="-mb-px flex gap-6">
+        {/* Above the ledger, whose top rule tucks under the tab row's: the underline stays whole. */}
+        <div role="tablist" aria-label="Expenses and Insights" className="relative z-10 -mb-px flex gap-6">
           {VIEWS.map((v) => (
             <button
               key={v.id}
@@ -89,7 +106,7 @@ export function ExpensesAndInsights({
               onClick={() => setView(v.id)}
               onKeyDown={onTabKeyDown}
               className={cn(
-                "min-h-11 rounded-t-sm border-b-2 text-base font-semibold transition-colors duration-(--duration-fast) outline-none focus-visible:ring-[3px] focus-visible:ring-ring",
+                "min-h-11 border-b-2 text-base font-semibold transition-colors duration-(--duration-fast) outline-none focus-visible:ring-[3px] focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
                 view === v.id
                   ? "border-text-primary text-text-primary"
                   : "border-transparent text-text-secondary hover:text-text-primary",
@@ -101,6 +118,7 @@ export function ExpensesAndInsights({
         </div>
         {ledger.expenseCount > 0 && (
           <Button
+            ref={filterButton}
             variant="quiet"
             aria-expanded={filtersOpen}
             aria-controls={filtersId}
@@ -127,13 +145,13 @@ export function ExpensesAndInsights({
       </div>
 
       {chips.length > 0 && (
-        <ul aria-label="Active filters" className="mt-3 flex flex-wrap items-center gap-2">
-          {chips.map((chip) => (
+        <ul ref={chipList} aria-label="Active filters" className="mt-3 flex flex-wrap items-center gap-2">
+          {chips.map((chip, index) => (
             <li key={chip.key}>
               <button
                 type="button"
                 aria-label={`Remove filter: ${chip.label}`}
-                onClick={() => setFilter(chip.without)}
+                onClick={() => removeFilter(chip.without, index)}
                 className="inline-flex min-h-11 items-center gap-1.5 rounded-full border border-accent bg-accent-subtle py-1 pr-3 pl-4 text-sm font-semibold text-text-primary transition-colors duration-(--duration-fast) outline-none hover:bg-bg-tertiary focus-visible:ring-[3px] focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
               >
                 {chip.label}
@@ -142,7 +160,7 @@ export function ExpensesAndInsights({
             </li>
           ))}
           <li>
-            <Button variant="quiet" onClick={() => setFilter({})}>
+            <Button variant="quiet" onClick={() => removeFilter({}, 0)}>
               Clear all
             </Button>
           </li>
@@ -168,14 +186,10 @@ export function ExpensesAndInsights({
           hidden={view !== v.id}
           // Insights holds nothing focusable, so its panel takes focus itself.
           tabIndex={v.id === "insights" ? 0 : undefined}
-          // Nothing between the tabs and the ledger: the tab row's rule is the ledger's top rule.
           className={cn(
-            "rounded-sm outline-none focus-visible:ring-[3px] focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
-            v.id === "insights"
-              ? "mt-5"
-              : !filtersOpen && !filtering
-                ? "[&>section>ol>li:first-child]:border-t-0"
-                : "mt-3",
+            "outline-none focus-visible:ring-[3px] focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+            v.id === "insights" && "mt-5",
+            v.id === "expenses" && (ledgerMeetsTabs ? "-mt-px" : "mt-3"),
           )}
         >
           {/* Only the selected view renders, so the charts load when Insights is first opened. */}

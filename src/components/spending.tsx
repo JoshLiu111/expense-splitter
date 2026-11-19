@@ -4,6 +4,7 @@ import dynamic from "next/dynamic";
 import { useId } from "react";
 import {
   categoryOptions,
+  filterMonth,
   formatMoney,
   memberLabel,
   membersInBalances,
@@ -58,12 +59,9 @@ export function ExpenseFilters({
     for (const key of Object.keys(next) as (keyof ExpenseFilter)[]) if (!next[key]) delete next[key];
     onChange(next);
   };
-  // The month whose dates the range covers exactly, if any.
-  const month =
-    insights.months.find((m) => {
-      const range = monthRange(m);
-      return range.from === filter.from && range.to === filter.to;
-    }) ?? "";
+  // The month whose dates the range covers exactly, if it is one of the options.
+  const covered = filterMonth(filter);
+  const month = covered && insights.months.includes(covered) ? covered : "";
 
   return (
     <fieldset className="grid grid-cols-1 gap-3 rounded-lg border border-border bg-surface p-4 sm:grid-cols-2">

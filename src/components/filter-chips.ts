@@ -1,4 +1,4 @@
-import { categoryName, memberLabel, monthRange, type ExpenseFilter, type GroupSnapshot } from "@/domain";
+import { categoryName, filterMonth, memberLabel, type ExpenseFilter, type GroupSnapshot } from "@/domain";
 import { formatCalendarDate, formatMonth } from "@/lib/format";
 
 export type FilterChip = {
@@ -31,9 +31,8 @@ export function filterChips(group: GroupSnapshot, filter: ExpenseFilter): Filter
       without: omit(filter, "memberId"),
     });
   }
-  const month = filter.from?.slice(0, 7);
-  const range = month ? monthRange(month) : undefined;
-  if (month && range && range.from === filter.from && range.to === filter.to) {
+  const month = filterMonth(filter);
+  if (month) {
     chips.push({ key: "month", label: formatMonth(month), without: omit(filter, "from", "to") });
   } else {
     if (filter.from) {

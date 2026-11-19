@@ -90,9 +90,12 @@ test("S2: Expenses and Insights are two views over one set of filters", async ({
   await chips.getByRole("button", { name: "Remove filter: January 2024" }).click();
   await expect(filterButton).toHaveText("Filter (2 active)");
   await expect(field(page, "From date")).toHaveValue("");
+  // Focus moves to the chip now in its place.
+  await expect(chips.getByRole("button", { name: "Remove filter: Drew Patel" })).toBeFocused();
 
   await chips.getByRole("button", { name: "Clear all" }).click();
   await expect(chips).toHaveCount(0);
+  await expect(filterButton).toBeFocused();
   await expect(filterButton).toHaveText("Filter");
   await tab(page, "Expenses").click();
   await expect(timeline(page)).toHaveCount(12);

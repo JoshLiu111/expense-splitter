@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import sampleData from "../../data/sample-groups.json";
-import { computeInsights, importSampleGroups, monthRange, type GroupSnapshot } from "./index";
+import { computeInsights, filterMonth, importSampleGroups, monthRange, type GroupSnapshot } from "./index";
 
 const groups = importSampleGroups(sampleData);
 const sample = (id: string) => {
@@ -78,6 +78,15 @@ describe("Compute Insights: filters", () => {
 
   it("offers the months that have Expenses, newest first", () => {
     expect(computeInsights(apartment, { category: "Housing" }).months).toEqual(["2024-02", "2024-01"]);
+  });
+});
+
+describe("filterMonth", () => {
+  it("names the month a date range covers exactly, and nothing for any other range", () => {
+    expect(filterMonth({ from: "2024-02-01", to: "2024-02-29", category: "Housing" })).toBe("2024-02");
+    expect(filterMonth({ from: "2024-02-01", to: "2024-02-28" })).toBeUndefined();
+    expect(filterMonth({ from: "2024-02-01" })).toBeUndefined();
+    expect(filterMonth({})).toBeUndefined();
   });
 });
 
