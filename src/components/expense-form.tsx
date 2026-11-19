@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, useMemo, useState, useTransition, type FormEvent } from "react";
+import { useId, useMemo, useState, useTransition, type FormEvent, type ReactNode } from "react";
 import {
   categoryOptions,
   CURRENCY_CODES,
@@ -123,6 +123,7 @@ export function ExpenseForm({
   onSave,
   onCancel,
   onSaved,
+  deleteAction,
 }: {
   group: GroupSnapshot;
   /** The Expense being edited, or `null` to add one. */
@@ -132,6 +133,8 @@ export function ExpenseForm({
   onSave: (fields: NewExpenseFields) => Promise<ExpenseResult>;
   onCancel: () => void;
   onSaved: () => void;
+  /** Deleting the Expense being edited, set apart at the end of the actions. */
+  deleteAction?: ReactNode;
 }) {
   const [fields, setFields] = useState(() => initialFields(group, expense, currentMemberId));
   // Former Members appear only on Expenses they were already part of.
@@ -560,6 +563,7 @@ export function ExpenseForm({
         <Button type="button" variant="outline" onClick={onCancel}>
           Cancel
         </Button>
+        {deleteAction && <div className="-mr-3 ml-auto">{deleteAction}</div>}
       </div>
     </form>
   );

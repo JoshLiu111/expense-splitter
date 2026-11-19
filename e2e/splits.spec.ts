@@ -70,7 +70,7 @@ test("S1: an Exact Split must add up, shows the difference, and allows $0", asyn
   await expect(row).toContainText("Exact amounts");
 
   // The typed amounts come back on edit.
-  await page.getByRole("button", { name: "Edit “Gift wrap”" }).click();
+  await page.getByRole("button", { name: "Gift wrap", exact: true }).click();
   await expect(page.getByRole("radio", { name: "Exact", exact: true })).toBeChecked();
   await expect(field(page, "Olivia Hayes (USD)")).toHaveValue("20.00");
   await expect(field(page, "Ben Gutierrez (USD)")).toHaveValue("30.00");
@@ -124,7 +124,7 @@ test("S1: a 2:1 Shares Split gives the first Member two thirds, and reloads on e
   await expect(page.getByText("Expense added.")).toBeVisible();
 
   await page.reload();
-  await page.getByRole("button", { name: "Edit “Candles”" }).click();
+  await page.getByRole("button", { name: "Candles", exact: true }).click();
   await expect(page.getByRole("radio", { name: "Shares", exact: true })).toBeChecked();
   await expect(field(page, "Olivia Hayes (shares)")).toHaveValue("2");
   await expect(field(page, "Ben Gutierrez (shares)")).toHaveValue("1");
@@ -132,7 +132,7 @@ test("S1: a 2:1 Shares Split gives the first Member two thirds, and reloads on e
 
 test("a sample Percentage Expense opens with its percentages", async ({ page }) => {
   await page.goto("/guest/groups/grp_office_lunch");
-  await page.getByRole("button", { name: "Edit “Sushi lunch”" }).click();
+  await page.getByRole("button", { name: "Sushi lunch", exact: true }).click();
   await expect(page.getByRole("radio", { name: "Percentage", exact: true })).toBeChecked();
   await expect(field(page, "Mia Torres (%)")).toHaveValue("30");
   await expect(field(page, "Noah Williams (%)")).toHaveValue("20");

@@ -300,7 +300,7 @@ Firm, compact and unadorned. Cobalt marks every action; how much of it a button 
 - **Primary** (`default`): cobalt fill, on-accent text, 13px semibold label, 8px × 16px padding (20px sides in the hero panels). The one main action in a block: Add Expense, Record this payment, Add the first Expense, Save.
 - **Secondary** (`outline`): sheet white with a control-edge border and cobalt text; hover fills with cobalt wash. An action beside or below the primary one: Record a payment, Clear Small Change, Cancel.
 - **Quiet** (`quiet`): cobalt text, usually with a leading icon, no fill or border; hover fills with cobalt wash. Lesser actions inside a block: "Why these payments?", a suggestion's Record, Show / Hide Balances. When it sits at a panel's edge it pulls its 12px padding back with a negative margin so the text, not the hit area, lines up.
-- **Ghost** (`ghost`): neutral text, hover fills with hover slate. Chrome only: the header (user menu, theme toggle) and icon-only buttons such as Close and the Group page's Group settings cog (graphite, ink on hover, pulled 10px into the column's right edge). (Text buttons in the Expense rows and Group settings predate this rule; they move to quiet when those screens are rebuilt.)
+- **Ghost** (`ghost`): neutral text, hover fills with hover slate. Chrome only: the header (user menu, theme toggle) and icon-only buttons such as Close and the Group page's Group settings cog (graphite, ink on hover, pulled 10px into the column's right edge). (Text buttons in Group settings predate this rule; they move to quiet when that screen is rebuilt.)
 - **Hover / Focus:** colour-only transitions at 120ms. Focus shows a 3px cobalt ring offset 2px from the page background.
 - **Link:** cobalt text, underline on hover.
 - **Disabled:** 50% opacity, no pointer events.
@@ -329,6 +329,7 @@ The ledger panel: a list or block on a white sheet.
 - **Shadow Strategy:** none (see Elevation & Depth).
 - **Border:** 1px hairline; rows inside are separated by faint hairline dividers.
 - **Internal Padding:** 12px × 16px per row; 24px for standalone panels and dialogs.
+- **Rows carry no buttons.** An Expense or Settlement row is one control: a click, tap or Enter anywhere on it opens it (the Expense editor, or a dialog stating the Settlement), its hover edge turns cobalt and focus rings the whole row. Delete lives inside what the row opens: the Expense editor's quiet Delete Expense, the Settlement dialog's Delete Settlement, each confirmed first.
 
 ### Inputs / Fields
 - **Style:** white sheet, 1px control-edge border, 8px radius, 8px × 12px padding, 16px text (prevents zoom on iOS). The amount field uses the mono figure style at 25px.

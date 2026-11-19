@@ -78,23 +78,40 @@ test("a Guest edits and then deletes an Expense, and Balances recompute", async 
   await page.getByRole("button", { name: "Add Expense", exact: true }).click();
   await expect(page.getByTestId("balance-mem_olivia")).toContainText("gets back $30.00");
 
-  await page.getByRole("button", { name: "Edit “Balloons”" }).click();
+  // A new Expense can't be deleted.
+  await openAddExpense(page);
+  await expect(page.getByRole("button", { name: "Delete Expense" })).toHaveCount(0);
+  await page.getByRole("button", { name: "Cancel" }).click();
+
+  // The row carries no buttons of its own; the whole row opens the editor.
+  const row = page
+    .getByRole("region", { name: "Expenses and Settlements" })
+    .getByRole("listitem")
+    .filter({ has: page.getByRole("heading", { name: "Balloons", exact: true }) });
+  await expect(row.getByRole("button")).toHaveCount(1);
+  await row.getByRole("button", { name: "Balloons", exact: true }).click();
   await expect(field(page, "Amount (USD)")).toHaveValue("40.00");
   await field(page, "Amount (USD)").fill("80");
   await page.getByRole("button", { name: "Save changes" }).click();
   await expect(page.getByText("Expense updated.")).toBeVisible();
   await expect(page.getByTestId("balance-mem_olivia")).toContainText("gets back $60.00");
 
-  await page.getByRole("button", { name: "Delete “Balloons”" }).click();
+  // Delete lives in the editor and is confirmed first. The row is reachable by keyboard.
+  await row.getByRole("button", { name: "Balloons", exact: true }).focus();
+  await page.keyboard.press("Enter");
+  await page.getByRole("button", { name: "Delete Expense" }).click();
   const confirm = page.getByRole("alertdialog", { name: "Delete this Expense?" });
   await expect(confirm).toContainText("$80.00");
   await confirm.getByRole("button", { name: "Cancel" }).click();
   await expect(page.getByTestId("balance-mem_olivia")).toContainText("gets back $60.00");
 
-  await page.getByRole("button", { name: "Delete “Balloons”" }).click();
+  await page.getByRole("button", { name: "Delete Expense" }).click();
   await confirm.getByRole("button", { name: "Delete Expense" }).click();
   await expect(page.getByText("Deleted “Balloons”.")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Expenses and Settlements" })).toBeFocused();
+  await expect(page.getByRole("button", { name: "Save changes" })).toHaveCount(0);
   await expect(page.getByTestId("balances-settled-up")).toContainText("Olivia Hayes");
+  await expect(page.getByRole("status")).toContainText("Balances updated.");
   await expect(page.getByRole("heading", { name: "Balloons", exact: true })).toHaveCount(0);
 });
 

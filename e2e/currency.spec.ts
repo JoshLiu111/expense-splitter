@@ -31,7 +31,7 @@ test("S2: a Guest records a yen Expense at today's rate, overrides it, and re-lo
   await expect(page.getByTestId("balance-mem_olivia")).toContainText("gets back $420.00");
 
   // A manual rate, to match a card statement.
-  await page.getByRole("button", { name: "Edit “Ryokan”" }).click();
+  await page.getByRole("button", { name: "Ryokan", exact: true }).click();
   await field(page, "Exchange rate (USD per 1 JPY)").fill("0.0067");
   await expect(page.getByTestId("converted-preview")).toHaveText("¥84,000 ≈ $562.80");
   await page.getByRole("button", { name: "Save changes" }).click();
@@ -39,13 +39,13 @@ test("S2: a Guest records a yen Expense at today's rate, overrides it, and re-lo
   await expect(page.getByTestId("balance-mem_olivia")).toContainText("gets back $422.10");
 
   // Editing the description keeps the Locked Rate.
-  await page.getByRole("button", { name: "Edit “Ryokan”" }).click();
+  await page.getByRole("button", { name: "Ryokan", exact: true }).click();
   await field(page, "Description").fill("Ryokan, 2 nights");
   await page.getByRole("button", { name: "Save changes" }).click();
   await expect(row(page, "Ryokan, 2 nights")).toContainText("≈ $562.80");
 
   // Changing the currency re-locks at today's rate, with a notice.
-  await page.getByRole("button", { name: "Edit “Ryokan, 2 nights”" }).click();
+  await page.getByRole("button", { name: "Ryokan, 2 nights", exact: true }).click();
   await field(page, "Currency").selectOption("EUR");
   await expect(page.getByText("Changing the currency re-locks the rate at today's rate.")).toBeVisible();
   await expect(field(page, "Exchange rate (USD per 1 EUR)")).toHaveValue("");
@@ -67,7 +67,7 @@ test("S2: editing a seed Expense keeps its Locked Rate, so past Balances never c
     .filter({ hasText: "1 JPY = 0.0067 USD" })
     .first();
   const description = (await firstJpy.getByRole("heading").textContent())!;
-  await firstJpy.getByRole("button", { name: `Edit “${description}”` }).click();
+  await firstJpy.getByRole("button", { name: description, exact: true }).click();
   await expect(page.getByText("This Expense keeps its Locked Rate.")).toBeVisible();
   await field(page, "Description").fill(`${description} (edited)`);
   await page.getByRole("button", { name: "Save changes" }).click();
