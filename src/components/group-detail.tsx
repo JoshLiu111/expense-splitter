@@ -1,11 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { useId, useRef, useState } from "react";
-import { Dialog } from "radix-ui";
-import { ArrowLeft, ArrowRightLeft, Plus, Settings, X } from "lucide-react";
+import { useRef, useState } from "react";
+import { ArrowLeft, Plus, Settings } from "lucide-react";
 import {
-  categoryName,
   computeInsights,
   computeLedger,
   formatMoney,
@@ -13,25 +11,23 @@ import {
   type Expense,
   type ExpenseFilter,
   type GroupSnapshot,
-  type Member,
   type Settlement,
-  type TimelineEntry,
 } from "@/domain";
 import type { DeleteExpense, SaveExpense } from "@/expenses/save-expense";
 import type { SettleUp } from "@/settlements/settle-up";
 import { BalancesPanel } from "@/components/balances-panel";
-import { ConfirmDelete } from "@/components/confirm-delete";
+import { DatedLedger } from "@/components/dated-ledger";
 import { ExpenseEditor } from "@/components/expense-editor";
 import { SettleUpSection } from "@/components/settle-up";
 import { ExpenseFilters, SpendingInsights } from "@/components/spending";
 import { AvatarStack } from "@/components/member-avatar";
 import { Button } from "@/components/ui/button";
 import { useTodaysRates } from "@/rates/use-todays-rates";
-import { describeBalance, formatCalendarDate, pluralize } from "@/lib/format";
+import { describeBalance, pluralize } from "@/lib/format";
 
 /**
- * A Group's header (name, Members, total spent), the settle-up hero (Settle up, then Balances), Insights
- * and the newest-first timeline, with Expense entry.
+ * A Group's header (name, Members, total spent), the settle-up hero (Settle up, then Balances),
+ * Insights and the dated ledger of Expenses and Settlements, with Expense entry.
  * Details, Categories, Members and deletion live in Group settings, linked
  * from the header. Balances are recomputed from the Group on every render
  * (ADR 0004).
@@ -210,18 +206,14 @@ export function GroupDetail({
       {/* With nothing recorded, the hero leads to the first Expense instead. */}
       {ledger.timeline.length > 0 && (
         <section aria-labelledby="activity-heading">
-          <h2
-            id="activity-heading"
-            ref={activityHeading}
-            tabIndex={-1}
-            className="rounded-md text-lg font-bold outline-none focus-visible:ring-[3px] focus-visible:ring-ring"
-          >
+          {/* The ledger needs no visible heading; this one names the region and takes focus after a deletion. */}
+          <h2 id="activity-heading" ref={activityHeading} tabIndex={-1} className="sr-only">
             Expenses and Settlements
           </h2>
           {/* Live, so the count is read out as filters change. */}
           <div aria-live="polite" className="empty:hidden">
             {filtering && (
-              <p className="mt-1 flex flex-wrap items-center gap-x-3 text-sm text-text-secondary">
+              <p className="mb-3 flex flex-wrap items-center gap-x-3 text-sm text-text-secondary">
                 Showing {pluralize(insights.expenses.length, "matching Expense")} of {ledger.expenseCount};
                 Settlements are hidden while filtering.
                 <Button variant="quiet" onClick={() => setFilter({})}>
@@ -231,32 +223,16 @@ export function GroupDetail({
             )}
           </div>
           {timeline.length === 0 && filtering ? (
-            <p className="mt-3 rounded-lg border border-dashed border-border-input p-6 text-text-secondary">
+            <p className="rounded-lg border border-dashed border-border-input p-6 text-text-secondary">
               No Expenses match these filters.
             </p>
           ) : (
-            <ol className="mt-3 flex flex-col gap-2">
-              {timeline.map((entry) => (
-                <li key={entry.id}>
-                  {entry.kind === "expense" ? (
-                    <ExpenseRow
-                      entry={entry}
-                      group={group}
-                      payer={members.get(entry.expense.payerId)}
-                      onOpen={() => open(entry.expense)}
-                    />
-                  ) : (
-                    <SettlementRow
-                      entry={entry}
-                      currency={group.currency}
-                      from={nameOf(entry.settlement.fromId)}
-                      to={nameOf(entry.settlement.toId)}
-                      onDelete={() => removeSettlement(entry.settlement)}
-                    />
-                  )}
-                </li>
-              ))}
-            </ol>
+            <DatedLedger
+              group={group}
+              timeline={timeline}
+              onOpenExpense={open}
+              onDeleteSettlement={removeSettlement}
+            />
           )}
         </section>
       )}
@@ -276,174 +252,5 @@ export function GroupDetail({
         </div>
       )}
     </div>
-  );
-}
-
-const SPLIT_TYPE_LABELS: Record<Expense["splitType"], string> = {
-  equal: "Split equally",
-  exact: "Exact amounts",
-  percentage: "By percentage",
-  shares: "By shares",
-};
-
-/**
- * Makes a row's heading button cover the whole row, so a click or tap
- * anywhere on it opens the row; the row shows the button's focus ring.
- */
-const rowClass =
-  "relative cursor-pointer transition-colors duration-(--duration-fast) has-[button:hover]:border-accent has-focus-visible:ring-[3px] has-focus-visible:ring-ring has-focus-visible:ring-offset-2 has-focus-visible:ring-offset-background";
-const rowButtonClass =
-  "cursor-pointer text-left font-semibold break-words outline-none after:absolute after:inset-0 after:rounded-lg";
-
-function ExpenseRow({
-  entry,
-  group,
-  payer,
-  onOpen,
-}: {
-  entry: Extract<TimelineEntry, { kind: "expense" }>;
-  group: GroupSnapshot;
-  payer: Member | undefined;
-  onOpen: () => void;
-}) {
-  const { expense } = entry;
-  const foreign = expense.currency !== group.currency;
-  const id = useId();
-  return (
-    <article
-      className={`${rowClass} flex flex-col gap-2 rounded-lg border border-border bg-surface px-4 py-3`}
-    >
-      <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-1">
-        <div className="min-w-0 flex-1">
-          <h3>
-            <button
-              type="button"
-              onClick={onOpen}
-              aria-describedby={`${id}-details ${id}-amount`}
-              className={rowButtonClass}
-            >
-              {expense.description}
-            </button>
-          </h3>
-          <p id={`${id}-details`} className="text-sm text-text-secondary">
-            {payer?.name ?? "Unknown member"} paid ·{" "}
-            {pluralize(entry.owing.length, "member")} · {SPLIT_TYPE_LABELS[expense.splitType]} ·{" "}
-            {categoryName(group, expense.category)} ·{" "}
-            <time dateTime={expense.date}>{formatCalendarDate(expense.date)}</time>
-          </p>
-        </div>
-        <p id={`${id}-amount`} className="text-right">
-          <span className="amount font-semibold">
-            {formatMoney(expense.amount, expense.currency)}
-          </span>
-          {foreign && (
-            <>
-              <span className="amount block text-sm text-text-secondary">
-                ≈ {formatMoney(entry.groupAmount, group.currency)}
-              </span>
-              <span className="amount block text-xs text-text-secondary">
-                1 {expense.currency} = {expense.lockedRate} {group.currency}
-                {expense.manualRate && " · manual rate"}
-              </span>
-            </>
-          )}
-        </p>
-      </div>
-    </article>
-  );
-}
-
-/**
- * A Settlement can be added or deleted but never edited, so its row opens a
- * dialog stating it, with Delete Settlement behind a confirmation.
- */
-function SettlementRow({
-  entry,
-  currency,
-  from,
-  to,
-  onDelete,
-}: {
-  entry: Extract<TimelineEntry, { kind: "settlement" }>;
-  currency: GroupSnapshot["currency"];
-  from: string;
-  to: string;
-  onDelete: () => void;
-}) {
-  const amount = formatMoney(entry.settlement.amount, currency);
-  const date = formatCalendarDate(entry.date);
-  const id = useId();
-  const [open, setOpen] = useState(false);
-  // Once deleted the row is gone, so focus is left to whoever announces it.
-  const deleted = useRef(false);
-  return (
-    <Dialog.Root
-      open={open}
-      onOpenChange={(next) => {
-        if (next) deleted.current = false;
-        setOpen(next);
-      }}
-    >
-      <article
-        className={`${rowClass} flex flex-col gap-2 rounded-lg border border-dashed border-border-input bg-bg-secondary px-4 py-3`}
-      >
-        <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
-          <div className="flex min-w-0 flex-1 items-center gap-3">
-            <ArrowRightLeft aria-hidden className="size-5 shrink-0 text-accent" />
-            <div className="min-w-0">
-              <h3>
-                <Dialog.Trigger
-                  aria-describedby={`${id}-date ${id}-amount`}
-                  className={rowButtonClass}
-                >
-                  Settlement: {from} paid {to}
-                </Dialog.Trigger>
-              </h3>
-              <p id={`${id}-date`} className="text-sm text-text-secondary">
-                <time dateTime={entry.date}>{date}</time>
-              </p>
-            </div>
-          </div>
-          <span id={`${id}-amount`} className="amount font-semibold">
-            {amount}
-          </span>
-        </div>
-      </article>
-      <Dialog.Portal>
-        <Dialog.Overlay className="fixed inset-0 z-40 bg-black/50" />
-        <Dialog.Content
-          className="fixed top-1/2 left-1/2 z-50 max-h-[92dvh] w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-lg border border-border bg-surface p-6 shadow-lg outline-none"
-          onCloseAutoFocus={(event) => {
-            if (deleted.current) event.preventDefault();
-          }}
-        >
-          <div className="flex items-center justify-between gap-2">
-            <Dialog.Title className="text-lg font-bold">Settlement</Dialog.Title>
-            <Dialog.Close asChild>
-              <Button variant="ghost" size="icon" aria-label="Close" className="-mr-2.5">
-                <X aria-hidden />
-              </Button>
-            </Dialog.Close>
-          </div>
-          <Dialog.Description className="mt-2">
-            {from} paid {to} <span className="amount font-semibold">{amount}</span> on{" "}
-            <time dateTime={entry.date}>{date}</time>.
-          </Dialog.Description>
-          <div className="-mr-3 mt-6 flex justify-end">
-            <ConfirmDelete
-              title="Delete this Settlement?"
-              confirmLabel="Delete Settlement"
-              onConfirm={() => {
-                deleted.current = true;
-                setOpen(false);
-                onDelete();
-              }}
-            >
-              The Settlement from {from} to {to} (<span className="amount">{amount}</span>)
-            </ConfirmDelete>
-          </div>
-        </Dialog.Content>
-      </Dialog.Portal>
-    </Dialog.Root>
   );
 }

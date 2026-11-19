@@ -18,19 +18,21 @@ test("Guest opens /guest, opens a Group and sees the expected Balances", async (
   await expect(page.getByTestId("balance-mem_sam")).toContainText("owes $315.09");
   await expect(page.getByTestId("balance-mem_taylor")).toContainText("gets back $318.12");
 
-  // Original and converted amounts for a yen Expense.
-  await expect(page.getByText("¥84,000")).toBeVisible();
-  await expect(page.getByText("≈ $562.80")).toBeVisible();
+  // A yen Expense: the Group Currency amount over the yen amount.
+  await expect(
+    page.locator("main article").filter({ hasText: "Shinjuku hotel (3 nights)" }),
+  ).toContainText("$562.80, paid as ¥84,000");
 });
 
-test("a Group's Expenses and Settlements are listed newest first", async ({ page }) => {
+test("a Group's Expenses and Settlements are listed newest first, one date per day", async ({ page }) => {
   await page.goto("/guest/groups/grp_birthday");
-  await expect(page.locator("main ol time")).toHaveCount(6);
+  await expect(page.locator("main article")).toHaveCount(6);
   const dates = await page.locator("main ol time").evaluateAll((els) =>
     els.map((el) => el.getAttribute("datetime") ?? ""),
   );
-  expect(dates.length).toBe(6);
-  expect(dates).toEqual([...dates].sort().reverse());
+  expect(dates.length).toBeGreaterThan(1);
+  // Strictly newest first: each day appears once.
+  expect(dates).toEqual([...new Set(dates)].sort().reverse());
 });
 
 test("Guest edits survive a reload but not a new browser session", async ({ page, browser }) => {

@@ -64,11 +64,6 @@ test("S1: an Exact Split must add up, shows the difference, and allows $0", asyn
   await expect(page.getByText("Expense added.")).toBeVisible();
   await expect(page.getByTestId("balance-mem_olivia")).toContainText("gets back $30.00");
   await expect(page.getByTestId("balance-mem_ben")).toContainText("owes $15.63");
-  // The $0 Shares (Chloe, and Marcus left blank) aren't shown as owing.
-  const row = page.locator("main ol > li").filter({ hasText: "Gift wrap" });
-  await expect(row).toContainText("2 members");
-  await expect(row).toContainText("Exact amounts");
-
   // The typed amounts come back on edit.
   await page.getByRole("button", { name: "Gift wrap", exact: true }).click();
   await expect(page.getByRole("radio", { name: "Exact", exact: true })).toBeChecked();
