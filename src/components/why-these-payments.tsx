@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useId, useRef, useState } from "react";
-import { Sparkles } from "lucide-react";
+import { Play } from "lucide-react";
 import {
   computeLedger,
   formatMoney,
@@ -60,6 +60,8 @@ export default function WhyThesePayments({
   const [motion, setMotion] = useState<Motion>("instant");
   // Read out once Simplify has finished, since the graph itself says nothing.
   const [announcement, setAnnouncement] = useState("");
+  // Once Simplify has played through, its button offers to play it again.
+  const [played, setPlayed] = useState(false);
   // Bumped by every Simplify or toggle, so a superseded run never fires late.
   const run = useRef(0);
   useEffect(
@@ -97,14 +99,17 @@ export default function WhyThesePayments({
   // Plays Before → After only when asked, once the graph is on screen to see it.
   function simplify() {
     const id = ++run.current;
-    const done = `Simplified. Showing After: ${pluralize(after.length, "Suggested Settlement")}.`;
+    const finish = () => {
+      setAnnouncement(`Simplified. Showing After: ${pluralize(after.length, "Suggested Settlement")}.`);
+      setPlayed(true);
+    };
     // Cleared first, so the same words are read out again on the next run.
     setAnnouncement("");
     if (reducedMotion) {
       graph.current?.scrollIntoView({ block: "nearest" });
       setMotion("instant");
       setPhase("after");
-      setAnnouncement(done);
+      finish();
       return;
     }
     // Clear the graph at once, then draw Before, hold, and move on to After.
@@ -123,7 +128,7 @@ export default function WhyThesePayments({
           }, stageMs(before.length) + SIMPLIFY_TIMING.holdMs);
           setTimeout(() => {
             if (id !== run.current) return;
-            setAnnouncement(done);
+            finish();
           }, simplifyDurations(before.length, after.length).totalMs);
         }),
       );
@@ -219,7 +224,7 @@ export default function WhyThesePayments({
             ))}
           </div>
           <Button onClick={simplify}>
-            <Sparkles aria-hidden /> Simplify
+            <Play aria-hidden /> {played ? "Replay" : "Simplify"}
           </Button>
         </div>
       )}

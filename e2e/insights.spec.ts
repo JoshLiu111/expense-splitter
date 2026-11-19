@@ -110,6 +110,9 @@ test("Why these payments? Simplify draws Before, holds it, then draws After, wit
   await expect.poll(() => opacities("before")).toEqual(Array(6).fill("0/0"));
   // Read out once the run is over.
   await expect(settleUp(page).getByRole("status")).toHaveText("Simplified. Showing After: 3 Suggested Settlements.");
+  // Once played through, the button offers to play it again.
+  await expect(settleUp(page).getByRole("button", { name: "Replay" })).toBeVisible();
+  await expect(settleUp(page).getByRole("button", { name: "Simplify" })).toHaveCount(0);
 
   // The whole graph is in view, clear of the Add Expense bar.
   await expect(graph).toBeInViewport({ ratio: 1 });
