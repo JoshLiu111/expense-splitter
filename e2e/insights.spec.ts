@@ -6,7 +6,7 @@ function field(page: Page, label: string) {
   return page.getByLabel(label, { exact: true }).filter({ visible: true });
 }
 
-const timeline = (page: Page) => page.locator("main ol > li");
+const timeline = (page: Page) => page.locator("main article");
 const insights = (page: Page) => page.getByRole("region", { name: "Insights" });
 const categories = (page: Page) => page.getByRole("region", { name: "Categories" });
 const settleUp = (page: Page) => page.getByRole("region", { name: "Settle up" });
@@ -32,7 +32,7 @@ test("S2: Guest adds a Custom Category, files an Expense under it, renames it, a
   await field(page, "Category").selectOption({ label: "Cleaning supplies" });
   await page.getByRole("button", { name: "Add Expense", exact: true }).click();
   await expect(page.getByText("Expense added.")).toBeVisible();
-  await expect(timeline(page).first()).toContainText("Cleaning supplies");
+  await expect(timeline(page).first()).toContainText("paid in Cleaning supplies");
 
   await page.getByRole("link", { name: "Group settings" }).click();
   await categories(page).getByRole("button", { name: "Rename Cleaning supplies" }).click();
@@ -41,7 +41,7 @@ test("S2: Guest adds a Custom Category, files an Expense under it, renames it, a
   await expect(categories(page)).toContainText("1 Expense uses Cleaning. Move it to another Category first.");
   await expect(categories(page).getByRole("button", { name: "Delete Cleaning" })).toHaveCount(0);
   await page.getByRole("link", { name: "Back to Apartment 4B" }).click();
-  await expect(timeline(page).first()).toContainText("Cleaning ·");
+  await expect(timeline(page).first().getByText(/ paid in Cleaning$/)).toBeVisible();
 
   await page.goto("/guest/groups/grp_birthday");
   await page.getByRole("button", { name: "Add Expense", exact: true }).click();

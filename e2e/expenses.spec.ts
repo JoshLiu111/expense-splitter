@@ -50,8 +50,10 @@ test("S2: Guest adds an Equal Expense and sees Balances change", async ({ page }
     "Balances updated. Olivia Hayes gets back $40.00. Ben Gutierrez owes $5.63.",
   );
   // Today's Expense is the newest, so it heads the list.
-  await expect(page.locator("main ol > li").first()).toContainText("Cake");
-  await expect(page.locator("main ol > li").first()).toContainText("3 members");
+  const newest = page.locator("main article").first();
+  await expect(newest).toContainText("Cake");
+  await expect(newest).toContainText("Olivia Hayes paid in Other");
+  await expect(newest).toContainText("$60.00");
 
   // Kept for the rest of the browser session.
   await page.reload();
@@ -86,7 +88,7 @@ test("a Guest edits and then deletes an Expense, and Balances recompute", async 
   // The row carries no buttons of its own; the whole row opens the editor.
   const row = page
     .getByRole("region", { name: "Expenses and Settlements" })
-    .getByRole("listitem")
+    .getByRole("article")
     .filter({ has: page.getByRole("heading", { name: "Balloons", exact: true }) });
   await expect(row.getByRole("button")).toHaveCount(1);
   await row.getByRole("button", { name: "Balloons", exact: true }).click();

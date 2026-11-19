@@ -30,7 +30,7 @@ test("S2: Guest records the suggested Settlement in parts and reaches Everyone i
 
   await expect(page.getByText("Settlement recorded. Chloe Yun will still owe $4.37.")).toBeVisible();
   await expect(page.getByTestId("balance-mem_chloe")).toContainText("owes $4.37");
-  await expect(page.locator("main ol > li").first()).toContainText("Settlement: Chloe Yun paid Ben Gutierrez");
+  await expect(page.locator("main article").first()).toContainText("Settlement: Chloe Yun paid Ben Gutierrez");
 
   // Overpaying is refused with the most that can be paid.
   await recordPayment(page, "Chloe Yun", "Ben Gutierrez", "5");
@@ -50,7 +50,8 @@ test("S2: a Settlement can be deleted after confirming, restoring the debt", asy
   // The row is one control with no buttons of its own; it opens a dialog stating the Settlement.
   const row = page
     .getByRole("region", { name: "Expenses and Settlements" })
-    .getByRole("listitem").filter({ hasText: "Settlement: Chloe Yun paid Olivia Hayes" });
+    .getByRole("article")
+    .filter({ has: page.getByRole("heading", { name: "Settlement: Chloe Yun paid Olivia Hayes", exact: true }) });
   await expect(row.getByRole("button")).toHaveCount(1);
   await row.getByRole("button").focus();
   await page.keyboard.press("Enter");

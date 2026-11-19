@@ -108,8 +108,11 @@ test("S2: a signed-in User's yen Expense is locked at the server's rate", async 
 
   await expect(page.getByText("Expense added.")).toBeVisible();
   await page.reload();
-  await expect(page.getByText("1 JPY = 0.00666667 USD")).toBeVisible();
   await expect(page.getByText("1 member, $30.00 across 1 expense")).toBeVisible();
+  await expect(page.locator("main article").filter({ hasText: "Sushi" })).toContainText("$30.00, paid as ¥4,500");
+  // The Locked Rate is kept, and shown in the editor.
+  await page.getByRole("button", { name: "Sushi", exact: true }).click();
+  await expect(page.getByText("1 JPY = 0.00666667 USD.")).toBeVisible();
 });
 
 test("a signed-in User's Percentage Split reloads on edit", async ({ page }) => {
