@@ -120,7 +120,8 @@ export default function WhyThesePayments({
       graph.current?.scrollIntoView({ block: "nearest" });
       setMotion("instant");
       setPhase("after");
-      finish();
+      // A frame later, so the cleared status renders before the words come back.
+      nextFrame(finish);
       return;
     }
     // Clear the graph at once, then draw Before, hold, and move on to After.

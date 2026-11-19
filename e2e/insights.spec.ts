@@ -178,6 +178,24 @@ test.describe("with reduced motion", () => {
     const afterList = settleUp(page).locator("[aria-current]");
     await expect(afterList).toHaveCount(1);
     await expect(afterList.getByRole("heading")).toHaveText("After: 3 Suggested Settlements");
+    // Replay clears the status before writing the same words, so they are read out again.
+    // The empty status lasts one frame, too short to poll for, so record every change.
+    const status = settleUp(page).getByRole("status");
+    await status.evaluate((el) => {
+      const seen: string[] = [];
+      (window as unknown as { statusSeen: string[] }).statusSeen = seen;
+      new MutationObserver(() => seen.push(el.textContent ?? "")).observe(el, {
+        childList: true,
+        characterData: true,
+        subtree: true,
+      });
+    });
+    await settleUp(page).getByRole("button", { name: "Replay" }).click();
+    const seen = () => page.evaluate(() => (window as unknown as { statusSeen: string[] }).statusSeen);
+    await expect.poll(seen).toContain("");
+    await expect(status).toHaveText("Simplified. Showing After: 3 Suggested Settlements.");
+    const changes = await seen();
+    expect(changes.indexOf("")).toBeLessThan(changes.lastIndexOf("Simplified. Showing After: 3 Suggested Settlements."));
   });
 
   test("Why these payments? keeps every amount apart and at 11px or more", async ({ page }) => {
