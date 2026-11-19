@@ -78,6 +78,8 @@ export function ExpenseEditor(props: ExpenseEditorProps) {
         <Dialog.Overlay className="fixed inset-0 z-40 bg-black/50" />
         <Dialog.Content
           aria-describedby={undefined}
+          // The Group page returns focus itself: to the opener, or after a delete to the list.
+          onCloseAutoFocus={(event) => event.preventDefault()}
           className="fixed inset-x-0 bottom-0 z-50 max-h-[92dvh] overflow-y-auto rounded-t-xl border-t border-border bg-surface px-4 pt-2 pb-6 shadow-lg outline-none"
         >
           <div aria-hidden className="mx-auto mb-2 h-1 w-10 rounded-full bg-border-input" />

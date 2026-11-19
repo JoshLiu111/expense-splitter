@@ -30,7 +30,7 @@ export function ConfirmDelete({
       </AlertDialog.Trigger>
       <AlertDialog.Portal>
         <AlertDialog.Overlay className="fixed inset-0 z-40 bg-black/50" />
-        <AlertDialog.Content className="fixed top-1/2 left-1/2 z-50 w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-lg border border-border bg-surface p-6 shadow-lg outline-none">
+        <AlertDialog.Content className="fixed top-1/2 left-1/2 z-50 max-h-[92dvh] w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-lg border border-border bg-surface p-6 shadow-lg outline-none">
           <AlertDialog.Title className="text-lg font-bold">{title}</AlertDialog.Title>
           <AlertDialog.Description className="mt-2 text-text-secondary">
             {children} will be removed and Balances recomputed. This can&apos;t be undone.

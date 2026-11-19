@@ -69,6 +69,7 @@ test("S2: a Settlement can be deleted after confirming, restoring the debt", asy
 
   await expect(page.getByText("Deleted the Settlement from Chloe Yun to Olivia Hayes.")).toBeVisible();
   await expect(page.getByRole("dialog")).toHaveCount(0);
+  await expect(page.getByRole("heading", { name: "Expenses and Settlements" })).toBeFocused();
   await expect(page.getByTestId("balance-mem_chloe")).toContainText("owes $33.12");
   await expect(page.getByRole("status")).toContainText("Balances updated.");
 });

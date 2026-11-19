@@ -108,6 +108,7 @@ test("a Guest edits and then deletes an Expense, and Balances recompute", async 
   await page.getByRole("button", { name: "Delete Expense" }).click();
   await confirm.getByRole("button", { name: "Delete Expense" }).click();
   await expect(page.getByText("Deleted “Balloons”.")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Expenses and Settlements" })).toBeFocused();
   await expect(page.getByRole("button", { name: "Save changes" })).toHaveCount(0);
   await expect(page.getByTestId("balances-settled-up")).toContainText("Olivia Hayes");
   await expect(page.getByRole("status")).toContainText("Balances updated.");

@@ -291,7 +291,7 @@ const SPLIT_TYPE_LABELS: Record<Expense["splitType"], string> = {
  * anywhere on it opens the row; the row shows the button's focus ring.
  */
 const rowClass =
-  "relative cursor-pointer transition-colors duration-(--duration-fast) has-[button:hover]:border-accent has-focus-visible:ring-[3px] has-focus-visible:ring-ring";
+  "relative cursor-pointer transition-colors duration-(--duration-fast) has-[button:hover]:border-accent has-focus-visible:ring-[3px] has-focus-visible:ring-ring has-focus-visible:ring-offset-2 has-focus-visible:ring-offset-background";
 const rowButtonClass =
   "cursor-pointer text-left font-semibold break-words outline-none after:absolute after:inset-0 after:rounded-lg";
 
@@ -377,7 +377,13 @@ function SettlementRow({
   // Once deleted the row is gone, so focus is left to whoever announces it.
   const deleted = useRef(false);
   return (
-    <Dialog.Root open={open} onOpenChange={setOpen}>
+    <Dialog.Root
+      open={open}
+      onOpenChange={(next) => {
+        if (next) deleted.current = false;
+        setOpen(next);
+      }}
+    >
       <article
         className={`${rowClass} flex flex-col gap-2 rounded-lg border border-dashed border-border-input bg-bg-secondary px-4 py-3`}
       >
@@ -406,7 +412,7 @@ function SettlementRow({
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 z-40 bg-black/50" />
         <Dialog.Content
-          className="fixed top-1/2 left-1/2 z-50 w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-lg border border-border bg-surface p-6 shadow-lg outline-none"
+          className="fixed top-1/2 left-1/2 z-50 max-h-[92dvh] w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-lg border border-border bg-surface p-6 shadow-lg outline-none"
           onCloseAutoFocus={(event) => {
             if (deleted.current) event.preventDefault();
           }}
