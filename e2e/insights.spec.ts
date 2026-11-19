@@ -93,11 +93,14 @@ test("S2: each suggestion traces back to its Expenses, and Why these payments? s
   await expect(settleUp(page)).toContainText("Every Balance is the same either way.");
   // Debts read as who owes whom, not as payments to make.
   await expect(settleUp(page).getByRole("listitem").filter({ hasText: /^\S+ \S+ owes / }).first()).toBeVisible();
-  // The graph plays from before to after by itself.
-  await expect(settleUp(page).getByRole("button", { name: "After", exact: true })).toHaveAttribute(
-    "aria-pressed",
-    "true",
-  );
+  // It stays on Before until asked to simplify.
+  const before = settleUp(page).getByRole("button", { name: "Before", exact: true });
+  const after = settleUp(page).getByRole("button", { name: "After", exact: true });
+  await page.waitForTimeout(1200);
+  await expect(before).toHaveAttribute("aria-pressed", "true");
+  await settleUp(page).getByRole("button", { name: "Simplify" }).click();
+  await expect(after).toHaveAttribute("aria-pressed", "true");
+  await expect(graph).toBeInViewport();
 });
 
 test("Why these payments? says when the debts are already as simple as they get", async ({ page }) => {
@@ -125,24 +128,30 @@ test("Why these payments? says when the debts are already as simple as they get"
 
   await settleUp(page).getByRole("button", { name: "Why these payments?" }).click();
   await expect(settleUp(page)).toContainText("These are already in their simplest form");
-  await expect(settleUp(page)).toContainText("Sam Rivera owes Maya Chen $12.25");
   await expect(settleUp(page)).not.toContainText("fewer than before");
+  // One graph and one list, nothing to switch between.
+  await expect(settleUp(page).getByRole("img", { name: /Before Debt Simplification/ })).toBeVisible();
+  await expect(settleUp(page).getByRole("button", { name: "Simplify" })).toHaveCount(0);
+  await expect(settleUp(page).getByRole("button", { name: "Before", exact: true })).toHaveCount(0);
+  await expect(settleUp(page).getByRole("heading", { name: "1 Suggested Settlement", exact: true })).toBeVisible();
+  await expect(settleUp(page).getByRole("heading", { name: /^(Before|After):/ })).toHaveCount(0);
+  await expect(settleUp(page)).toContainText("Sam Rivera pays Maya Chen $12.25");
 });
 
 test.describe("with reduced motion", () => {
   test.use({ reducedMotion: "reduce" });
 
-  test("Why these payments? waits to be asked before switching", async ({ page }) => {
+  test("Why these payments? simplifies at once when asked", async ({ page }) => {
     await page.goto("/guest/groups/grp_japan_2024");
     await settleUp(page).getByRole("button", { name: "Why these payments?" }).click();
     const before = settleUp(page).getByRole("button", { name: "Before", exact: true });
     await expect(before).toHaveAttribute("aria-pressed", "true");
-    await page.waitForTimeout(1200);
-    await expect(before).toHaveAttribute("aria-pressed", "true");
-    await settleUp(page).getByRole("button", { name: "After", exact: true }).click();
+    await settleUp(page).getByRole("button", { name: "Simplify" }).click();
+    // No animation to wait for: After is shown straight away.
     await expect(settleUp(page).getByRole("button", { name: "After", exact: true })).toHaveAttribute(
       "aria-pressed",
       "true",
+      { timeout: 100 },
     );
   });
 });

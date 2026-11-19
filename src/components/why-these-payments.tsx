@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useId, useState } from "react";
-import { Play } from "lucide-react";
+import { useId, useRef, useState } from "react";
+import { Sparkles } from "lucide-react";
 import { formatMoney, type DebtEdge, type GroupSnapshot, type SettlementExplanation } from "@/domain";
 import { initials, textColourOn } from "@/components/member-avatar";
 import { Button } from "@/components/ui/button";
@@ -19,8 +19,8 @@ const NODE = 22;
 /**
  * "Why these payments?": the Group's debts before Debt Simplification (who
  * owes whom, pair by pair) turning into the Suggested Settlements after it.
- * The graph animates from one to the other unless the visitor prefers
- * reduced motion; the lists beside it say the same in words.
+ * It opens on Before; "Simplify" animates it to After (instantly under
+ * reduced motion). The lists below say the same in words.
  */
 export default function WhyThesePayments({
   group,
@@ -32,22 +32,21 @@ export default function WhyThesePayments({
   const reducedMotion = useMediaQuery("(prefers-reduced-motion: reduce)");
   const [phase, setPhase] = useState<Phase>("before");
   const summaryId = useId();
+  const graph = useRef<SVGSVGElement>(null);
   const money = (amount: number) => formatMoney(amount, group.currency);
   const before = explanation.before;
   // Small Change is never suggested, so the "after" graph leaves it out.
   const after = explanation.suggestions;
   const smallChange = explanation.smallChange;
 
-  // Play the transition once on opening; with reduced motion, wait to be asked.
-  useEffect(() => {
-    if (reducedMotion) return;
-    const timer = setTimeout(() => setPhase("after"), 700);
-    return () => clearTimeout(timer);
-  }, [reducedMotion]);
-
-  function play() {
+  // Plays Before → After only when asked, with the graph on screen to see it.
+  function simplify() {
+    graph.current?.scrollIntoView({ block: "nearest", behavior: reducedMotion ? "auto" : "smooth" });
+    if (reducedMotion) {
+      setPhase("after");
+      return;
+    }
     setPhase("before");
-    if (reducedMotion) return;
     // Two frames, so the "before" state paints before animating away from it.
     requestAnimationFrame(() => requestAnimationFrame(() => setTimeout(() => setPhase("after"), 400)));
   }
@@ -66,6 +65,8 @@ export default function WhyThesePayments({
   // E.g. every Expense paid by one Member: the debts are the Suggested Settlements already.
   const edgeKeys = (edges: DebtEdge[]) => edges.map((e) => `${e.fromId}-${e.toId}-${e.amount}`).sort().join();
   const alreadySimplest = edgeKeys(before) === edgeKeys(after);
+  // Nothing to compare then: one graph of the Suggested Settlements.
+  const shown: Phase = alreadySimplest ? "after" : phase;
 
   return (
     <div className="flex flex-col gap-4 rounded-lg border border-border bg-surface p-4">
@@ -87,23 +88,28 @@ export default function WhyThesePayments({
         )}
       </p>
 
-      <div className="flex flex-wrap items-center gap-2" role="group" aria-label="Show the graph">
-        {(["before", "after"] as const).map((p) => (
-          <Button
-            key={p}
-            variant={phase === p ? "default" : "outline"}
-            aria-pressed={phase === p}
-            onClick={() => setPhase(p)}
-          >
-            {p === "before" ? "Before" : "After"}
+      {!alreadySimplest && (
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="flex flex-wrap gap-2" role="group" aria-label="Show the graph">
+            {(["before", "after"] as const).map((p) => (
+              <Button
+                key={p}
+                variant={phase === p ? "default" : "outline"}
+                aria-pressed={phase === p}
+                onClick={() => setPhase(p)}
+              >
+                {p === "before" ? "Before" : "After"}
+              </Button>
+            ))}
+          </div>
+          <Button variant="ghost" onClick={simplify}>
+            <Sparkles aria-hidden /> Simplify
           </Button>
-        ))}
-        <Button variant="ghost" onClick={play}>
-          <Play aria-hidden /> Replay
-        </Button>
-      </div>
+        </div>
+      )}
 
       <svg
+        ref={graph}
         viewBox={`0 0 ${SIZE} ${SIZE}`}
         role="img"
         aria-labelledby={summaryId}
@@ -113,19 +119,20 @@ export default function WhyThesePayments({
           <Arrowhead id={`${summaryId}-before`} color="var(--color-text-secondary)" />
           <Arrowhead id={`${summaryId}-after`} color="var(--color-accent)" />
         </defs>
-        {before.map((edge) => (
-          <Edge
-            key={`before-${edge.fromId}-${edge.toId}`}
-            edge={edge}
-            from={position.get(edge.fromId)!}
-            to={position.get(edge.toId)!}
-            label={money(edge.amount)}
-            color="var(--color-text-secondary)"
-            marker={`${summaryId}-before`}
-            shown={phase === "before"}
-            dashed
-          />
-        ))}
+        {!alreadySimplest &&
+          before.map((edge) => (
+            <Edge
+              key={`before-${edge.fromId}-${edge.toId}`}
+              edge={edge}
+              from={position.get(edge.fromId)!}
+              to={position.get(edge.toId)!}
+              label={money(edge.amount)}
+              color="var(--color-text-secondary)"
+              marker={`${summaryId}-before`}
+              shown={shown === "before"}
+              dashed
+            />
+          ))}
         {after.map((edge) => (
           <Edge
             key={`after-${edge.fromId}-${edge.toId}`}
@@ -135,7 +142,7 @@ export default function WhyThesePayments({
             label={money(edge.amount)}
             color="var(--color-accent)"
             marker={`${summaryId}-after`}
-            shown={phase === "after"}
+            shown={shown === "after"}
           />
         ))}
         {nodes.map((m) => {
@@ -171,25 +178,36 @@ export default function WhyThesePayments({
         })}
       </svg>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+      {alreadySimplest ? (
         <PaymentList
-          title={`Before: ${pluralize(before.length, "debt")}`}
-          verb="owes"
-          current={phase === "before"}
-          edges={before}
-          nameOf={nameOf}
-          money={money}
-        />
-        <PaymentList
-          title={`After: ${pluralize(after.length, "Suggested Settlement")}`}
+          title={pluralize(after.length, "Suggested Settlement")}
           verb="pays"
-          note={smallChange.length > 0 ? "Plus Small Change, which is never suggested." : undefined}
-          current={phase === "after"}
+          current={false}
           edges={after}
           nameOf={nameOf}
           money={money}
         />
-      </div>
+      ) : (
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <PaymentList
+            title={`Before: ${pluralize(before.length, "debt")}`}
+            verb="owes"
+            current={phase === "before"}
+            edges={before}
+            nameOf={nameOf}
+            money={money}
+          />
+          <PaymentList
+            title={`After: ${pluralize(after.length, "Suggested Settlement")}`}
+            verb="pays"
+            note={smallChange.length > 0 ? "Plus Small Change, which is never suggested." : undefined}
+            current={phase === "after"}
+            edges={after}
+            nameOf={nameOf}
+            money={money}
+          />
+        </div>
+      )}
     </div>
   );
 }
