@@ -10,8 +10,6 @@ import {
   computeLedger,
   formatMoney,
   isFiltering,
-  FORMER_MEMBER_SUFFIX,
-  membersInBalances,
   type Expense,
   type ExpenseFilter,
   type GroupSnapshot,
@@ -21,17 +19,18 @@ import {
 } from "@/domain";
 import type { DeleteExpense, SaveExpense } from "@/expenses/save-expense";
 import type { SettleUp } from "@/settlements/settle-up";
-import { BalanceStatus } from "@/components/balance-status";
+import { BalancesPanel } from "@/components/balances-panel";
 import { ExpenseEditor } from "@/components/expense-editor";
-import { MemberAvatar } from "@/components/member-avatar";
 import { SettleUpSection } from "@/components/settle-up";
 import { ExpenseFilters, SpendingInsights } from "@/components/spending";
+import { AvatarStack } from "@/components/member-avatar";
 import { Button } from "@/components/ui/button";
 import { useTodaysRates } from "@/rates/use-todays-rates";
 import { describeBalance, formatCalendarDate, pluralize } from "@/lib/format";
 
 /**
- * A Group's summary, Balances and newest-first timeline, with Expense entry.
+ * A Group's header (name, Members, total spent), the settle-up hero (Settle up, then Balances), Insights
+ * and the newest-first timeline, with Expense entry.
  * Details, Categories, Members and deletion live in Group settings, linked
  * from the header. Balances are recomputed from the Group on every render
  * (ADR 0004).
@@ -64,7 +63,7 @@ export function GroupDetail({
   const insights = computeInsights(group, filter);
   const timeline = filtering ? insights.expenses : ledger.timeline;
   const members = new Map(group.members.map((m) => [m.id, m]));
-  const inBalances = new Set(membersInBalances(group).map((m) => m.id));
+  const activeMembers = group.members.filter((m) => !m.former);
   const nameOf = (id: string) => members.get(id)?.name ?? "Unknown member";
 
   // `null`: closed; `{ expense: null }`: adding; otherwise editing that Expense.
@@ -122,52 +121,40 @@ export function GroupDetail({
 
   return (
     <div className="mx-auto flex max-w-content flex-col gap-8 pb-24 md:pb-0">
-      <div>
+      <header>
         <Link
           href={backHref}
           className="inline-flex min-h-11 items-center gap-1 rounded-md text-sm font-semibold text-accent"
         >
           <ArrowLeft aria-hidden className="size-4" /> {backLabel}
         </Link>
-        <div className="mt-2 flex flex-wrap items-start justify-between gap-3">
-          <h1 className="min-w-0 text-2xl font-extrabold break-words">{group.name}</h1>
-          <Button asChild variant="outline">
-            <Link href={settingsHref}>
-              <Settings aria-hidden /> Group settings
+        <div className="flex items-start justify-between gap-3">
+          <h1 className="min-w-0 text-3xl font-extrabold tracking-tight break-words">{group.name}</h1>
+          <Button asChild variant="ghost" size="icon" className="-mr-2.5 text-text-secondary hover:text-text-primary">
+            <Link href={settingsHref} aria-label="Group settings">
+              <Settings aria-hidden />
             </Link>
           </Button>
         </div>
-        {group.description && (
-          <p className="mt-1 text-text-secondary">{group.description}</p>
-        )}
-        <p className="mt-2 text-sm text-text-secondary">
-          {pluralize(ledger.expenseCount, "expense")} ·{" "}
-          <span className="amount text-text-primary">
-            {formatMoney(ledger.totalSpent, group.currency)}
-          </span>{" "}
-          spent · Balances in {group.currency}
-        </p>
-        {ledger.currencySubtotals.some((s) => s.currency !== group.currency) && (
-          <ul aria-label="Spent per currency" className="mt-1 flex flex-wrap gap-x-4 text-sm text-text-secondary">
-            {ledger.currencySubtotals.map((subtotal) => (
-              <li key={subtotal.currency}>
-                Spent in {subtotal.currency}:{" "}
-                <span className="amount text-text-primary">
-                  {formatMoney(subtotal.amount, subtotal.currency)}
-                </span>
-                {subtotal.currency !== group.currency && (
-                  <>
-                    {" "}
-                    ≈ <span className="amount">{formatMoney(subtotal.groupAmount, group.currency)}</span>
-                  </>
-                )}
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
+        <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2">
+          <AvatarStack members={activeMembers} ring="ring-bg-primary" />
+          <p className="text-sm text-text-secondary">
+            {pluralize(activeMembers.length, "member")}
+            {ledger.expenseCount > 0 && (
+              <>
+                ,{" "}
+                <span className="amount font-semibold text-text-primary">
+                  {formatMoney(ledger.totalSpent, group.currency)}
+                </span>{" "}
+                across {pluralize(ledger.expenseCount, "expense")}
+              </>
+            )}
+          </p>
+        </div>
+      </header>
 
-      <p role="status" className="empty:hidden">
+      {/* Out of the flow while it holds only screen-reader news, so it adds no gap. */}
+      <p role="status" className={actionNews ? undefined : "sr-only"}>
         {actionNews && <span className="font-semibold text-success">{actionNews} </span>}
         <span className="sr-only">{balanceNews}</span>
       </p>
@@ -187,47 +174,18 @@ export function GroupDetail({
         />
       )}
 
-      <section aria-labelledby="balances-heading">
-        <h2 id="balances-heading" className="text-lg font-bold">
-          Balances
-        </h2>
-        <ul className="mt-3 divide-y divide-border-subtle rounded-lg border border-border bg-surface">
-          {ledger.balances.map((balance) => {
-            const member = members.get(balance.memberId)!;
-            if (!inBalances.has(member.id)) return null;
-            return (
-              <li
-                key={balance.memberId}
-                data-testid={`balance-${balance.memberId}`}
-                className="flex flex-wrap items-center justify-between gap-3 px-4 py-3"
-              >
-                <span className="flex min-w-0 items-center gap-3">
-                  <MemberAvatar member={member} />
-                  <span className="font-semibold break-words">
-                    {member.name}
-                    {member.former && (
-                      <span className="font-normal text-text-secondary">{FORMER_MEMBER_SUFFIX}</span>
-                    )}
-                  </span>
-                </span>
-                <BalanceStatus
-                  amount={balance.amount}
-                  currency={group.currency}
-                  label={describeBalance(member.name, balance.amount, group.currency)}
-                />
-              </li>
-            );
-          })}
-        </ul>
-      </section>
-
       <SettleUpSection
         group={group}
         ledger={ledger}
         currentMemberId={currentMemberId}
         settleUp={settleUp}
         onNews={setActionNews}
+        onAddExpense={() => open(null)}
       />
+
+      {ledger.timeline.length > 0 && (
+        <BalancesPanel group={group} ledger={ledger} currentMemberId={currentMemberId} />
+      )}
 
       {ledger.expenseCount > 0 && (
         <section aria-labelledby="insights-heading" className="flex flex-col gap-4">
@@ -244,75 +202,70 @@ export function GroupDetail({
         </section>
       )}
 
-      <section aria-labelledby="activity-heading">
-        <h2
-          id="activity-heading"
-          ref={activityHeading}
-          tabIndex={-1}
-          className="rounded-md text-lg font-bold outline-none focus-visible:ring-[3px] focus-visible:ring-ring"
-        >
-          Expenses and Settlements
-        </h2>
-        {/* Live, so the count is read out as filters change. */}
-        <div aria-live="polite" className="empty:hidden">
-          {filtering && (
-            <p className="mt-1 flex flex-wrap items-center gap-x-3 text-sm text-text-secondary">
-              Showing {pluralize(insights.expenses.length, "matching Expense")} of {ledger.expenseCount};
-              Settlements are hidden while filtering.
-              <Button variant="ghost" onClick={() => setFilter({})}>
-                Clear filters
-              </Button>
-            </p>
-          )}
-        </div>
-        {timeline.length === 0 && filtering ? (
-          <p className="mt-3 rounded-lg border border-dashed border-border-input p-6 text-text-secondary">
-            No Expenses match these filters.
-          </p>
-        ) : timeline.length === 0 ? (
-          <div className="mt-3 flex flex-col items-start gap-3 rounded-lg border border-dashed border-border-input p-6">
-            <p className="text-text-secondary">No expenses yet. Add your first one!</p>
-            {!editing && (
-              <Button variant="outline" onClick={() => open(null)}>
-                <Plus aria-hidden /> Add your first Expense
-              </Button>
+      {/* With nothing recorded, the hero leads to the first Expense instead. */}
+      {ledger.timeline.length > 0 && (
+        <section aria-labelledby="activity-heading">
+          <h2
+            id="activity-heading"
+            ref={activityHeading}
+            tabIndex={-1}
+            className="rounded-md text-lg font-bold outline-none focus-visible:ring-[3px] focus-visible:ring-ring"
+          >
+            Expenses and Settlements
+          </h2>
+          {/* Live, so the count is read out as filters change. */}
+          <div aria-live="polite" className="empty:hidden">
+            {filtering && (
+              <p className="mt-1 flex flex-wrap items-center gap-x-3 text-sm text-text-secondary">
+                Showing {pluralize(insights.expenses.length, "matching Expense")} of {ledger.expenseCount};
+                Settlements are hidden while filtering.
+                <Button variant="quiet" onClick={() => setFilter({})}>
+                  Clear filters
+                </Button>
+              </p>
             )}
           </div>
-        ) : (
-          <ol className="mt-3 flex flex-col gap-2">
-            {timeline.map((entry) => (
-              <li key={entry.id}>
-                {entry.kind === "expense" ? (
-                  <ExpenseRow
-                    entry={entry}
-                    group={group}
-                    payer={members.get(entry.expense.payerId)}
-                    onEdit={() => open(entry.expense)}
-                    onDelete={() => remove(entry.expense)}
-                  />
-                ) : (
-                  <SettlementRow
-                    entry={entry}
-                    currency={group.currency}
-                    from={nameOf(entry.settlement.fromId)}
-                    to={nameOf(entry.settlement.toId)}
-                    onDelete={() => removeSettlement(entry.settlement)}
-                  />
-                )}
-              </li>
-            ))}
-          </ol>
-        )}
-      </section>
+          {timeline.length === 0 && filtering ? (
+            <p className="mt-3 rounded-lg border border-dashed border-border-input p-6 text-text-secondary">
+              No Expenses match these filters.
+            </p>
+          ) : (
+            <ol className="mt-3 flex flex-col gap-2">
+              {timeline.map((entry) => (
+                <li key={entry.id}>
+                  {entry.kind === "expense" ? (
+                    <ExpenseRow
+                      entry={entry}
+                      group={group}
+                      payer={members.get(entry.expense.payerId)}
+                      onEdit={() => open(entry.expense)}
+                      onDelete={() => remove(entry.expense)}
+                    />
+                  ) : (
+                    <SettlementRow
+                      entry={entry}
+                      currency={group.currency}
+                      from={nameOf(entry.settlement.fromId)}
+                      to={nameOf(entry.settlement.toId)}
+                      onDelete={() => removeSettlement(entry.settlement)}
+                    />
+                  )}
+                </li>
+              ))}
+            </ol>
+          )}
+        </section>
+      )}
 
-      {!editing && (
-        // Always one tap away: a bottom bar on phones, a floating button on
-        // wide screens.
-        <div className="fixed inset-x-0 bottom-0 z-30 border-t border-border bg-bg-primary p-3 md:inset-x-auto md:right-6 md:bottom-6 md:border-0 md:bg-transparent md:p-0">
+      {/* With nothing recorded, "Add the first Expense" in the hero is the only call to action. */}
+      {!editing && ledger.timeline.length > 0 && (
+        // Always one tap away: a full-width pill floating 12px in from the
+        // phone's edges, a floating button on wide screens.
+        <div className="pointer-events-none fixed inset-x-0 bottom-3 z-30 px-3 md:inset-x-auto md:right-6 md:bottom-6 md:px-0">
           <Button
             ref={addButton}
             onClick={() => open(null)}
-            className="w-full shadow-lg md:w-auto md:px-6 md:text-base"
+            className="pointer-events-auto w-full px-5 shadow-lg md:w-auto"
           >
             <Plus aria-hidden /> Add Expense
           </Button>

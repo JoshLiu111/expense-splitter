@@ -23,8 +23,8 @@ async function openAddExpense(page: Page) {
 
 test("S2: Guest adds an Equal Expense and sees Balances change", async ({ page }) => {
   await page.goto("/guest/groups/grp_birthday");
-  await expect(page.getByTestId("balance-mem_olivia")).toContainText("settled up$0.00");
-  await expect(page.getByTestId("balance-mem_ben")).toContainText("gets back+$14.37");
+  await expect(page.getByTestId("balances-settled-up")).toContainText("Olivia Hayes");
+  await expect(page.getByTestId("balance-mem_ben")).toContainText("gets back $14.37");
 
   await openAddExpense(page);
   await field(page, "Amount (USD)").fill("60");
@@ -42,10 +42,10 @@ test("S2: Guest adds an Equal Expense and sees Balances change", async ({ page }
   await page.getByRole("button", { name: "Add Expense", exact: true }).click();
 
   await expect(page.getByText("Expense added.")).toBeVisible();
-  await expect(page.getByTestId("balance-mem_olivia")).toContainText("gets back+$40.00");
-  await expect(page.getByTestId("balance-mem_ben")).toContainText("owes−$5.63");
-  await expect(page.getByTestId("balance-mem_chloe")).toContainText("owes−$34.37");
-  await expect(page.getByTestId("balance-mem_marcus")).toContainText("settled up$0.00");
+  await expect(page.getByTestId("balance-mem_olivia")).toContainText("gets back $40.00");
+  await expect(page.getByTestId("balance-mem_ben")).toContainText("owes $5.63");
+  await expect(page.getByTestId("balance-mem_chloe")).toContainText("owes $34.37");
+  await expect(page.getByTestId("balances-settled-up")).toHaveText("Settled up: Marcus Webb");
   await expect(page.getByRole("status")).toContainText(
     "Balances updated. Olivia Hayes gets back $40.00. Ben Gutierrez owes $5.63.",
   );
@@ -55,7 +55,7 @@ test("S2: Guest adds an Equal Expense and sees Balances change", async ({ page }
 
   // Kept for the rest of the browser session.
   await page.reload();
-  await expect(page.getByTestId("balance-mem_olivia")).toContainText("gets back+$40.00");
+  await expect(page.getByTestId("balance-mem_olivia")).toContainText("gets back $40.00");
 });
 
 test("$100 split 3 ways leaves the Leftover Cent with the first Member", async ({ page }) => {
@@ -76,25 +76,25 @@ test("a Guest edits and then deletes an Expense, and Balances recompute", async 
   await field(page, "Amount (USD)").fill("40");
   await field(page, "Description").fill("Balloons");
   await page.getByRole("button", { name: "Add Expense", exact: true }).click();
-  await expect(page.getByTestId("balance-mem_olivia")).toContainText("gets back+$30.00");
+  await expect(page.getByTestId("balance-mem_olivia")).toContainText("gets back $30.00");
 
   await page.getByRole("button", { name: "Edit “Balloons”" }).click();
   await expect(field(page, "Amount (USD)")).toHaveValue("40.00");
   await field(page, "Amount (USD)").fill("80");
   await page.getByRole("button", { name: "Save changes" }).click();
   await expect(page.getByText("Expense updated.")).toBeVisible();
-  await expect(page.getByTestId("balance-mem_olivia")).toContainText("gets back+$60.00");
+  await expect(page.getByTestId("balance-mem_olivia")).toContainText("gets back $60.00");
 
   await page.getByRole("button", { name: "Delete “Balloons”" }).click();
   const confirm = page.getByRole("alertdialog", { name: "Delete this Expense?" });
   await expect(confirm).toContainText("$80.00");
   await confirm.getByRole("button", { name: "Cancel" }).click();
-  await expect(page.getByTestId("balance-mem_olivia")).toContainText("gets back+$60.00");
+  await expect(page.getByTestId("balance-mem_olivia")).toContainText("gets back $60.00");
 
   await page.getByRole("button", { name: "Delete “Balloons”" }).click();
   await confirm.getByRole("button", { name: "Delete Expense" }).click();
   await expect(page.getByText("Deleted “Balloons”.")).toBeVisible();
-  await expect(page.getByTestId("balance-mem_olivia")).toContainText("settled up$0.00");
+  await expect(page.getByTestId("balances-settled-up")).toContainText("Olivia Hayes");
   await expect(page.getByRole("heading", { name: "Balloons", exact: true })).toHaveCount(0);
 });
 

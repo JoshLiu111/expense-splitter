@@ -102,7 +102,7 @@ The net amount one Member owes another from the Expenses they shared (and any Se
 _Avoid_: IOU, payment
 
 **Settled Up**:
-The state where every Member's Balance is exactly zero.
+The state where every Member's Balance is exactly zero. A single Member whose own Balance is exactly zero is also Settled Up ("You're settled up"), even while the Group is not.
 _Avoid_: Closed, paid off
 
 **Settlement**:

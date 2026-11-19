@@ -60,8 +60,8 @@ test("S1: Guest edits a Group's details; the Group Currency is locked once anyth
   // Guest changes last the session.
   await page.reload();
   await expect(field(page, "Name")).toHaveValue("Sarah's 30th");
+  await expect(field(page, "Description (optional)")).toHaveValue("Gift and dinner");
   await backToGroup(page, "Sarah's 30th");
-  await expect(page.getByText("Gift and dinner").filter({ visible: true })).toBeVisible();
 });
 
 test("S1: Guest changes the Group Currency of a Group with nothing recorded", async ({ page }) => {
@@ -72,7 +72,8 @@ test("S1: Guest changes the Group Currency of a Group with nothing recorded", as
   await expect(page.getByText("Group details saved.")).toBeVisible();
 
   await backToGroup(page, "Picnic");
-  await expect(page.getByText("Balances in EUR")).toBeVisible();
+  await page.getByRole("button", { name: "Add the first Expense" }).click();
+  await expect(field(page, "Amount (EUR)")).toBeVisible();
 });
 
 test("S1: Guest adds a Name-only Member and removes a settled-up one, who stays on past Expenses", async ({
@@ -170,8 +171,8 @@ test("a signed-in User manages their Group's details and Members, then deletes i
   await page.getByRole("button", { name: "Save changes" }).click();
   await expect(page.getByText("Group details saved.")).toBeVisible();
   await backToGroup(page, "Book club");
-  await expect(page.getByText("Balances in GBP")).toBeVisible();
   await openSettings(page);
+  await expect(field(page, "Group Currency")).toHaveValue("GBP");
 
   await field(page, "Add a Member by name").fill("Sam Rivera");
   await page.getByRole("button", { name: "Add Member" }).click();

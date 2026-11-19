@@ -18,6 +18,7 @@
   --color-surface: var(--color-surface);
   --color-border: var(--color-border);
   --color-border-subtle: var(--color-border-subtle);
+  --color-border-panel: var(--color-border-panel);
   --color-border-input: var(--color-border-input);
   --color-text-primary: var(--color-text-primary);
   --color-text-secondary: var(--color-text-secondary);
@@ -146,4 +147,21 @@
   font-family: var(--font-plex-mono), ui-monospace, "SF Mono", monospace;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
+}
+
+/*
+ * The white panels that carry the Group page's settle-up hero (Settle up,
+ * Balances). Panel contents are the page's focal point, so they sit on
+ * sheet white with no edge in light theme; in dark theme a faint hairline
+ * (border-subtle) keeps them apart. The border is always 1px, transparent in
+ * light, so the layout doesn't shift between themes.
+ */
+@utility hero-panel {
+  border-radius: var(--radius-xl);
+  border: 1px solid var(--color-border-panel);
+  background-color: var(--color-surface);
+  padding: 1.25rem;
+  @media (width >= 40rem) {
+    padding: 1.75rem;
+  }
 }
