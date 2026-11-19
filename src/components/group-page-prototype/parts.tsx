@@ -41,7 +41,7 @@ export function SignedFigure({
   group: GroupSnapshot;
   className?: string;
 }) {
-  const word = amount > 0 ? "gets back" : amount < 0 ? "owes" : "settled";
+  const word = amount > 0 ? "gets back" : amount < 0 ? "owes" : "settled up";
   return (
     <span
       className={cn(
@@ -178,7 +178,7 @@ export function ExpensesAndInsights({
                 aria-selected={view === v}
                 onClick={() => onView(v)}
                 className={cn(
-                  "min-h-10 rounded px-4 text-sm font-semibold capitalize",
+                  "min-h-11 rounded px-4 text-sm font-semibold capitalize",
                   view === v ? "bg-accent-subtle text-accent" : "text-text-secondary hover:bg-bg-tertiary",
                 )}
               >

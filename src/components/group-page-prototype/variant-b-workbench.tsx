@@ -13,6 +13,7 @@ import { MemberAvatar } from "@/components/member-avatar";
 import { Button } from "@/components/ui/button";
 import { describeBalance, pluralize } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import { PersonalLine } from "./personal-line";
 import { ExpensesAndInsights, memberOf, nameOf } from "./parts";
 import { heroKind, personalAction, smallChangeTotal } from "./prototype-data";
 
@@ -58,6 +59,21 @@ export function VariantB({ group, youId }: { group: GroupSnapshot; youId?: strin
       <div className="grid gap-8 md:grid-cols-[20rem_minmax(0,1fr)]">
         <aside className="md:sticky md:top-4 md:self-start">
           <div className="flex flex-col gap-4 rounded-lg border border-border bg-surface p-4">
+            {mine && (
+              <div
+                className={cn(
+                  "rounded-md p-3",
+                  mine.tone === "owe" && "bg-owe-subtle",
+                  mine.tone === "owed" && "bg-owed-subtle",
+                  mine.tone === "settled" && "bg-bg-tertiary",
+                )}
+              >
+                <PersonalLine group={group} mine={mine} className="font-bold" />
+                {kind === "open" && mine.tone !== "settled" && (
+                  <Button className="mt-2 w-full">Record payment</Button>
+                )}
+              </div>
+            )}
             <div>
               <p className="text-sm font-semibold text-text-secondary">Settle up</p>
               <p className="flex items-center gap-2 text-xl font-extrabold">
@@ -67,22 +83,10 @@ export function VariantB({ group, youId }: { group: GroupSnapshot; youId?: strin
               </p>
             </div>
 
-            {mine && kind === "open" && mine.tone !== "settled" && (
-              <div
-                className={cn(
-                  "rounded-md p-3",
-                  mine.tone === "owe" ? "bg-owe-subtle text-owe" : "bg-owed-subtle text-owed",
-                )}
-              >
-                <p className="font-bold">{mine.text}</p>
-                <Button className="mt-2 w-full">Record payment</Button>
-              </div>
-            )}
-
             {kind === "open" && (
               <ol className="flex flex-col divide-y divide-border-subtle">
                 {ledger.suggestions
-                  .filter((s) => s.fromId !== youId)
+                  .filter((s) => s.fromId !== youId && s.toId !== youId)
                   .map((s, i) => (
                     <li key={i} className="flex items-center gap-2 py-2 text-sm">
                       <span className="min-w-0 flex-1 break-words">

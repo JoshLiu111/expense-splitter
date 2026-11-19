@@ -3,7 +3,7 @@
 // PROTOTYPE (JoshLiu111/issue-track#19): throwaway, never merged to main.
 // Three directions for the Group page on the existing Guest Group route,
 // switchable via ?variant=A|B|C, ?hero=open|small|settled|empty and
-// ?you=1 (signed-in perspective as the first Member) from a floating bar.
+// ?you=1 (signed-in perspective as the seed's largest debtor) from a floating bar.
 // Hero states are derived from the seed Group in memory; nothing is saved.
 
 import { useEffect } from "react";
@@ -11,12 +11,16 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import type { GroupSnapshot } from "@/domain";
 import { cn } from "@/lib/utils";
-import { groupInState, HERO_LABELS, HERO_STATES, type HeroState } from "./prototype-data";
+import { groupInState, pickYou, HERO_LABELS, HERO_STATES, type HeroState } from "./prototype-data";
 import { name as nameA, VariantA } from "./variant-a-statement";
 import { name as nameB, VariantB } from "./variant-b-workbench";
 import { name as nameC, VariantC } from "./variant-c-focus";
 
-const VARIANTS = { A: { name: nameA, C: VariantA }, B: { name: nameB, C: VariantB }, C: { name: nameC, C: VariantC } };
+const VARIANTS = {
+  A: { name: nameA, Component: VariantA },
+  B: { name: nameB, Component: VariantB },
+  C: { name: nameC, Component: VariantC },
+};
 type Key = keyof typeof VARIANTS;
 const KEYS = Object.keys(VARIANTS) as Key[];
 
@@ -26,12 +30,12 @@ export function GroupPagePrototype({ seed }: { seed: GroupSnapshot }) {
   const hero = (HERO_STATES.find((h) => h === params.get("hero")) ?? "open") as HeroState;
   const asYou = params.get("you") === "1";
   const group = groupInState(seed, hero);
-  const Variant = VARIANTS[variant].C;
+  const Variant = VARIANTS[variant].Component;
 
   return (
     <>
       {/* key: reset view state (tabs, filters) on every switch. */}
-      <Variant key={`${variant}-${hero}`} group={group} youId={asYou ? group.members[0].id : undefined} />
+      <Variant key={`${variant}-${hero}`} group={group} youId={asYou ? pickYou(seed) : undefined} />
       {process.env.NODE_ENV !== "production" && (
         <PrototypeSwitcher variant={variant} hero={hero} asYou={asYou} />
       )}

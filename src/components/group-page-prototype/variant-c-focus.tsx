@@ -11,6 +11,7 @@ import { computeLedger, formatMoney, type GroupSnapshot } from "@/domain";
 import { Button } from "@/components/ui/button";
 import { formatSignedMoney, pluralize } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import { PersonalLine } from "./personal-line";
 import { ExpensesAndInsights, LedgerList, nameOf } from "./parts";
 import { heroKind, personalAction, smallChangeTotal } from "./prototype-data";
 
@@ -72,6 +73,7 @@ export function VariantC({ group, youId }: { group: GroupSnapshot; youId?: strin
         {tab === "overview" ? (
           <div className="flex flex-col gap-8">
             <section aria-label="Settle up" className="text-center">
+              {mine && <PersonalLine group={group} mine={mine} className="mb-3 text-lg font-extrabold" />}
               {kind === "settled" && (
                 <Check aria-hidden className="mx-auto mb-2 size-10 rounded-full bg-owed-subtle p-2 text-success" />
               )}
@@ -95,22 +97,14 @@ export function VariantC({ group, youId }: { group: GroupSnapshot; youId?: strin
 
               {kind === "open" && (
                 <div className="mx-auto mt-6 max-w-md rounded-lg border border-border bg-surface p-4 text-left">
-                  {mine && mine.tone !== "settled" ? (
-                    <>
-                      <p className="text-sm font-semibold text-text-secondary">Your next step</p>
-                      <p className={cn("mt-1 text-lg font-extrabold", mine.tone === "owe" ? "text-owe" : "text-owed")}>
-                        {mine.text}
-                      </p>
-                    </>
-                  ) : (
-                    <p className="text-sm font-semibold text-text-secondary">Suggested payments</p>
-                  )}
+                  <p className="text-sm font-semibold text-text-secondary">Suggested payments</p>
                   <ol className="mt-3 flex flex-col gap-1 text-sm">
                     {ledger.suggestions.map((s, i) => (
                       <li key={i} className="flex items-center justify-between gap-3">
                         <span className="min-w-0 break-words">
-                          {nameOf(group, s.fromId)} <ArrowRight aria-label="pays" className="inline size-3" />{" "}
-                          {nameOf(group, s.toId)}
+                          {s.fromId === youId ? "You" : nameOf(group, s.fromId)}{" "}
+                          <ArrowRight aria-label="pays" className="inline size-3" />{" "}
+                          {s.toId === youId ? "you" : nameOf(group, s.toId)}
                         </span>
                         <span className="amount font-semibold">{money(s.amount)}</span>
                       </li>
@@ -153,7 +147,7 @@ export function VariantC({ group, youId }: { group: GroupSnapshot; youId?: strin
                               b.amount === 0 && "text-text-secondary",
                             )}
                           >
-                            {b.amount > 0 ? "gets back " : b.amount < 0 ? "owes " : "settled "}
+                            {b.amount > 0 ? "gets back " : b.amount < 0 ? "owes " : "settled up "}
                             {formatSignedMoney(b.amount, group.currency)}
                           </span>
                         </div>

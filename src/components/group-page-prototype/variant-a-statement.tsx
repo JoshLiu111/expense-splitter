@@ -10,7 +10,7 @@ import { ArrowLeft, Check, Plus, Settings } from "lucide-react";
 import { computeLedger, formatMoney, type GroupSnapshot } from "@/domain";
 import { Button } from "@/components/ui/button";
 import { formatSignedMoney, pluralize } from "@/lib/format";
-import { cn } from "@/lib/utils";
+import { PersonalLine } from "./personal-line";
 import { ExpensesAndInsights, nameOf, SignedFigure } from "./parts";
 import { heroKind, outstanding, personalAction, smallChangeTotal } from "./prototype-data";
 
@@ -53,17 +53,7 @@ export function VariantA({ group, youId }: { group: GroupSnapshot; youId?: strin
 
       {/* The statement summary: rules, not a card. */}
       <section aria-label="Settle up" className="border-y-2 border-text-primary py-6">
-        {mine && kind !== "empty" && (
-          <p
-            className={cn(
-              "mb-4 text-lg font-extrabold",
-              mine.tone === "owe" && "text-owe",
-              mine.tone === "owed" && "text-owed",
-            )}
-          >
-            {mine.text}
-          </p>
-        )}
+        {mine && <PersonalLine group={group} mine={mine} className="mb-4 text-lg font-extrabold" />}
         <div className="flex flex-wrap items-end justify-between gap-4">
           <p>
             <span className="amount block text-[2.75rem] leading-none font-semibold sm:text-[3.5rem]">
@@ -89,7 +79,7 @@ export function VariantA({ group, youId }: { group: GroupSnapshot; youId?: strin
               <li key={i} className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 py-3">
                 <span className="min-w-0 break-words">
                   <span className="font-semibold">{s.fromId === youId ? "You" : nameOf(group, s.fromId)}</span>
-                  <span className="text-text-secondary"> pays </span>
+                  <span className="text-text-secondary">{s.fromId === youId ? " pay " : " pays "}</span>
                   <span className="font-semibold">{s.toId === youId ? "you" : nameOf(group, s.toId)}</span>
                 </span>
                 <span className="amount font-semibold">{money(s.amount)}</span>
