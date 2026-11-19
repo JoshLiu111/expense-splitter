@@ -33,6 +33,29 @@ test.describe("Guest sign-up prompt", () => {
     await expect(page).toHaveURL(/\/sign-up$/);
   });
 
+  test("is a slim bar directly under the header with a 44px dismiss control", async ({
+    page,
+    isMobile,
+  }) => {
+    await page.goto("/guest");
+    const bar = (await prompt(page).boundingBox())!;
+    const header = (await page.locator("body > header").boundingBox())!;
+    expect(bar.y).toBe(header.y + header.height);
+    // One line on desktop: no taller than the 44px dismiss control plus padding.
+    if (!isMobile) expect(bar.height).toBeLessThanOrEqual(56);
+
+    const dismiss = (await prompt(page)
+      .getByRole("button", { name: "Dismiss sign-up prompt" })
+      .boundingBox())!;
+    expect(dismiss.width).toBeGreaterThanOrEqual(44);
+    expect(dismiss.height).toBeGreaterThanOrEqual(44);
+
+    const overflow = await page.evaluate(
+      () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+    );
+    expect(overflow).toBe(0);
+  });
+
   test("is dismissible for the rest of the session without blocking anything", async ({ page }) => {
     await page.goto("/guest");
     await prompt(page).getByRole("button", { name: "Dismiss sign-up prompt" }).click();
