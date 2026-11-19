@@ -38,7 +38,7 @@ async function UserGroupSettings({ params }: Pick<PageProps<"/groups/[groupId]/s
     <GroupSettingsView
       group={group}
       groupHref={`/groups/${groupId}`}
-      groupsHref="/dashboard"
+      afterDeleteHref="/dashboard"
       manage={{
         updateDetails: updateUserGroup.bind(null, groupId),
         addMember: addUserMember.bind(null, groupId),

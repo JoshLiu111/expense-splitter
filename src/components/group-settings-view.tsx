@@ -17,7 +17,7 @@ import { DeleteGroupSection, GroupDetailsSection, MembersSection } from "@/compo
 export function GroupSettingsView({
   group,
   groupHref,
-  groupsHref,
+  afterDeleteHref,
   manage,
   categories,
   isGroupCreator,
@@ -25,8 +25,8 @@ export function GroupSettingsView({
   group: GroupSnapshot;
   /** The Group page, for the back link. */
   groupHref: string;
-  /** The Groups list, where deleting the Group lands. */
-  groupsHref: string;
+  /** Where to land once the Group is deleted: the Groups list. */
+  afterDeleteHref: string;
   manage: GroupManagement;
   categories: CategoryManagement;
   /** Whether the visitor is the Group Creator, the only one who may delete it. */
@@ -48,8 +48,8 @@ export function GroupSettingsView({
         <h1 className="mt-2 text-2xl font-extrabold">Group settings</h1>
       </div>
 
-      <p role="status" className="font-semibold text-success empty:hidden">
-        {news}
+      <p role="status" className="empty:hidden">
+        {news && <span className="font-semibold text-success">{news}</span>}
       </p>
 
       <GroupDetailsSection
@@ -73,7 +73,7 @@ export function GroupSettingsView({
         group={group}
         block={groupDeletionBlock(group, { isCreator: isGroupCreator })}
         onDelete={manage.deleteGroup}
-        onDeleted={() => router.replace(groupsHref)}
+        onDeleted={() => router.replace(afterDeleteHref)}
       />
     </div>
   );

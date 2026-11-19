@@ -79,7 +79,7 @@ export function GuestGroupSettingsView() {
         <GroupSettingsView
           group={group}
           groupHref={`/guest/groups/${group.id}`}
-          groupsHref="/guest"
+          afterDeleteHref="/guest"
           manage={{
             updateDetails: (fields) => updateGroupDetails(guestRepository(), group.id, fields),
             // Guests have no Users to link, so they add Name-only Members.
