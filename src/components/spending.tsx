@@ -2,11 +2,9 @@
 
 import dynamic from "next/dynamic";
 import { useId } from "react";
-import { X } from "lucide-react";
 import {
   categoryOptions,
   formatMoney,
-  isFiltering,
   memberLabel,
   membersInBalances,
   monthRange,
@@ -15,7 +13,6 @@ import {
   type Insights,
   type MemberBalance,
 } from "@/domain";
-import { Button } from "@/components/ui/button";
 import { chartColor } from "@/lib/chart";
 import { formatMonth, pluralize } from "@/lib/format";
 
@@ -34,7 +31,8 @@ const selectClass =
 
 /**
  * Filters on the Group's Expenses by Category, month or date range, and
- * Member (paid or included); they combine freely.
+ * Member (paid or included); they combine freely. Clearing them is the
+ * caller's: the active filters show as removable chips.
  */
 export function ExpenseFilters({
   group,
@@ -152,13 +150,6 @@ export function ExpenseFilters({
           className={selectClass}
         />
       </div>
-      {isFiltering(filter) && (
-        <div className="sm:col-span-2">
-          <Button variant="outline" onClick={() => onChange({})}>
-            <X aria-hidden /> Clear filters
-          </Button>
-        </div>
-      )}
     </fieldset>
   );
 }
@@ -184,7 +175,7 @@ export function SpendingInsights({
   return (
     <div className="flex flex-col gap-4">
       <div>
-        <h3 className="font-semibold">Spending by Category</h3>
+        <h2 className="font-semibold">Spending by Category</h2>
         <p className="text-sm text-text-secondary">
           <span className="amount text-text-primary">{money(insights.total)}</span> across{" "}
           {filtering ? pluralize(insights.expenses.length, "matching expense") : pluralize(insights.expenses.length, "expense")}

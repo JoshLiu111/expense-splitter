@@ -157,6 +157,8 @@ test("S2: a Member whose own Balance is zero sees they're settled up while other
   // An empty Group leads to its first Expense from the hero, its only call to action.
   await expect(settleUp(page)).toContainText("No Expenses yet");
   await expect(page.getByRole("button", { name: "Add Expense", exact: true })).toHaveCount(0);
+  // Nothing to list or chart yet: no Expenses | Insights tabs.
+  await expect(page.getByRole("tablist")).toHaveCount(0);
   await settleUp(page).getByRole("button", { name: "Add the first Expense" }).click();
 
   // Ana paid $30 shared by Ana and Bo: You aren't in it.
@@ -202,6 +204,7 @@ test("S2: a Former Member whose Balance reopens shows in Balances and can be set
   await expect(olivia).toContainText("Olivia Hayes (Former Member)");
   await expect(olivia).toContainText("$18.75");
   // The Balance chart labels her the same way.
+  await page.getByRole("tab", { name: "Insights" }).click();
   await expect(page.getByRole("rowheader", { name: "Olivia Hayes (Former Member)" })).toHaveCount(1);
 
   // ...and she can still be settled with.

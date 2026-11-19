@@ -7,7 +7,8 @@ function field(page: Page, label: string) {
 }
 
 const timeline = (page: Page) => page.locator("main article");
-const insights = (page: Page) => page.getByRole("region", { name: "Insights" });
+const insights = (page: Page) => page.getByRole("tabpanel", { name: "Insights" });
+const tab = (page: Page, name: "Expenses" | "Insights") => page.getByRole("tab", { name });
 const categories = (page: Page) => page.getByRole("region", { name: "Categories" });
 const settleUp = (page: Page) => page.getByRole("region", { name: "Settle up" });
 
@@ -48,29 +49,58 @@ test("S2: Guest adds a Custom Category, files an Expense under it, renames it, a
   await expect(field(page, "Category").locator("option", { hasText: "Cleaning" })).toHaveCount(0);
 });
 
-test("S2: filters combine, use calendar months, and drive the Category breakdown", async ({ page }) => {
+test("S2: Expenses and Insights are two views over one set of filters", async ({ page }) => {
   await page.goto("/guest/groups/grp_apt_4b");
+  await expect(tab(page, "Expenses")).toHaveAttribute("aria-selected", "true");
+  await expect(page.getByRole("heading", { name: "Insights" })).toHaveCount(0);
+  // Arrow keys move between the tabs and select them.
+  await tab(page, "Expenses").focus();
+  await page.keyboard.press("ArrowRight");
+  await expect(tab(page, "Insights")).toBeFocused();
   await expect(insights(page)).toContainText("Housing$7,200.0086.0%");
+  await page.keyboard.press("Home");
+  await expect(tab(page, "Expenses")).toHaveAttribute("aria-selected", "true");
+
+  // The filters are collapsed behind one button.
+  const filterButton = page.getByRole("button", { name: /^Filter/ });
+  await expect(filterButton).toHaveAttribute("aria-expanded", "false");
+  await expect(field(page, "Filter by month")).toHaveCount(0);
+  await filterButton.click();
 
   // The 1 January rent (09:00 UTC) is in January wherever the visitor is.
   await field(page, "Filter by month").selectOption({ label: "January 2024" });
   await expect(field(page, "From date")).toHaveValue("2024-01-01");
   await expect(field(page, "To date")).toHaveValue("2024-01-31");
-  await expect(page.getByText("Showing 5 matching Expenses of 10")).toBeVisible();
+  await expect(page.getByText("Showing 5 matching Expenses of 10; Settlements are hidden while filtering.")).toBeVisible();
   await expect(timeline(page).last()).toContainText("January rent");
 
   await field(page, "Filter by Category").selectOption("Utilities");
   await field(page, "Filter by Member (paid or included)").selectOption({ label: "Drew Patel" });
-  await expect(page.getByText("Showing 2 matching Expenses of 10")).toBeVisible();
+  await expect(filterButton).toHaveText("Filter (3 active)");
+  await expect(page.getByText("Showing 2 matching Expenses of 10;")).toBeVisible();
   await expect(timeline(page)).toHaveCount(2);
-  await expect(insights(page)).toContainText("Utilities$222.36100.0%");
 
-  await page.getByRole("button", { name: "Clear filters" }).first().click();
+  // Switching views keeps the filters.
+  await tab(page, "Insights").click();
+  await expect(insights(page)).toContainText("Utilities$222.36100.0%");
+  await expect(page.getByText("Showing 2 matching Expenses of 10.")).toBeVisible();
+
+  // Each chip removes its own filter; a month is one chip.
+  const chips = page.getByRole("list", { name: "Active filters" });
+  await chips.getByRole("button", { name: "Remove filter: January 2024" }).click();
+  await expect(filterButton).toHaveText("Filter (2 active)");
+  await expect(field(page, "From date")).toHaveValue("");
+
+  await chips.getByRole("button", { name: "Clear all" }).click();
+  await expect(chips).toHaveCount(0);
+  await expect(filterButton).toHaveText("Filter");
+  await tab(page, "Expenses").click();
   await expect(timeline(page)).toHaveCount(12);
 });
 
 test("S2: charts load with text alternatives", async ({ page }) => {
   await page.goto("/guest/groups/grp_apt_4b");
+  await tab(page, "Insights").click();
   for (const name of ["Category share", "Spending over time", "Balance per Member"]) {
     const figure = insights(page).getByRole("figure", { name: new RegExp(name) });
     await expect(figure).toBeVisible();
