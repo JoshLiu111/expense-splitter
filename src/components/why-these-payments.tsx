@@ -10,7 +10,7 @@ import {
   type SettlementExplanation,
 } from "@/domain";
 import { layoutDebtGraph, NODE, SIZE, type EdgeLayout } from "@/components/debt-graph-layout";
-import { SIMPLIFY_TIMING, simplifyDurations, stageMs, staggerFor } from "@/components/simplify-timing";
+import { SIMPLIFY_TIMING, simplifyDurations, staggerFor } from "@/components/simplify-timing";
 import { avatarFill, initials, textColourOn } from "@/components/member-avatar";
 import { Button } from "@/components/ui/button";
 import { useMediaQuery } from "@/components/use-media-query";
@@ -62,14 +62,25 @@ export default function WhyThesePayments({
   const [announcement, setAnnouncement] = useState("");
   // Once Simplify has played through, its button offers to play it again.
   const [played, setPlayed] = useState(false);
-  // Bumped by every Simplify or toggle, so a superseded run never fires late.
-  const run = useRef(0);
-  useEffect(
-    () => () => {
-      run.current++;
-    },
-    [],
-  );
+  // What a Simplify run still has waiting (timers, frames, scroll listeners),
+  // undone by the next Simplify or toggle, or when the panel closes.
+  const pending = useRef<(() => void)[]>([]);
+  function cancelPending() {
+    pending.current.splice(0).forEach((cancel) => cancel());
+  }
+  useEffect(() => cancelPending, []);
+  function later(then: () => void, ms: number) {
+    const timer = window.setTimeout(then, ms);
+    pending.current.push(() => window.clearTimeout(timer));
+  }
+  function nextFrame(then: () => void) {
+    const frame = requestAnimationFrame(then);
+    pending.current.push(() => cancelAnimationFrame(frame));
+  }
+  function listen(type: "scroll" | "scrollend", then: () => void) {
+    window.addEventListener(type, then, { once: true });
+    pending.current.push(() => window.removeEventListener(type, then));
+  }
   const summaryId = useId();
   const graph = useRef<SVGSVGElement>(null);
   // Rendered width over viewBox width, so the graph's text keeps its size on screen.
@@ -90,7 +101,7 @@ export default function WhyThesePayments({
   const smallChange = explanation.smallChange;
 
   function show(p: Phase) {
-    run.current++;
+    cancelPending();
     setAnnouncement("");
     setMotion(reducedMotion ? "instant" : "toggle");
     setPhase(p);
@@ -98,7 +109,7 @@ export default function WhyThesePayments({
 
   // Plays Before → After only when asked, once the graph is on screen to see it.
   function simplify() {
-    const id = ++run.current;
+    cancelPending();
     const finish = () => {
       setAnnouncement(`Simplified. Showing After: ${pluralize(after.length, "Suggested Settlement")}.`);
       setPlayed(true);
@@ -117,19 +128,13 @@ export default function WhyThesePayments({
     setPhase("none");
     whenGraphInView(() => {
       // Two frames, so the cleared graph paints before drawing starts.
-      requestAnimationFrame(() =>
-        requestAnimationFrame(() => {
-          if (id !== run.current) return;
+      nextFrame(() =>
+        nextFrame(() => {
+          const { toAfterMs, totalMs } = simplifyDurations(before.length, after.length);
           setMotion("staged");
           setPhase("before");
-          setTimeout(() => {
-            if (id !== run.current) return;
-            setPhase("after");
-          }, stageMs(before.length) + SIMPLIFY_TIMING.holdMs);
-          setTimeout(() => {
-            if (id !== run.current) return;
-            finish();
-          }, simplifyDurations(before.length, after.length).totalMs);
+          later(() => setPhase("after"), toAfterMs);
+          later(finish, totalMs);
         }),
       );
     });
@@ -145,18 +150,15 @@ export default function WhyThesePayments({
     const start = () => {
       if (started) return;
       started = true;
-      window.removeEventListener("scrollend", start);
       then();
     };
     let scrolled = false;
-    const onScroll = () => (scrolled = true);
-    window.addEventListener("scroll", onScroll, { once: true });
-    window.addEventListener("scrollend", start, { once: true });
-    setTimeout(start, SIMPLIFY_TIMING.scrollWaitMs);
+    listen("scroll", () => (scrolled = true));
+    listen("scrollend", start);
+    later(start, SIMPLIFY_TIMING.scrollWaitMs);
     svg.scrollIntoView({ block: "nearest", behavior: "smooth" });
     // The browser may find nothing to scroll after all; then no scrollend comes.
-    setTimeout(() => {
-      window.removeEventListener("scroll", onScroll);
+    later(() => {
       if (!scrolled) start();
     }, 100);
   }

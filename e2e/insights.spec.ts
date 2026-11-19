@@ -121,6 +121,20 @@ test("Why these payments? Simplify draws Before, holds it, then draws After, wit
   expect(graphBox.y + graphBox.height <= barBox.y || graphBox.x + graphBox.width <= barBox.x).toBe(true);
 });
 
+test("Why these payments? stops a Simplify run when Before is chosen part-way", async ({ page }) => {
+  const { totalMs } = simplifyDurations(6, 3);
+  await page.goto("/guest/groups/grp_japan_2024");
+  await settleUp(page).getByRole("button", { name: "Why these payments?" }).click();
+  const before = settleUp(page).getByRole("button", { name: "Before", exact: true });
+  await settleUp(page).getByRole("button", { name: "Simplify" }).click();
+  await before.click();
+  // Long enough for the cancelled run to have switched to After and finished, had it carried on.
+  await page.waitForTimeout(totalMs + SIMPLIFY_TIMING.scrollWaitMs);
+  await expect(before).toHaveAttribute("aria-pressed", "true");
+  await expect(settleUp(page).getByRole("status")).toHaveText("");
+  await expect(settleUp(page).getByRole("button", { name: "Simplify" })).toBeVisible();
+});
+
 // The rest switch straight to After; the test above covers the animation.
 test.describe("with reduced motion", () => {
   test.use({ reducedMotion: "reduce" });
