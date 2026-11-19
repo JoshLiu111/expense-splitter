@@ -108,6 +108,8 @@ test("Why these payments? Simplify draws Before, holds it, then draws After, wit
       );
   await expect.poll(() => opacities("after"), { timeout: totalMs - toAfterMs + slackMs }).toEqual(Array(3).fill("1/1"));
   await expect.poll(() => opacities("before")).toEqual(Array(6).fill("0/0"));
+  // Read out once the run is over.
+  await expect(settleUp(page).getByRole("status")).toHaveText("Simplified. Showing After: 3 Suggested Settlements.");
 
   // The whole graph is in view, clear of the Add Expense bar.
   await expect(graph).toBeInViewport({ ratio: 1 });
@@ -154,6 +156,11 @@ test.describe("with reduced motion", () => {
       "true",
       { timeout: 100 },
     );
+    await expect(settleUp(page).getByRole("status")).toHaveText("Simplified. Showing After: 3 Suggested Settlements.");
+    // The list the graph draws is marked current for assistive tech, not with extra words in its heading.
+    const afterList = settleUp(page).locator("[aria-current]");
+    await expect(afterList).toHaveCount(1);
+    await expect(afterList.getByRole("heading")).toHaveText("After: 3 Suggested Settlements");
   });
 
   test("Why these payments? keeps every amount apart and at 11px or more", async ({ page }) => {

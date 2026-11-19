@@ -10,7 +10,7 @@ import {
   type SettlementExplanation,
 } from "@/domain";
 import { layoutDebtGraph, NODE, SIZE, type EdgeLayout } from "@/components/debt-graph-layout";
-import { SIMPLIFY_TIMING, stageMs, staggerFor } from "@/components/simplify-timing";
+import { SIMPLIFY_TIMING, simplifyDurations, stageMs, staggerFor } from "@/components/simplify-timing";
 import { avatarFill, initials, textColourOn } from "@/components/member-avatar";
 import { Button } from "@/components/ui/button";
 import { useMediaQuery } from "@/components/use-media-query";
@@ -58,6 +58,8 @@ export default function WhyThesePayments({
   const reducedMotion = useMediaQuery("(prefers-reduced-motion: reduce)");
   const [phase, setPhase] = useState<GraphPhase>("before");
   const [motion, setMotion] = useState<Motion>("instant");
+  // Read out once Simplify has finished, since the graph itself says nothing.
+  const [announcement, setAnnouncement] = useState("");
   // Bumped by every Simplify or toggle, so a superseded run never fires late.
   const run = useRef(0);
   useEffect(
@@ -87,6 +89,7 @@ export default function WhyThesePayments({
 
   function show(p: Phase) {
     run.current++;
+    setAnnouncement("");
     setMotion(reducedMotion ? "instant" : "toggle");
     setPhase(p);
   }
@@ -94,10 +97,14 @@ export default function WhyThesePayments({
   // Plays Before → After only when asked, once the graph is on screen to see it.
   function simplify() {
     const id = ++run.current;
+    const done = `Simplified. Showing After: ${pluralize(after.length, "Suggested Settlement")}.`;
+    // Cleared first, so the same words are read out again on the next run.
+    setAnnouncement("");
     if (reducedMotion) {
       graph.current?.scrollIntoView({ block: "nearest" });
       setMotion("instant");
       setPhase("after");
+      setAnnouncement(done);
       return;
     }
     // Clear the graph at once, then draw Before, hold, and move on to After.
@@ -114,6 +121,10 @@ export default function WhyThesePayments({
             if (id !== run.current) return;
             setPhase("after");
           }, stageMs(before.length) + SIMPLIFY_TIMING.holdMs);
+          setTimeout(() => {
+            if (id !== run.current) return;
+            setAnnouncement(done);
+          }, simplifyDurations(before.length, after.length).totalMs);
         }),
       );
     });
@@ -284,6 +295,9 @@ export default function WhyThesePayments({
           );
         })}
       </svg>
+      <p role="status" className="sr-only">
+        {announcement}
+      </p>
 
       {alreadySimplest ? (
         <PaymentList
@@ -454,11 +468,9 @@ function PaymentList({
   money: (amount: number) => string;
 }) {
   return (
-    <div>
-      <h4 className="text-sm font-semibold">
-        {title}
-        {current && <span className="font-normal text-text-secondary"> · shown in the graph</span>}
-      </h4>
+    // The pressed Before/After chip shows which list the graph draws.
+    <div aria-current={current || undefined}>
+      <h4 className="text-sm font-semibold">{title}</h4>
       <ul className="mt-2 flex flex-col gap-1 text-sm">
         {edges.map((e) => (
           <li key={`${e.fromId}-${e.toId}`}>
