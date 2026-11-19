@@ -138,7 +138,7 @@
       "One cool-blue accent on cool blue-grey neutrals; no secondary brand colour.",
       "Money in IBM Plex Mono with tabular numerals, never truncated.",
       "Owing and being owed are never told apart by colour alone.",
-      "Flat surfaces with hairline borders; elevation reserved for floating layers.",
+      "Flat surfaces with hairline borders (the hero panels are the exception: white on paper, borderless in light theme); elevation reserved for floating layers.",
       "Every interactive target is at least 44×44px.",
       "Every text pairing meets WCAG AA in both themes."
     ],
@@ -151,7 +151,7 @@
       { "name": "The 44 Pixel Floor Rule", "body": "Every button, chip, link-button and toggle is at least 44×44px, on every breakpoint.", "section": "layout" },
       { "name": "The Three Cobalt Roles Rule", "body": "Every button shares the 10px radius and is cobalt in one of three roles: filled for the one primary action in a block, outlined for a secondary one, quiet text for the rest. Neutral ghost buttons are chrome only.", "section": "components" },
       { "name": "The White Panel Rule", "body": "On the Group page, Settle up and Balances sit on white hero panels (14px radius, no shadow, borderless in light theme and a faint hairline in dark); everything after them stays on the page background, so the hero reads as the page's focal point.", "section": "components" },
-      { "name": "The Only What Floats Rule", "body": "A shadow means \"this sits above the page\". Lists, panels and cards in the flow have a border and no shadow.", "section": "elevation" }
+      { "name": "The Only What Floats Rule", "body": "A shadow means \"this sits above the page\". Lists, panels and cards in the flow have a border and no shadow; the Group page's hero panels drop the border in light theme (see The White Panel Rule).", "section": "elevation" }
     ],
     "dos": [
       "Do use the `amount` utility (IBM Plex Mono, tabular numerals, no wrapping) for every monetary figure.",

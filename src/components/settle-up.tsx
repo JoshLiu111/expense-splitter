@@ -98,6 +98,8 @@ export function SettleUpSection({
           ? "small"
           : "open";
   const mine = ledger.suggestions.filter((s) => s.fromId === me || s.toId === me);
+  // A visitor with a payment of their own records it there; "Record a payment" is for everyone else.
+  const hasOwnSuggestion = mine.length > 0;
   const others = ledger.suggestions.filter((s) => s.fromId !== me && s.toId !== me);
   const myBalance = ledger.balances.find((b) => b.memberId === me)?.amount ?? 0;
 
@@ -205,7 +207,7 @@ export function SettleUpSection({
 
       {state === "open" && (
         <>
-          {me && mine.length === 0 && (
+          {me && !hasOwnSuggestion && (
             <YourStanding balance={myBalance} money={money} className="mt-4 border-b border-border pb-4" />
           )}
           {mine.map((s) => {
@@ -239,7 +241,7 @@ export function SettleUpSection({
           {others.length > 0 && (
             <ul
               aria-label={me ? "Other Suggested Settlements" : "Suggested Settlements"}
-              className={mine.length > 0 ? "mt-2" : "mt-4"}
+              className={hasOwnSuggestion ? "mt-2" : "mt-4"}
             >
               {others.map((s) => (
                 <li
@@ -263,14 +265,14 @@ export function SettleUpSection({
 
           <div className="mt-4 flex flex-wrap items-center gap-x-6 gap-y-2">
             {/* "Record this payment" opens a form that can be changed to any Settlement. */}
-            {mine.length === 0 &&
+            {!hasOwnSuggestion &&
               record(null, "Record a payment", { variant: "outline", text: "Record a payment", className: "px-5" })}
             <Button
               variant="quiet"
               aria-expanded={showWhy}
               onClick={() => setShowWhy((v) => !v)}
               // Alone on its line, its icon lines up with the content edge, as in the comp.
-              className={mine.length > 0 ? "-ml-3" : undefined}
+              className={hasOwnSuggestion ? "-ml-3" : undefined}
             >
               <GitCompareArrows aria-hidden /> {showWhy ? "Hide why" : "Why these payments?"}
             </Button>

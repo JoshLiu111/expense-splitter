@@ -141,7 +141,7 @@
     --color-surface: #10141c;
     --color-border: #212935;
     --color-border-subtle: #1a202b;
-    --color-border-panel: #1a202b;
+    --color-border-panel: var(--color-border-subtle);
     --color-border-input: #5a6478;
 
     --color-text-primary: #e7ebf2;
@@ -189,7 +189,7 @@
   --color-surface: #10141c;
   --color-border: #212935;
   --color-border-subtle: #1a202b;
-  --color-border-panel: #1a202b;
+  --color-border-panel: var(--color-border-subtle);
   --color-border-input: #5a6478;
 
   --color-text-primary: #e7ebf2;

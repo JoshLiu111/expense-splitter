@@ -196,7 +196,7 @@ Light and dark themes are equal citizens: tokens swap, layouts do not. Dark is a
 - One cool-blue accent on cool blue-grey neutrals; no secondary brand colour.
 - Money in IBM Plex Mono with tabular numerals, never truncated.
 - Owing and being owed are never told apart by colour alone.
-- Flat surfaces with hairline borders; elevation reserved for floating layers.
+- Flat surfaces with hairline borders (the hero panels are the exception: white on paper, borderless in light theme); elevation reserved for floating layers.
 - Every interactive target is at least 44×44px.
 - Every text pairing meets WCAG AA in both themes.
 
@@ -284,7 +284,7 @@ The system is flat at rest. Depth comes from tonal steps (paper background, whit
 - **Floating** (`--shadow-lg`, `0 10px 15px -3px rgba(15, 23, 42, 0.08), 0 4px 6px -4px rgba(15, 23, 42, 0.04)`): dialogs, sheets, the floating action button.
 
 ### Named Rules
-**The Only What Floats Rule.** A shadow means "this sits above the page". Lists, panels and cards in the flow have a border and no shadow.
+**The Only What Floats Rule.** A shadow means "this sits above the page". Lists, panels and cards in the flow have a border and no shadow; the Group page's hero panels drop the border in light theme (see The White Panel Rule).
 
 ## Shapes
 
@@ -315,7 +315,7 @@ Selectable pills for Payer, participants and Split Type.
 ### Hero Panels
 The Group page's Settle up and Balances panels: the page's focal point, so they sit on sheet white rather than the paper background.
 - **Above them**, the Group header stays short: the back link, the Group name (39px extrabold) with the Group settings cog, then one row of the Members' overlapping 32px avatars and "4 members, $1,234.56 across 12 expenses" (13px graphite, the total in the mono figure style). The description and per-currency subtotals are not shown on the Group page. The header sits 32px above Settle up, the column's section gap.
-- **Shape:** 14px radius, no shadow. No border in light theme (white on paper is edge enough); dark theme keeps a faint hairline (`border-subtle`). The 1px border is always there, transparent in light, so nothing shifts between themes.
+- **Shape:** 14px radius, no shadow. No border in light theme (white on paper is edge enough); dark theme keeps a faint hairline (`border-panel`, which is `border-subtle` in dark). The 1px border is always there, transparent in light, so nothing shifts between themes.
 - **Padding:** 20px on phones, 28px from 640px. Heading 20px extrabold.
 - **Settle up** has four states. *Open Debts*: the header line counts the payments and their total; the signed-in User's own payment leads as the largest figure (avatars 48px, "You pay Taylor Kim" or "Taylor Kim pays you" in owe red or owed green over the amount, and a primary Record this payment), then everyone else's Suggested Settlements as single rows (payer → payee avatars, "Sam Rivera pays Taylor Kim", figure; on phones the names drop to their own line so a long name never pushes the figure out), with no per-row action, then a secondary Record a payment and a quiet "Why these payments?" that loads the graph on demand (always there in Open Debts). Record a payment shows only when the viewer has no Suggested Settlement of their own (Guests, or a signed-in User with none); a User with one records through Record this payment, whose form can be changed to any Settlement. A User with no suggestion of their own reads "You're settled up" (text only, no icon) or how much Small Change they hold, in extrabold first. *Small Change*: the User's own line when signed in ("You're settled up", text only, at a zero Balance), then "$0.32 of Small Change left; nothing worth a payment." with a secondary Clear Small Change on the right; no suggestion list and no graph. *Settled Up*: the Settled Up Moment. *No Expenses*: the Members' avatars, "No Expenses yet" (31px extrabold) and a primary Add the first Expense, the page's only call to action: the floating Add Expense is hidden. Empty means nothing recorded at all: Settlements left after every Expense is deleted still show as Open Debts.
 - **Balances** is a T-account: an Owe column (up-right arrow, debt red) and a Get back column (down-left arrow, credit green), largest first, each closing on its total; Members at zero share one line, "Settled up: Marcus Webb, Olivia Hayes", rather than $0.00 rows; a check line confirms the two sides reconcile to zero. The columns stack on phones. A long name wraps at whole words and pushes its figure onto its own line rather than breaking a word or squeezing the figure. Hidden once Settled Up, with a quiet Show / Hide.
