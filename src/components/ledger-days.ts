@@ -17,7 +17,10 @@ export interface LedgerDay<T> {
   entries: T[];
 }
 
-/** Groups newest-first ledger entries by date; same-day entries keep their order. */
+/**
+ * Groups ledger entries by date; same-day entries keep their order. Expects
+ * them sorted by date, as the timeline and filtered Expenses are.
+ */
 export function ledgerDays<T extends { date: CalendarDate }>(entries: T[]): LedgerDay<T>[] {
   const days: LedgerDay<T>[] = [];
   for (const entry of entries) {
@@ -26,13 +29,13 @@ export function ledgerDays<T extends { date: CalendarDate }>(entries: T[]): Ledg
       last.entries.push(entry);
       continue;
     }
-    const d = new Date(`${entry.date}T00:00:00Z`);
-    const year = String(d.getUTCFullYear());
+    const calendarDay = new Date(`${entry.date}T00:00:00Z`);
+    const year = String(calendarDay.getUTCFullYear());
     const yearChanged = last === undefined || !last.date.startsWith(year);
     days.push({
       date: entry.date,
-      day: String(d.getUTCDate()),
-      month: MONTH.format(d),
+      day: String(calendarDay.getUTCDate()),
+      month: MONTH.format(calendarDay),
       label: formatCalendarDate(entry.date),
       year: yearChanged ? year : undefined,
       entries: [entry],

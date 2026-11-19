@@ -97,7 +97,7 @@ export function DatedLedger({
  * The row bleeds 8px past the column so its tint clears the avatar and amount.
  */
 const rowClass =
-  "relative -mx-2 flex min-h-16 cursor-pointer items-center gap-3 rounded-md px-2 py-2.5 transition-colors duration-(--duration-fast) has-[button:hover]:bg-bg-tertiary/60 has-focus-visible:ring-[3px] has-focus-visible:ring-ring";
+  "relative -mx-2 flex min-h-16 cursor-pointer items-center gap-3 rounded-md px-2 py-2.5 transition-colors duration-(--duration-fast) has-[button:hover]:bg-bg-tertiary/60 has-focus-visible:ring-[3px] has-focus-visible:ring-ring has-focus-visible:ring-offset-2 has-focus-visible:ring-offset-background";
 const rowButtonClass =
   "cursor-pointer text-left break-words outline-none after:absolute after:inset-0 after:rounded-md";
 

@@ -27,7 +27,7 @@ import { describeBalance, pluralize } from "@/lib/format";
 
 /**
  * A Group's header (name, Members, total spent), the settle-up hero (Settle up, then Balances),
- * the dated ledger of Expenses and Settlements, then Insights, with Expense entry.
+ * Insights and the dated ledger of Expenses and Settlements, with Expense entry.
  * Details, Categories, Members and deletion live in Group settings, linked
  * from the header. Balances are recomputed from the Group on every render
  * (ADR 0004).
@@ -188,6 +188,21 @@ export function GroupDetail({
         <BalancesPanel group={group} ledger={ledger} currentMemberId={currentMemberId} />
       )}
 
+      {ledger.expenseCount > 0 && (
+        <section aria-labelledby="insights-heading" className="flex flex-col gap-4">
+          <h2 id="insights-heading" className="text-lg font-bold">
+            Insights
+          </h2>
+          <ExpenseFilters group={group} insights={insights} filter={filter} onChange={setFilter} />
+          <SpendingInsights
+            group={group}
+            insights={insights}
+            balances={ledger.balances}
+            filtering={filtering}
+          />
+        </section>
+      )}
+
       {/* With nothing recorded, the hero leads to the first Expense instead. */}
       {ledger.timeline.length > 0 && (
         <section aria-labelledby="activity-heading">
@@ -208,7 +223,7 @@ export function GroupDetail({
             )}
           </div>
           {timeline.length === 0 && filtering ? (
-            <p className="border-y border-border py-8 text-center text-text-secondary">
+            <p className="rounded-lg border border-dashed border-border-input p-6 text-text-secondary">
               No Expenses match these filters.
             </p>
           ) : (
@@ -219,21 +234,6 @@ export function GroupDetail({
               onDeleteSettlement={removeSettlement}
             />
           )}
-        </section>
-      )}
-
-      {ledger.expenseCount > 0 && (
-        <section aria-labelledby="insights-heading" className="flex flex-col gap-4">
-          <h2 id="insights-heading" className="text-lg font-bold">
-            Insights
-          </h2>
-          <ExpenseFilters group={group} insights={insights} filter={filter} onChange={setFilter} />
-          <SpendingInsights
-            group={group}
-            insights={insights}
-            balances={ledger.balances}
-            filtering={filtering}
-          />
         </section>
       )}
 

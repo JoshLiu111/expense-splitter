@@ -258,7 +258,7 @@ The scale is a compact major third (13, 16, 20, 25, 31, 39px), with an 11px capt
 ### Hierarchy
 - **Display** (800, 39px, 1.2): the landing page hero heading, and the Group name on the Group page (with tight tracking).
 - **Headline** (800, 31px, 1.25): one per page; the page name. In the Settle up panel, also the Settled Up Moment's "Everyone is Settled Up" and "No Expenses yet".
-- **Title** (700, 20px, 1.4): section headings such as Insights and Expenses; the Settle up and Balances panel headings at 800.
+- **Title** (700, 20px, 1.4): section headings such as Insights; the Settle up and Balances panel headings at 800.
 - **Body** (400, 16px, 1.55): prose, Member names, Expense descriptions.
 - **Label** (600, 13px, 1.45): buttons, field labels, legends, chips, metadata lines; the workhorse size.
 - **Caption** (400, 11px, 1.45): secondary conversions under an amount, avatar initials.
@@ -273,7 +273,7 @@ The scale is a compact major third (13, 16, 20, 25, 31, 39px), with an 11px capt
 
 The page is a centred column inside an 80rem frame with 16px side padding. Reading content (a Group, the dashboard, forms) narrows further to a 42rem content column so lists read like a statement. The landing hero uses a two-column grid (1.1fr / 1fr) from 1024px; feature lists step from one to two (640px) to four columns (1024px). Insights charts sit in a two-column grid from 768px.
 
-The Group page opens on its settle-up hero, two white panels inside the content column: **Settle up** (what closes the Group) and then **Balances** (why). The hero does not widen the column. Below it, on the page background, comes the dated ledger of Expenses and Settlements, then Insights.
+The Group page opens on its settle-up hero, two white panels inside the content column: **Settle up** (what closes the Group) and then **Balances** (why). The hero does not widen the column. Everything after it (Insights, then the dated ledger of Expenses and Settlements) sits on the page background.
 
 Spacing is a 4px base scale. Inside components, 8–16px dominates (chip gaps 8px, list row padding 12px × 16px, panel padding 24px, hero panel padding 20px on phones and 28px from 640px); between sections, 32px. Forms stack fields with 20px gaps.
 
@@ -331,14 +331,14 @@ The Group page's Settle up and Balances panels: the page's focal point, so they 
 **The White Panel Rule.** On the Group page, Settle up and Balances sit on white hero panels (14px radius, no shadow, borderless in light theme and a faint hairline in dark); everything after them stays on the page background, so the hero reads as the page's focal point.
 
 ### Dated Ledger
-The Group's Expenses and Settlements, newest first, directly on the page background below the hero panels: no card, no heading (a visually hidden "Expenses and Settlements" names the region for screen readers).
+The Group's Expenses and Settlements, newest first, on the page background below the hero panels and Insights: no card, no heading (a visually hidden "Expenses and Settlements" names the region for screen readers).
 - **Rules:** a hairline (`border`) above each date and below the last; faint hairlines (`border-subtle`) between rows on the same date.
 - **Date column:** 52px wide, one date per day, aligned with that day's first row: the day of the month in 31px extrabold ink, the month beneath it in 11px semibold uppercase graphite, and the year beneath that (11px regular) on the first date and wherever the year changes. The full date is read out with every row.
 - **Expense row:** the Payer's 36px avatar; the description (16px semibold) with "Sam Rivera paid in Groceries" (13px graphite) beneath it; on the right the amount in Group Currency (mono, 16px semibold) and, when the Expense Currency differs, the Expense Currency amount beneath it (mono, 11px graphite), e.g. `$55.88` over `¥8,340`. Split Type, member count and the Locked Rate are not in the row; they live in the editor.
 - **Settlement row:** payer → payee in 24px avatars; "Sam Rivera paid Taylor Kim" (names semibold ink, "paid" graphite) with "Settlement" (13px graphite) beneath it; the amount in graphite, so it reads as money moving rather than money spent. No panel or dashed border sets it apart.
 - **Row:** at least 64px tall, 10px × 8px padding, 12px gaps, the avatar and amount vertically centred. The row bleeds 8px past the column on each side so its hover tint clears the avatar and figure. Long names and descriptions wrap at whole words (breaking a word only when it cannot fit); the amount never shrinks, so at 390px it stays inside the screen.
 - **Rows carry no buttons.** An Expense or Settlement row is one control: a click, tap or Enter anywhere on it opens it (the Expense editor, or a dialog stating the Settlement), hover tints it hover slate at 60%, and focus rings the whole row. Delete lives inside what the row opens: the Expense editor's quiet Delete Expense, the Settlement dialog's Delete Settlement, each confirmed first.
-- **Filtering** hides Settlements; a line above the ledger counts the matching Expenses with a quiet Clear filters, and no match reads "No Expenses match these filters." between two hairlines.
+- **Filtering** hides Settlements; a line above the ledger counts the matching Expenses with a quiet Clear filters, and no match reads "No Expenses match these filters." in a dashed empty-state outline.
 
 ### Cards / Containers
 The ledger panel: a list or block on a white sheet, such as Insights' filter panel and charts. The Group page's Expenses and Settlements are not in one; see Dated Ledger.
