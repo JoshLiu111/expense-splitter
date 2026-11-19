@@ -1,9 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { useRef, useState } from "react";
-import { AlertDialog } from "radix-ui";
-import { ArrowLeft, ArrowRightLeft, Pencil, Plus, Settings, Trash2 } from "lucide-react";
+import { useId, useRef, useState } from "react";
+import { Dialog } from "radix-ui";
+import { ArrowLeft, ArrowRightLeft, Plus, Settings, X } from "lucide-react";
 import {
   categoryName,
   computeInsights,
@@ -20,6 +20,7 @@ import {
 import type { DeleteExpense, SaveExpense } from "@/expenses/save-expense";
 import type { SettleUp } from "@/settlements/settle-up";
 import { BalancesPanel } from "@/components/balances-panel";
+import { ConfirmDelete } from "@/components/confirm-delete";
 import { ExpenseEditor } from "@/components/expense-editor";
 import { SettleUpSection } from "@/components/settle-up";
 import { ExpenseFilters, SpendingInsights } from "@/components/spending";
@@ -171,6 +172,10 @@ export function GroupDetail({
             setActionNews(editing.expense ? "Expense updated." : "Expense added.");
             close();
           }}
+          onDelete={(expense) => {
+            setEditing(null);
+            void remove(expense);
+          }}
         />
       )}
 
@@ -238,8 +243,7 @@ export function GroupDetail({
                       entry={entry}
                       group={group}
                       payer={members.get(entry.expense.payerId)}
-                      onEdit={() => open(entry.expense)}
-                      onDelete={() => remove(entry.expense)}
+                      onOpen={() => open(entry.expense)}
                     />
                   ) : (
                     <SettlementRow
@@ -282,34 +286,53 @@ const SPLIT_TYPE_LABELS: Record<Expense["splitType"], string> = {
   shares: "By shares",
 };
 
+/**
+ * Makes a row's heading button cover the whole row, so a click or tap
+ * anywhere on it opens the row; the row shows the button's focus ring.
+ */
+const rowClass =
+  "relative cursor-pointer transition-colors duration-(--duration-fast) has-[button:hover]:border-accent has-focus-visible:ring-[3px] has-focus-visible:ring-ring";
+const rowButtonClass =
+  "cursor-pointer text-left font-semibold break-words outline-none after:absolute after:inset-0 after:rounded-lg";
+
 function ExpenseRow({
   entry,
   group,
   payer,
-  onEdit,
-  onDelete,
+  onOpen,
 }: {
   entry: Extract<TimelineEntry, { kind: "expense" }>;
   group: GroupSnapshot;
   payer: Member | undefined;
-  onEdit: () => void;
-  onDelete: () => void;
+  onOpen: () => void;
 }) {
   const { expense } = entry;
   const foreign = expense.currency !== group.currency;
+  const id = useId();
   return (
-    <article className="flex flex-col gap-2 rounded-lg border border-border bg-surface px-4 py-3">
+    <article
+      className={`${rowClass} flex flex-col gap-2 rounded-lg border border-border bg-surface px-4 py-3`}
+    >
       <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-1">
         <div className="min-w-0 flex-1">
-          <h3 className="font-semibold break-words">{expense.description}</h3>
-          <p className="text-sm text-text-secondary">
+          <h3>
+            <button
+              type="button"
+              onClick={onOpen}
+              aria-describedby={`${id}-details ${id}-amount`}
+              className={rowButtonClass}
+            >
+              {expense.description}
+            </button>
+          </h3>
+          <p id={`${id}-details`} className="text-sm text-text-secondary">
             {payer?.name ?? "Unknown member"} paid ·{" "}
             {pluralize(entry.owing.length, "member")} · {SPLIT_TYPE_LABELS[expense.splitType]} ·{" "}
             {categoryName(group, expense.category)} ·{" "}
             <time dateTime={expense.date}>{formatCalendarDate(expense.date)}</time>
           </p>
         </div>
-        <p className="text-right">
+        <p id={`${id}-amount`} className="text-right">
           <span className="amount font-semibold">
             {formatMoney(expense.amount, expense.currency)}
           </span>
@@ -326,69 +349,14 @@ function ExpenseRow({
           )}
         </p>
       </div>
-      <div className="-mb-1 flex justify-end gap-1">
-        <Button variant="ghost" onClick={onEdit} aria-label={`Edit “${expense.description}”`}>
-          <Pencil aria-hidden /> Edit
-        </Button>
-        <ConfirmDelete
-          label={`Delete “${expense.description}”`}
-          title="Delete this Expense?"
-          confirmLabel="Delete Expense"
-          onConfirm={onDelete}
-        >
-          “{expense.description}” (
-          <span className="amount">{formatMoney(expense.amount, expense.currency)}</span>)
-        </ConfirmDelete>
-      </div>
     </article>
   );
 }
 
-function ConfirmDelete({
-  label,
-  title,
-  confirmLabel,
-  children,
-  onConfirm,
-}: {
-  /** The trigger's accessible name, e.g. Delete “Dinner”. */
-  label: string;
-  title: string;
-  confirmLabel: string;
-  /** What will be removed, for the dialog's description. */
-  children: React.ReactNode;
-  onConfirm: () => void;
-}) {
-  return (
-    <AlertDialog.Root>
-      <AlertDialog.Trigger asChild>
-        <Button variant="ghost" aria-label={label}>
-          <Trash2 aria-hidden /> Delete
-        </Button>
-      </AlertDialog.Trigger>
-      <AlertDialog.Portal>
-        <AlertDialog.Overlay className="fixed inset-0 z-40 bg-black/50" />
-        <AlertDialog.Content className="fixed top-1/2 left-1/2 z-50 w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-lg border border-border bg-surface p-6 shadow-lg outline-none">
-          <AlertDialog.Title className="text-lg font-bold">{title}</AlertDialog.Title>
-          <AlertDialog.Description className="mt-2 text-text-secondary">
-            {children} will be removed and Balances recomputed. This can&apos;t be undone.
-          </AlertDialog.Description>
-          <div className="mt-6 flex flex-wrap justify-end gap-3">
-            <AlertDialog.Cancel asChild>
-              <Button variant="outline">Cancel</Button>
-            </AlertDialog.Cancel>
-            <AlertDialog.Action asChild>
-              <Button onClick={onConfirm} className="bg-error text-white hover:bg-error/90">
-                {confirmLabel}
-              </Button>
-            </AlertDialog.Action>
-          </div>
-        </AlertDialog.Content>
-      </AlertDialog.Portal>
-    </AlertDialog.Root>
-  );
-}
-
+/**
+ * A Settlement can be added or deleted but never edited, so its row opens a
+ * dialog stating it, with Delete Settlement behind a confirmation.
+ */
 function SettlementRow({
   entry,
   currency,
@@ -403,32 +371,73 @@ function SettlementRow({
   onDelete: () => void;
 }) {
   const amount = formatMoney(entry.settlement.amount, currency);
+  const date = formatCalendarDate(entry.date);
+  const id = useId();
+  const [open, setOpen] = useState(false);
+  // Once deleted the row is gone, so focus is left to whoever announces it.
+  const deleted = useRef(false);
   return (
-    <article className="flex flex-col gap-2 rounded-lg border border-dashed border-border-input bg-bg-secondary px-4 py-3">
-      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
-        <div className="flex min-w-0 flex-1 items-center gap-3">
-          <ArrowRightLeft aria-hidden className="size-5 shrink-0 text-accent" />
-          <div className="min-w-0">
-            <h3 className="font-semibold break-words">
-              Settlement: {from} paid {to}
-            </h3>
-            <p className="text-sm text-text-secondary">
-              <time dateTime={entry.date}>{formatCalendarDate(entry.date)}</time>
-            </p>
+    <Dialog.Root open={open} onOpenChange={setOpen}>
+      <article
+        className={`${rowClass} flex flex-col gap-2 rounded-lg border border-dashed border-border-input bg-bg-secondary px-4 py-3`}
+      >
+        <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
+          <div className="flex min-w-0 flex-1 items-center gap-3">
+            <ArrowRightLeft aria-hidden className="size-5 shrink-0 text-accent" />
+            <div className="min-w-0">
+              <h3>
+                <Dialog.Trigger
+                  aria-describedby={`${id}-date ${id}-amount`}
+                  className={rowButtonClass}
+                >
+                  Settlement: {from} paid {to}
+                </Dialog.Trigger>
+              </h3>
+              <p id={`${id}-date`} className="text-sm text-text-secondary">
+                <time dateTime={entry.date}>{date}</time>
+              </p>
+            </div>
           </div>
+          <span id={`${id}-amount`} className="amount font-semibold">
+            {amount}
+          </span>
         </div>
-        <span className="amount font-semibold">{amount}</span>
-      </div>
-      <div className="-mb-1 flex justify-end">
-        <ConfirmDelete
-          label={`Delete Settlement: ${from} paid ${to} ${amount}`}
-          title="Delete this Settlement?"
-          confirmLabel="Delete Settlement"
-          onConfirm={onDelete}
+      </article>
+      <Dialog.Portal>
+        <Dialog.Overlay className="fixed inset-0 z-40 bg-black/50" />
+        <Dialog.Content
+          className="fixed top-1/2 left-1/2 z-50 w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-lg border border-border bg-surface p-6 shadow-lg outline-none"
+          onCloseAutoFocus={(event) => {
+            if (deleted.current) event.preventDefault();
+          }}
         >
-          The Settlement from {from} to {to} (<span className="amount">{amount}</span>)
-        </ConfirmDelete>
-      </div>
-    </article>
+          <div className="flex items-center justify-between gap-2">
+            <Dialog.Title className="text-lg font-bold">Settlement</Dialog.Title>
+            <Dialog.Close asChild>
+              <Button variant="ghost" size="icon" aria-label="Close" className="-mr-2.5">
+                <X aria-hidden />
+              </Button>
+            </Dialog.Close>
+          </div>
+          <Dialog.Description className="mt-2">
+            {from} paid {to} <span className="amount font-semibold">{amount}</span> on{" "}
+            <time dateTime={entry.date}>{date}</time>.
+          </Dialog.Description>
+          <div className="-mr-3 mt-6 flex justify-end">
+            <ConfirmDelete
+              title="Delete this Settlement?"
+              confirmLabel="Delete Settlement"
+              onConfirm={() => {
+                deleted.current = true;
+                setOpen(false);
+                onDelete();
+              }}
+            >
+              The Settlement from {from} to {to} (<span className="amount">{amount}</span>)
+            </ConfirmDelete>
+          </div>
+        </Dialog.Content>
+      </Dialog.Portal>
+    </Dialog.Root>
   );
 }

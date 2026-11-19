@@ -132,7 +132,7 @@ test("a signed-in User's Percentage Split reloads on edit", async ({ page }) => 
   await expect(page.getByText("Expense added.")).toBeVisible();
 
   await page.reload();
-  await page.getByRole("button", { name: "Edit “Books”" }).click();
+  await page.getByRole("button", { name: "Books", exact: true }).click();
   await expect(page.getByRole("radio", { name: "Percentage", exact: true })).toBeChecked();
   await expect(field(page, "Maya Chen (%)")).toHaveValue("100");
 });

@@ -47,13 +47,30 @@ test("S2: Guest records the suggested Settlement in parts and reaches Everyone i
 
 test("S2: a Settlement can be deleted after confirming, restoring the debt", async ({ page }) => {
   await page.goto("/guest/groups/grp_birthday");
-  await page.getByRole("button", { name: "Delete Settlement: Chloe Yun paid Olivia Hayes $18.75" }).click();
+  // The row is one control with no buttons of its own; it opens a dialog stating the Settlement.
+  const row = page
+    .getByRole("region", { name: "Expenses and Settlements" })
+    .getByRole("listitem").filter({ hasText: "Settlement: Chloe Yun paid Olivia Hayes" });
+  await expect(row.getByRole("button")).toHaveCount(1);
+  await row.getByRole("button").focus();
+  await page.keyboard.press("Enter");
+  const details = page.getByRole("dialog", { name: "Settlement" });
+  await expect(details).toContainText("Chloe Yun paid Olivia Hayes $18.75 on Feb 17, 2024");
+  // A Settlement can be deleted but never edited.
+  await expect(details.getByRole("button", { name: /edit/i })).toHaveCount(0);
+
+  await details.getByRole("button", { name: "Delete Settlement" }).click();
   const confirm = page.getByRole("alertdialog", { name: "Delete this Settlement?" });
-  await expect(confirm).toBeVisible();
+  await confirm.getByRole("button", { name: "Cancel" }).click();
+  await expect(page.getByTestId("balance-mem_chloe")).toContainText("owes $14.37");
+
+  await details.getByRole("button", { name: "Delete Settlement" }).click();
   await confirm.getByRole("button", { name: "Delete Settlement" }).click();
 
   await expect(page.getByText("Deleted the Settlement from Chloe Yun to Olivia Hayes.")).toBeVisible();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
   await expect(page.getByTestId("balance-mem_chloe")).toContainText("owes $33.12");
+  await expect(page.getByRole("status")).toContainText("Balances updated.");
 });
 
 test("S2: once only Small Change is left, one tap clears it", async ({ page }) => {
@@ -173,7 +190,8 @@ test("S2: a Former Member whose Balance reopens shows in Balances and can be set
   await expect(page.getByTestId("balance-mem_olivia")).toHaveCount(0);
 
   // Deleting the Settlement that zeroed her brings her Balance back.
-  await page.getByRole("button", { name: "Delete Settlement: Chloe Yun paid Olivia Hayes $18.75" }).click();
+  await page.getByRole("button", { name: "Settlement: Chloe Yun paid Olivia Hayes" }).click();
+  await page.getByRole("dialog", { name: "Settlement" }).getByRole("button", { name: "Delete Settlement" }).click();
   await page
     .getByRole("alertdialog", { name: "Delete this Settlement?" })
     .getByRole("button", { name: "Delete Settlement" })

@@ -124,7 +124,7 @@ test("S1: Guest adds a Name-only Member and removes a settled-up one, who stays 
   await page.getByRole("button", { name: "Cancel" }).filter({ visible: true }).click();
 
   // Editing her past Expense still shows her.
-  await airpods.getByRole("button", { name: "Edit “AirPods gift”" }).click();
+  await airpods.getByRole("button", { name: "AirPods gift", exact: true }).click();
   await expect(page.getByRole("radio", { name: "Olivia Hayes" })).toBeChecked();
 });
 
