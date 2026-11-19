@@ -93,6 +93,10 @@ _Avoid_: Current rate, live rate, market rate
 A Member's net position in a Group: total paid minus total owed, in Group Currency. Positive means others owe them. A Group's Balances always sum to zero. A Balance is one net figure per Member; a Debt is one amount between two Members, and a Member's Balance is what their Debts net to.
 _Avoid_: Debt, total
 
+**Member Statement**:
+The itemised account of one Member's Balance (including a Former Member's): for each Expense, what they paid and their Share, and each Settlement they made or received, all in Group Currency at each Expense's Locked Rate and totalling exactly their Balance.
+_Avoid_: Balance breakdown
+
 **Debt**:
 The net amount one Member owes another from the Expenses they shared (and any Settlements between them), before Debt Simplification. A Group's Debts and its Suggested Settlements leave every Member with the same Balance.
 _Avoid_: IOU, payment
@@ -116,6 +120,10 @@ _Avoid_: Recommendation, IOU
 **Debt Simplification**:
 Reducing the Suggested Settlements to as few payments as possible, using only Balances rather than who shared which Expense.
 _Avoid_: Netting, optimisation
+
+**Activity**:
+The record of each change to a Group's Expenses and Settlements (adding, editing or deleting an Expense; adding or deleting a Settlement): who made it (a Linked Member, still named if later a Former Member, or the Guest), when, and for edits the values before and after. No one can edit or remove an entry, and it holds no Balances or Suggested Settlements.
+_Avoid_: History, change log, audit log, feed
 
 ### Access
 
