@@ -5,7 +5,7 @@
 // with chips, and the Expenses | Insights pair. The directions differ in
 // layout and in how they present the settle-up hero, not in these.
 
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { ArrowRight, ArrowLeftRight, SlidersHorizontal, X } from "lucide-react";
 import {
   categoryName,
@@ -22,6 +22,18 @@ import { ExpenseFilters, SpendingInsights } from "@/components/spending";
 import { Button } from "@/components/ui/button";
 import { formatCalendarDate, formatSignedMoney } from "@/lib/format";
 import { cn } from "@/lib/utils";
+
+/**
+ * Direction A's button roles. Every button shares the 10px radius; cobalt
+ * marks every action, filled for the one primary action in a block,
+ * outlined for a secondary one, and as text with an icon for quiet ones.
+ */
+export const BUTTON_A = {
+  primary: "rounded-lg px-5",
+  secondary: "rounded-lg border-border-input px-5 text-accent hover:bg-accent-subtle",
+  quiet: "-mx-3 rounded-lg px-3 text-accent hover:bg-accent-subtle",
+  icon: "rounded-lg text-text-secondary hover:text-text-primary",
+} as const;
 
 export function nameOf(group: GroupSnapshot, id: string) {
   return group.members.find((m) => m.id === id)?.name ?? "Unknown";
@@ -151,12 +163,17 @@ export function ExpensesAndInsights({
   view,
   onView,
   showSwitch = true,
+  renderList,
+  tabStyle = "segmented",
 }: {
   group: GroupSnapshot;
   view: "expenses" | "insights";
   onView?: (view: "expenses" | "insights") => void;
   /** Direction C drives the view from its own tabs. */
   showSwitch?: boolean;
+  /** Direction A swaps in its date-column ledger. */
+  renderList?: (timeline: TimelineEntry[]) => ReactNode;
+  tabStyle?: "segmented" | "underline";
 }) {
   const [filter, setFilter] = useState<ExpenseFilter>({});
   const [open, setOpen] = useState(false);
@@ -170,7 +187,15 @@ export function ExpensesAndInsights({
     <div className="flex flex-col gap-3">
       <div className="flex flex-wrap items-center gap-2">
         {showSwitch && onView && (
-          <div role="tablist" className="inline-flex rounded-md border border-border-input bg-surface p-0.5">
+          <div
+            role="tablist"
+            className={cn(
+              "inline-flex",
+              tabStyle === "segmented"
+                ? "rounded-md border border-border-input bg-surface p-0.5"
+                : "mr-auto gap-6",
+            )}
+          >
             {(["expenses", "insights"] as const).map((v) => (
               <button
                 key={v}
@@ -178,8 +203,15 @@ export function ExpensesAndInsights({
                 aria-selected={view === v}
                 onClick={() => onView(v)}
                 className={cn(
-                  "min-h-11 rounded px-4 text-sm font-semibold capitalize",
-                  view === v ? "bg-accent-subtle text-accent" : "text-text-secondary hover:bg-bg-tertiary",
+                  "min-h-11 text-sm font-semibold capitalize",
+                  tabStyle === "segmented"
+                    ? cn("rounded px-4", view === v ? "bg-accent-subtle text-accent" : "text-text-secondary hover:bg-bg-tertiary")
+                    : cn(
+                        "-mb-px border-b-2 text-base",
+                        view === v
+                          ? "border-text-primary text-text-primary"
+                          : "border-transparent text-text-secondary hover:text-text-primary",
+                      ),
                 )}
               >
                 {v}
@@ -188,7 +220,12 @@ export function ExpensesAndInsights({
           </div>
         )}
         {ledger.expenseCount > 0 && (
-          <Button variant="ghost" aria-expanded={open} onClick={() => setOpen(!open)}>
+          <Button
+            variant="ghost"
+            aria-expanded={open}
+            onClick={() => setOpen(!open)}
+            className={cn(tabStyle === "underline" && "-mr-3 rounded-lg px-3 text-accent hover:bg-accent-subtle")}
+          >
             <SlidersHorizontal aria-hidden /> Filter{chips.length > 0 && ` (${chips.length})`}
           </Button>
         )}
@@ -211,7 +248,7 @@ export function ExpensesAndInsights({
         <p className="text-sm text-text-secondary">Settlements are hidden while filtering.</p>
       )}
       {view === "expenses" ? (
-        <LedgerList group={group} timeline={timeline} />
+        renderList ? renderList(timeline) : <LedgerList group={group} timeline={timeline} />
       ) : ledger.expenseCount === 0 ? (
         <p className="rounded-lg border border-dashed border-border-input p-6 text-text-secondary">
           Insights appear once there are Expenses.
