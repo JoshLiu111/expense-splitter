@@ -1,8 +1,15 @@
 "use client";
 
-import { useId, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { Sparkles } from "lucide-react";
-import { formatMoney, type DebtEdge, type GroupSnapshot, type SettlementExplanation } from "@/domain";
+import {
+  computeLedger,
+  formatMoney,
+  type DebtEdge,
+  type GroupSnapshot,
+  type SettlementExplanation,
+} from "@/domain";
+import { layoutDebtGraph, NODE, SIZE, type EdgeLayout } from "@/components/debt-graph-layout";
 import { avatarFill, initials, textColourOn } from "@/components/member-avatar";
 import { Button } from "@/components/ui/button";
 import { useMediaQuery } from "@/components/use-media-query";
@@ -10,10 +17,6 @@ import { pluralize } from "@/lib/format";
 
 type Phase = "before" | "after";
 
-const SIZE = 400;
-const CENTER = SIZE / 2;
-const RING = 120;
-const NODE = 22;
 /** After's arrows: neutral ink, since cobalt is only for what can be acted on. */
 const AFTER_INK = "var(--color-text-primary)";
 const BEFORE_INK = "var(--color-text-secondary)";
@@ -39,6 +42,17 @@ export default function WhyThesePayments({
   const [phase, setPhase] = useState<Phase>("before");
   const summaryId = useId();
   const graph = useRef<SVGSVGElement>(null);
+  // Rendered width over viewBox width, so the graph's text keeps its size on screen.
+  const [scale, setScale] = useState(1);
+  useEffect(() => {
+    const svg = graph.current;
+    if (!svg) return;
+    const observer = new ResizeObserver(([entry]) => {
+      if (entry.contentRect.width > 0) setScale(entry.contentRect.width / SIZE);
+    });
+    observer.observe(svg);
+    return () => observer.disconnect();
+  }, []);
   const money = (amount: number) => formatMoney(amount, group.currency);
   const before = explanation.before;
   // Small Change is never suggested, so the "after" graph leaves it out.
@@ -57,15 +71,18 @@ export default function WhyThesePayments({
     requestAnimationFrame(() => requestAnimationFrame(() => setTimeout(() => setPhase("after"), 400)));
   }
 
-  // Members on a ring: everyone with a debt either side, in Group order.
+  // Everyone with a debt either side, placed by Balance.
   const involved = new Set([...before, ...after, ...smallChange].flatMap((e) => [e.fromId, e.toId]));
-  const nodes = group.members.filter((m) => involved.has(m.id));
-  const position = new Map(
-    nodes.map((m, i) => {
-      const angle = (2 * Math.PI * i) / nodes.length - Math.PI / 2;
-      return [m.id, { x: CENTER + RING * Math.cos(angle), y: CENTER + RING * Math.sin(angle) }];
-    }),
-  );
+  const balances = new Map(computeLedger(group).balances.map((b) => [b.memberId, b.amount]));
+  const layout = layoutDebtGraph({
+    members: group.members.filter((m) => involved.has(m.id)),
+    balanceOf: (id) => balances.get(id) ?? 0,
+    before,
+    after,
+    label: (edge) => money(edge.amount),
+    scale,
+  });
+  const memberOf = new Map(group.members.map((m) => [m.id, m]));
   const nameOf = (id: string) => group.members.find((m) => m.id === id)?.name ?? "Unknown member";
   const saved = before.length - after.length;
   // E.g. every Expense paid by one Member: the debts are the Suggested Settlements already.
@@ -120,66 +137,63 @@ export default function WhyThesePayments({
         viewBox={`0 0 ${SIZE} ${SIZE}`}
         role="img"
         aria-labelledby={summaryId}
-        className="mx-auto w-full max-w-sm [--graph-duration:calc(var(--duration-slow)*3)]"
+        // scroll-mb clears the fixed Add Expense bar when Simplify scrolls the graph into view.
+        className="mx-auto w-full max-w-sm scroll-mb-24 [--graph-duration:calc(var(--duration-slow)*3)]"
       >
         <defs>
           <Arrowhead id={`${summaryId}-before`} color={BEFORE_INK} />
           <Arrowhead id={`${summaryId}-after`} color={AFTER_INK} />
         </defs>
         {!alreadySimplest &&
-          before.map((edge) => (
+          layout.before.map((edge) => (
             <Edge
-              key={`before-${edge.fromId}-${edge.toId}`}
-              edge={edge}
-              from={position.get(edge.fromId)!}
-              to={position.get(edge.toId)!}
-              label={money(edge.amount)}
+              key={`before-${edge.edge.fromId}-${edge.edge.toId}`}
+              layout={edge}
+              label={money(edge.edge.amount)}
+              fontSize={layout.fontSize.label}
               color={BEFORE_INK}
               marker={`${summaryId}-before`}
               shown={shown === "before"}
               dashed
             />
           ))}
-        {after.map((edge) => (
+        {layout.after.map((edge) => (
           <Edge
-            key={`after-${edge.fromId}-${edge.toId}`}
-            edge={edge}
-            from={position.get(edge.fromId)!}
-            to={position.get(edge.toId)!}
-            label={money(edge.amount)}
+            key={`after-${edge.edge.fromId}-${edge.edge.toId}`}
+            layout={edge}
+            label={money(edge.edge.amount)}
+            fontSize={layout.fontSize.label}
             color={AFTER_INK}
             marker={`${summaryId}-after`}
             shown={shown === "after"}
           />
         ))}
-        {nodes.map((m) => {
-          const { x, y } = position.get(m.id)!;
-          const fill = avatarFill(m.avatarColor);
-          const outward = { x: (x - CENTER) / RING, y: (y - CENTER) / RING };
+        {layout.nodes.map((node) => {
+          const fill = avatarFill(memberOf.get(node.id)!.avatarColor);
           return (
-            <g key={m.id}>
-              <circle cx={x} cy={y} r={NODE} fill={fill} />
+            <g key={node.id}>
+              <circle cx={node.x} cy={node.y} r={NODE} fill={fill} />
               <text
-                x={x}
-                y={y}
+                x={node.x}
+                y={node.y}
                 textAnchor="middle"
                 dominantBaseline="central"
-                fontSize={13}
+                fontSize={layout.fontSize.initials}
                 fontWeight={700}
                 fill={textColourOn(fill)}
               >
-                {initials(m.name)}
+                {initials(memberOf.get(node.id)!.name)}
               </text>
               <text
-                x={x + outward.x * (NODE + 14)}
-                y={y + outward.y * (NODE + 14)}
-                textAnchor={Math.abs(outward.x) < 0.3 ? "middle" : outward.x > 0 ? "start" : "end"}
+                x={node.nameAt.x}
+                y={node.nameAt.y}
+                textAnchor={node.nameAnchor}
                 dominantBaseline="central"
-                fontSize={13}
+                fontSize={layout.fontSize.name}
                 fontWeight={600}
                 fill="var(--color-text-primary)"
               >
-                {m.name.split(/\s+/)[0]}
+                {node.name}
               </text>
             </g>
           );
@@ -234,44 +248,31 @@ function Arrowhead({ id, color }: { id: string; color: string }) {
  * reduced motion).
  */
 function Edge({
-  edge,
-  from,
-  to,
+  layout,
   label,
+  fontSize,
   color,
   marker,
   shown,
   dashed = false,
 }: {
-  edge: DebtEdge;
-  from: { x: number; y: number };
-  to: { x: number; y: number };
+  layout: EdgeLayout;
   label: string;
+  fontSize: number;
   color: string;
   marker: string;
   shown: boolean;
   dashed?: boolean;
 }) {
-  const dx = to.x - from.x;
-  const dy = to.y - from.y;
-  const distance = Math.hypot(dx, dy);
-  const ux = dx / distance;
-  const uy = dy / distance;
-  const start = { x: from.x + ux * (NODE + 3), y: from.y + uy * (NODE + 3) };
-  const end = { x: to.x - ux * (NODE + 6), y: to.y - uy * (NODE + 6) };
-  const length = Math.hypot(end.x - start.x, end.y - start.y);
-  // Labels sit beside the line, on the payer's right, so opposite debts don't collide.
-  const labelAt = { x: (start.x + end.x) / 2 - uy * 12, y: (start.y + end.y) / 2 + ux * 12 };
+  const { edge, path, length, labelBox } = layout;
   const transition =
     "opacity var(--graph-duration) var(--ease-standard), stroke-dashoffset var(--graph-duration) var(--ease-standard)";
 
   return (
     <g data-edge={`${edge.fromId}-${edge.toId}`} style={{ opacity: shown ? 1 : 0, transition }}>
-      <line
-        x1={start.x}
-        y1={start.y}
-        x2={end.x}
-        y2={end.y}
+      <path
+        d={path}
+        fill="none"
         stroke={color}
         strokeWidth={dashed ? 1.5 : 2.5}
         markerEnd={`url(#${marker})`}
@@ -279,17 +280,23 @@ function Edge({
         strokeDashoffset={dashed || shown ? 0 : length}
         style={{ transition }}
       />
+      {/* On the arrow itself, over a patch of sheet, so each amount reads as its own arrow's. */}
+      <rect
+        x={labelBox.cx - labelBox.w / 2}
+        y={labelBox.cy - labelBox.h / 2}
+        width={labelBox.w}
+        height={labelBox.h}
+        rx={3}
+        fill="var(--color-surface)"
+      />
       <text
-        x={labelAt.x}
-        y={labelAt.y}
+        x={labelBox.cx}
+        y={labelBox.cy}
         textAnchor="middle"
         dominantBaseline="central"
-        fontSize={11}
+        fontSize={fontSize}
         fontWeight={600}
         fill={color}
-        stroke="var(--color-surface)"
-        strokeWidth={4}
-        paintOrder="stroke"
         className="font-mono"
       >
         {label}

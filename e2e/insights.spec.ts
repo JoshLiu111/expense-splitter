@@ -100,7 +100,44 @@ test("S2: each suggestion traces back to its Expenses, and Why these payments? s
   await expect(before).toHaveAttribute("aria-pressed", "true");
   await settleUp(page).getByRole("button", { name: "Simplify" }).click();
   await expect(after).toHaveAttribute("aria-pressed", "true");
-  await expect(graph).toBeInViewport();
+  // Simplify brings the whole graph into view, clear of the Add Expense bar.
+  await expect(graph).toBeInViewport({ ratio: 1 });
+  const graphBox = (await graph.boundingBox())!;
+  const barBox = (await page.getByRole("button", { name: "Add Expense", exact: true }).boundingBox())!;
+  expect(graphBox.y + graphBox.height <= barBox.y || graphBox.x + graphBox.width <= barBox.x).toBe(true);
+});
+
+test("Why these payments? keeps every amount apart and at 11px or more", async ({ page }) => {
+  for (const id of ["grp_japan_2024", "grp_apt_4b", "grp_office_lunch", "grp_birthday", "grp_camping"]) {
+    await page.goto(`/guest/groups/${id}`);
+    await settleUp(page).getByRole("button", { name: "Why these payments?" }).click();
+    for (const phase of ["Before", "After"]) {
+      if (phase === "After") await settleUp(page).getByRole("button", { name: "Simplify" }).click();
+      await expect(settleUp(page).getByRole("button", { name: phase, exact: true })).toHaveAttribute(
+        "aria-pressed",
+        "true",
+      );
+      const labels = await settleUp(page)
+        .locator("svg[role=img] [data-edge]")
+        .evaluateAll((edges) =>
+          edges
+            .filter((edge) => (edge as SVGGElement).style.opacity === "1")
+            .map((edge) => {
+              const text = edge.querySelector("text")!;
+              const { left, right, top, bottom } = text.getBoundingClientRect();
+              return { left, right, top, bottom, px: text.getScreenCTM()!.a * Number(text.getAttribute("font-size")) };
+            }),
+        );
+      expect(labels.length, `${id} ${phase}`).toBeGreaterThan(0);
+      labels.forEach((a, i) => {
+        expect(a.px, `${id} ${phase} font size`).toBeGreaterThanOrEqual(11);
+        for (const b of labels.slice(i + 1)) {
+          const apart = a.right <= b.left || b.right <= a.left || a.bottom <= b.top || b.bottom <= a.top;
+          expect(apart, `${id} ${phase} labels overlap`).toBe(true);
+        }
+      });
+    }
+  }
 });
 
 test("Why these payments? says when the debts are already as simple as they get", async ({ page }) => {
