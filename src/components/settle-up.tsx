@@ -12,6 +12,7 @@ import {
   memberLabel,
   membersInBalances,
   parseAmount,
+  settleUpStatus,
   validateSettlement,
   type GroupSnapshot,
   type Ledger,
@@ -88,15 +89,7 @@ export function SettleUpSection({
   const me = currentMemberId && members.has(currentMemberId) ? currentMemberId : undefined;
   const money = (amount: number) => formatMoney(amount, group.currency);
 
-  const state: "empty" | "settled" | "small" | "open" =
-    // Not just "no Expenses": Settlements left after deleting every Expense still leave Balances.
-    ledger.timeline.length === 0
-      ? "empty"
-      : ledger.settledUp
-        ? "settled"
-        : ledger.suggestions.length === 0
-          ? "small"
-          : "open";
+  const status = settleUpStatus(ledger);
   const mine = ledger.suggestions.filter((s) => s.fromId === me || s.toId === me);
   // A visitor with a payment of their own records it there; "Record a payment" is for everyone else.
   const hasOwnSuggestion = mine.length > 0;
@@ -129,16 +122,13 @@ export function SettleUpSection({
     />
   );
 
-  const outstanding = ledger.suggestions.reduce((sum, s) => sum + s.amount, 0);
-  const smallChangeTotal = ledger.smallChange.reduce((sum, s) => sum + s.amount, 0);
-
   return (
     <section
       aria-labelledby="settle-up-heading"
       className={cn(
         "hero-panel",
         // A scale pop only: the panel stays white.
-        state === "settled" && "motion-safe:animate-[celebrate_var(--duration-slow)_ease-out]",
+        status.state === "settled" && "motion-safe:animate-[celebrate_var(--duration-slow)_ease-out]",
       )}
     >
       <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
@@ -150,15 +140,15 @@ export function SettleUpSection({
         >
           Settle up
         </h2>
-        {state === "open" && (
+        {status.state === "open" && (
           <p className="text-sm text-text-secondary">
-            {pluralize(ledger.suggestions.length, "payment")},{" "}
-            <span className="amount font-semibold text-text-primary">{money(outstanding)}</span> in total
+            {pluralize(status.payments, "payment")},{" "}
+            <span className="amount font-semibold text-text-primary">{money(status.total)}</span> in total
           </p>
         )}
       </div>
 
-      {state === "empty" && (
+      {status.state === "empty" && (
         <div className="mt-6 flex flex-col items-center py-4 text-center">
           <AvatarStack members={group.members.filter((m) => !m.former)} size="md" />
           <p className="mt-5 text-2xl font-extrabold">No Expenses yet</p>
@@ -171,7 +161,7 @@ export function SettleUpSection({
         </div>
       )}
 
-      {state === "settled" && (
+      {status.state === "settled" && (
         <div className="mt-6 flex flex-col items-center py-4 text-center">
           <span className="relative">
             <AvatarStack members={membersInBalances(group)} size="md" />
@@ -187,12 +177,12 @@ export function SettleUpSection({
         </div>
       )}
 
-      {state === "small" && (
+      {status.state === "small" && (
         <div className="mt-4 flex flex-wrap items-center justify-between gap-4">
           <div className="min-w-0">
             {me && <YourStanding balance={myBalance} money={money} className="mb-1" />}
             <p className="text-text-secondary">
-              <span className="amount font-semibold text-text-primary">{money(smallChangeTotal)}</span> of Small
+              <span className="amount font-semibold text-text-primary">{money(status.total)}</span> of Small
               Change left; nothing worth a payment.
             </p>
           </div>
@@ -205,7 +195,7 @@ export function SettleUpSection({
         </div>
       )}
 
-      {state === "open" && (
+      {status.state === "open" && (
         <>
           {me && !hasOwnSuggestion && (
             <YourStanding balance={myBalance} money={money} className="mt-4 border-b border-border pb-4" />

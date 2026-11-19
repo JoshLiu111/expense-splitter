@@ -9,6 +9,8 @@ export {
 } from "./categories";
 export type { CategoryOption, ParseCategoryResult } from "./categories";
 export { computeLedger, inGroupCurrency } from "./ledger";
+export { settleUpStatus } from "./settle-up-status";
+export type { SettleUpStatus } from "./settle-up-status";
 export type { CurrencySubtotal, Ledger, MemberBalance, OwingLine, TimelineEntry } from "./ledger";
 export type { SuggestedSettlement } from "./settle-up";
 export { parseNewSettlement, validateSettlement } from "./settlement";

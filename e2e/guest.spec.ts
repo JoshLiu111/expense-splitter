@@ -5,10 +5,12 @@ test("Guest opens /guest, opens a Group and sees the expected Balances", async (
 
   const groups = page.getByRole("list").getByRole("link");
   await expect(groups).toHaveCount(5);
-  await expect(page.getByRole("link", { name: /Trip to Japan.*13 expenses/ })).toBeVisible();
+  // Each row leads with the settle-up state, then the Expense count and total; Guests have no Balance of their own.
+  await expect(page.getByRole("link", { name: /Trip to Japan.*3 payments to settle up.*13 expenses/ })).toBeVisible();
   await expect(
-    page.getByRole("link", { name: /Sarah's Birthday Present.*4 expenses.*\$357\.49 spent/ }),
+    page.getByRole("link", { name: /Sarah's Birthday Present.*1 payment to settle up.*4 expenses.*\$357\.49 spent/ }),
   ).toBeVisible();
+  await expect(groups.filter({ hasText: "Your Balance" })).toHaveCount(0);
 
   await page.getByRole("link", { name: /Trip to Japan/ }).click();
   await expect(page.getByRole("heading", { level: 1, name: "Trip to Japan" })).toBeVisible();

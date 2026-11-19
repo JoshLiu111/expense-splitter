@@ -37,6 +37,13 @@ export function describeBalance(name: string, amount: MinorUnits, currency: Curr
   return `${name} is settled up`;
 }
 
+/** The signed-in User's own Balance, e.g. "You owe $630.00". */
+export function describeYourBalance(amount: MinorUnits, currency: CurrencyCode): string {
+  if (amount > 0) return `You get back ${formatMoney(amount, currency)}`;
+  if (amount < 0) return `You owe ${formatMoney(-amount, currency)}`;
+  return "You're settled up";
+}
+
 const monthFormatter = new Intl.DateTimeFormat("en-US", { month: "long", year: "numeric", timeZone: "UTC" });
 const shortMonthFormatter = new Intl.DateTimeFormat("en-US", { month: "short", year: "2-digit", timeZone: "UTC" });
 

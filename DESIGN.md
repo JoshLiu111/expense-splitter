@@ -179,6 +179,14 @@ components:
     height: "64px"
   ledger-row-hover:
     backgroundColor: "{colors.bg-tertiary}"
+  group-row:
+    textColor: "{colors.text-primary}"
+    typography: "{typography.body}"
+    padding: "16px"
+  group-row-wide:
+    padding: "16px 20px"
+  group-row-hover:
+    backgroundColor: "{colors.bg-tertiary}"
   balance-owes:
     backgroundColor: "{colors.owe-subtle}"
     textColor: "{colors.owe}"
@@ -236,7 +244,7 @@ A cool, low-chroma ledger palette with one cobalt accent and a semantic red/gree
 - **Credit Green** (`owed`) with **Credit Mint** (`owed-subtle`): a Member who gets back.
 
 ### Tertiary
-- **Confirmation Green** (`success`): success announcements and the Settled Up Moment's check badge.
+- **Confirmation Green** (`success`): success announcements, the Settled Up Moment's check badge and the Groups list's Settled Up check.
 - **Ochre Caution** (`warning`): warnings; darkened in light theme to reach 4.85:1.
 - **Alarm Red** (`error`): field errors, the error summary border and destructive actions.
 
@@ -244,7 +252,7 @@ A cool, low-chroma ledger palette with one cobalt accent and a semantic red/gree
 - **Statement Paper** (`bg-primary`): the page background.
 - **Header Slate** (`bg-secondary`): the site header band and inset notes such as the live split preview.
 - **Hover Slate** (`bg-tertiary`): hover background for ghost buttons; the neutral "settled up" Balance pill.
-- **Sheet White** (`surface`): panels (including the Settle up and Balances hero panels), list containers, dialogs, inputs and chips.
+- **Sheet White** (`surface`): panels (including the Settle up and Balances hero panels), list containers (including the Groups list), dialogs, inputs and chips.
 - **Hairline** (`border`) and **Faint Hairline** (`border-subtle`): decorative rules and list dividers. About 1.3:1; never the only boundary of a control. The hero panels' edge (`border-panel`) is transparent in light theme and Faint Hairline in dark.
 - **Control Edge** (`border-input`): the boundary of inputs, chips and dashed empty states, at least 3:1 against surfaces.
 - **Ink** (`text-primary`), **Graphite** (`text-secondary`), **Pewter** (`text-tertiary`): body text, supporting text, and the least important metadata.
@@ -363,6 +371,15 @@ The Group's Expenses and Settlements, newest first: the Expenses view of the Exp
 - **Rows carry no buttons.** An Expense or Settlement row is one control: a click, tap or Enter anywhere on it opens it (the Expense editor, or a dialog stating the Settlement), hover tints it hover slate at 60%, and focus rings the whole row. Delete lives inside what the row opens: the Expense editor's quiet Delete Expense, the Settlement dialog's Delete Settlement, each confirmed first.
 - **Filtering** hides Settlements; the tabs' count line says how many Expenses match, and no match reads "No Expenses match these filters." in a dashed empty-state outline.
 
+### Groups List
+The Groups page (Guest and signed in) lists each Group as a row of one ledger panel (white sheet, 10px radius, 1px hairline, faint hairlines between rows, no shadow). Each row leads with where the Group stands on settling up, in the Settle up hero's words.
+- **Row:** the whole row is one link to the Group: 16px × 16px padding (20px sides from 640px), hover tints it hover slate at 60%, and focus draws the 3px cobalt ring inset inside the panel; a graphite chevron on the right.
+- **Name:** 20px bold ink; a long name wraps at whole words.
+- **Settle status** (16px semibold, beneath the name), from the same Suggested Settlements as Settle up: "3 payments to settle up" (ink) with open Debts; "Settled Up" (ink) after a 16px Confirmation Green check; "$0.32 of Small Change left" (graphite, the figure in ink mono) when only Small Change remains; "No Expenses yet" (graphite) when nothing is recorded. Settlements left after every Expense is deleted still count as payments to settle up.
+- **Secondary line:** "13 expenses  $2,751.25 spent" in 13px graphite, the total in the mono figure style, also graphite.
+- **Signed in**, the row adds the User's own Balance: "Your Balance" (13px graphite) and a Balance Status pill, stacked and right-aligned beside the text from 640px, on one line beneath it on phones. Its screen-reader sentence reads "You get back $160.00", "You owe $630.00" or "You're settled up". Guests see only the settle status.
+- Figures never truncate: the text column wraps first, then the Balance drops beneath it.
+
 ### Cards / Containers
 The ledger panel: a list or block on a white sheet, such as the filter panel and Insights' charts. The Group page's Expenses and Settlements are not in one; see Dated Ledger.
 - **Corner Style:** 10px.
@@ -386,6 +403,7 @@ The signature component: a Balance as a pill.
 - **Content:** arrow icon (down-left for gets back, up-right for owes, check for settled up), a 13px semibold word, then the signed amount in the mono figure style.
 - **Colour:** owes is debt red on debt blush; gets back is credit green on credit mint; settled up is graphite on hover slate.
 - **Accessibility:** a full screen-reader sentence ("Jordan owes $219.49") replaces the visual parts for assistive technology.
+- **On the Groups list** the pill shows the signed-in User's own Balance under a 13px graphite "Your Balance" label (see Groups List).
 - **On the Group page** Balances use the hero panel's T-account instead of pills: there the column heading carries the word and arrow, the figure its sign and colour, and each row the same screen-reader sentence.
 
 ### Dialogs and Sheets

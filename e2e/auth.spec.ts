@@ -66,8 +66,9 @@ test("sign up, create a Group, sign out, sign in: the Group is still listed", as
   const group = page.getByRole("link", { name: /Flat 3B/ });
   await expect(group).toContainText("0 expenses");
   await expect(group).toContainText("£0.00 spent");
-  await expect(group).toContainText("Your Balance:");
-  await expect(group).toContainText("settled up");
+  await expect(group).toContainText("No Expenses yet");
+  await expect(group).toContainText("Your Balance");
+  await expect(group).toContainText("You're settled up");
 });
 
 test("a signed-in User's Expense is saved to their Group", async ({ page }) => {
