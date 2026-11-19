@@ -193,7 +193,7 @@ export function GroupDetail({
         onAddExpense={() => open(null)}
       />
 
-      {ledger.expenseCount > 0 && (
+      {ledger.timeline.length > 0 && (
         <BalancesPanel group={group} ledger={ledger} currentMemberId={currentMemberId} />
       )}
 
@@ -229,7 +229,7 @@ export function GroupDetail({
               <p className="mt-1 flex flex-wrap items-center gap-x-3 text-sm text-text-secondary">
                 Showing {pluralize(insights.expenses.length, "matching Expense")} of {ledger.expenseCount};
                 Settlements are hidden while filtering.
-                <Button variant="ghost" onClick={() => setFilter({})}>
+                <Button variant="quiet" onClick={() => setFilter({})}>
                   Clear filters
                 </Button>
               </p>

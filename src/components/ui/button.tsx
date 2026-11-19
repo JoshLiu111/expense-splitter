@@ -26,6 +26,8 @@ const buttonVariants = cva(
         icon: "size-11",
       },
     },
+    // Quiet buttons are text: narrower sides, pulled back at a block's edge by the caller.
+    compoundVariants: [{ variant: "quiet", size: "default", className: "px-3" }],
     defaultVariants: {
       variant: "default",
       size: "default",

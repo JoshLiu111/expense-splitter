@@ -250,11 +250,11 @@ The scale is a compact major third (13, 16, 20, 25, 31, 39px), with an 11px capt
 ### Hierarchy
 - **Display** (800, 39px, 1.2): the landing page hero heading only.
 - **Headline** (800, 31px, 1.25): one per page; the page or Group name.
-- **Title** (700, 20px, 1.4): section headings such as Insights and Expenses; the Settle up and Balances panel headings at 800 (18px); also the "All settled up!" line (800).
+- **Title** (700, 20px, 1.4): section headings such as Insights and Expenses; the Settle up and Balances panel headings at 800; also the "All settled up!" line (800).
 - **Body** (400, 16px, 1.55): prose, Member names, Expense descriptions.
 - **Label** (600, 13px, 1.45): buttons, field labels, legends, chips, metadata lines; the workhorse size.
 - **Caption** (400, 11px, 1.45): secondary conversions under an amount, avatar initials.
-- **Amount** (IBM Plex Mono, 600, tabular numerals, no wrapping): every monetary figure, at whatever size its context sets (16px in Balances, 25px in the amount field, 25px on phones and 31px from 640px for the signed-in User's own payment in Settle up, the page's largest figure).
+- **Amount** (IBM Plex Mono, 600, tabular numerals, no wrapping): every monetary figure, at whatever size its context sets (16px in Balances, 25px in the amount field, 25px on phones and 39px from 640px for the signed-in User's own payment in Settle up, the page's largest figure; 25px keeps a long figure such as ¥12,345,678 inside a 390px screen beside the avatars).
 
 ### Named Rules
 **The Figures in Mono Rule.** Every monetary amount uses the `amount` utility: IBM Plex Mono, tabular numerals, `white-space: nowrap`. Never truncate or ellipsize a figure.
@@ -300,7 +300,7 @@ Firm, compact and unadorned. Cobalt marks every action; how much of it a button 
 - **Primary** (`default`): cobalt fill, on-accent text, 13px semibold label, 8px × 16px padding (20px sides in the hero panels). The one main action in a block: Add Expense, Record this payment, Add the first Expense, Save.
 - **Secondary** (`outline`): sheet white with a control-edge border and cobalt text; hover fills with cobalt wash. An action beside or below the primary one: Record another Settlement, Clear Small Change, Cancel.
 - **Quiet** (`quiet`): cobalt text, usually with a leading icon, no fill or border; hover fills with cobalt wash. Lesser actions inside a block: "Why these payments?", a suggestion's Record, Show / Hide Balances. When it sits at a panel's edge it pulls its 12px padding back with a negative margin so the text, not the hit area, lines up.
-- **Ghost** (`ghost`): neutral text, hover fills with hover slate. Chrome only: the header (user menu, theme toggle) and icon-only buttons such as Close. Older text buttons in lists and settings still use it and move to quiet as those screens are rebuilt.
+- **Ghost** (`ghost`): neutral text, hover fills with hover slate. Chrome only: the header (user menu, theme toggle) and icon-only buttons such as Close. (Text buttons in the Expense rows and Group settings predate this rule; they move to quiet when those screens are rebuilt.)
 - **Hover / Focus:** colour-only transitions at 120ms. Focus shows a 3px cobalt ring offset 2px from the page background.
 - **Link:** cobalt text, underline on hover.
 - **Disabled:** 50% opacity, no pointer events.
@@ -315,8 +315,8 @@ Selectable pills for Payer, participants and Split Type.
 ### Hero Panels
 The Group page's Settle up and Balances panels: the page's focal point, so they sit on sheet white rather than the paper background.
 - **Shape:** 14px radius, a faint hairline border (`border-subtle`, there mostly so dark theme keeps the edge), no shadow.
-- **Padding:** 20px on phones, 28px from 640px. Heading 18px extrabold.
-- **Settle up** has four states. *Open Debts*: the header line counts the payments and their total; the signed-in User's own payment leads as the largest figure (avatars 48px, "You pay Taylor Kim" or "Taylor Kim pays you" in owe red or owed green over the amount, and a primary Record this payment), then everyone else's Suggested Settlements as rows (payer → payee avatars, names, figure, quiet Record), then a secondary Record another Settlement and a quiet "Why these payments?" that loads the graph on demand. A User with no suggestion of their own reads "You're even" (or how much Small Change they hold) first. *Small Change*: the amount left and a secondary Clear Small Change. *Settled Up*: the Settled Up Moment. *No Expenses*: the Members' avatars, "No Expenses yet" and a primary Add the first Expense.
+- **Padding:** 20px on phones, 28px from 640px. Heading 20px extrabold.
+- **Settle up** has four states. *Open Debts*: the header line counts the payments and their total; the signed-in User's own payment leads as the largest figure (avatars 48px, "You pay Taylor Kim" or "Taylor Kim pays you" in owe red or owed green over the amount, and a primary Record this payment), then everyone else's Suggested Settlements as rows (payer → payee avatars, names, figure, quiet Record), then a secondary Record another Settlement and a quiet "Why these payments?" that loads the graph on demand. A User with no suggestion of their own reads "You're even" (or how much Small Change they hold) first. *Small Change*: the amount left and a secondary Clear Small Change. *Settled Up*: the Settled Up Moment. *No Expenses*: the Members' avatars, "No Expenses yet" (25px extrabold) and a primary Add the first Expense. Empty means nothing recorded at all: Settlements left after every Expense is deleted still show as Open Debts.
 - **Balances** is a T-account: an Owe column (up-right arrow, debt red) and a Get back column (down-left arrow, credit green), largest first, each closing on its total; Members at zero are listed under "Settled up"; a check line confirms the two sides reconcile to zero. The columns stack on phones. A long name wraps at whole words and pushes its figure onto its own line rather than breaking a word or squeezing the figure. Hidden once Settled Up, with a quiet Show / Hide.
 
 **The White Panel Rule.** On the Group page, Settle up and Balances sit on white hero panels (14px radius, faint hairline, no shadow); everything after them stays on the page background, so the hero reads as the page's focal point.

@@ -83,12 +83,13 @@ export function SettleUpSection({
   const [showWhy, setShowWhy] = useState(false);
   const members = new Map(group.members.map((m) => [m.id, m]));
   const nameOf = (id: string) => members.get(id)?.name ?? "Unknown member";
-  const memberOf = (id: string) => members.get(id) ?? { name: "?", avatarColor: "#646e7c" };
+  const memberOf = (id: string) => members.get(id)!;
   const me = currentMemberId && members.has(currentMemberId) ? currentMemberId : undefined;
   const money = (amount: number) => formatMoney(amount, group.currency);
 
   const state: "empty" | "settled" | "small" | "open" =
-    ledger.expenseCount === 0
+    // Not just "no Expenses": Settlements left after deleting every Expense still leave Balances.
+    ledger.timeline.length === 0
       ? "empty"
       : ledger.settledUp
         ? "settled"
@@ -118,11 +119,7 @@ export function SettleUpSection({
     });
   }
 
-  const record = (
-    suggestion: SuggestedSettlement | null,
-    label: string,
-    trigger: { variant: "default" | "outline" | "quiet"; text: string; className?: string },
-  ) => (
+  const record = (suggestion: SuggestedSettlement | null, label: string, trigger: RecordTrigger) => (
     <RecordSettlement
       group={group}
       suggestion={suggestion}
@@ -135,6 +132,12 @@ export function SettleUpSection({
   );
 
   const outstanding = ledger.suggestions.reduce((sum, s) => sum + s.amount, 0);
+  const mineTotal = mine.reduce((sum, s) => sum + s.amount, 0);
+  const whyToggle = (
+    <Button variant="quiet" aria-expanded={showWhy} onClick={() => setShowWhy((v) => !v)} className="-mx-3">
+      <GitCompareArrows aria-hidden /> {showWhy ? "Hide why" : "Why these payments?"}
+    </Button>
+  );
   const smallChangeTotal = ledger.smallChange.reduce((sum, s) => sum + s.amount, 0);
 
   return (
@@ -166,7 +169,7 @@ export function SettleUpSection({
       {state === "empty" && (
         <div className="mt-4 flex flex-col items-center py-4 text-center">
           <AvatarStack members={group.members} size="md" />
-          <p className="mt-5 text-2xl font-extrabold">No Expenses yet</p>
+          <p className="mt-5 text-xl font-extrabold">No Expenses yet</p>
           <p className="mt-1 max-w-sm text-text-secondary">
             Record who paid for what, and the payments that settle this Group appear here.
           </p>
@@ -184,7 +187,7 @@ export function SettleUpSection({
               <Check aria-hidden className="size-4" strokeWidth={3} />
             </span>
           </span>
-          <p className="mt-5 text-xl font-extrabold text-success">All settled up!</p>
+          <p className="mt-5 text-lg font-extrabold text-success">All settled up!</p>
           <p className="mt-1 text-text-secondary">
             Every Balance is exactly zero:{" "}
             <span className="amount font-semibold text-text-primary">{money(ledger.totalSpent)}</span> shared,
@@ -237,7 +240,7 @@ export function SettleUpSection({
                     <span className="block font-extrabold break-words">
                       {youPay ? `You pay ${nameOf(other)}` : `${nameOf(other)} pays you`}
                     </span>
-                    <span className="amount block text-2xl leading-tight font-semibold sm:text-3xl">
+                    <span className="amount block text-xl leading-tight font-semibold sm:text-3xl">
                       {money(s.amount)}
                     </span>
                   </p>
@@ -266,11 +269,11 @@ export function SettleUpSection({
               </div>
             );
           })}
-          {me && mine.length > 0 && Math.abs(myBalance) > mine.reduce((sum, s) => sum + s.amount, 0) && (
+          {me && mine.length > 0 && Math.abs(myBalance) > mineTotal && (
             <p className="mt-2 text-sm text-text-secondary">
               Plus{" "}
               <span className="amount">
-                {money(Math.abs(myBalance) - mine.reduce((sum, s) => sum + s.amount, 0))}
+                {money(Math.abs(myBalance) - mineTotal)}
               </span>{" "}
               of Small Change, not worth a payment.
             </p>
@@ -297,7 +300,7 @@ export function SettleUpSection({
                       {record(s, `Record: ${nameOf(s.fromId)} pays ${nameOf(s.toId)} ${money(s.amount)}`, {
                         variant: "quiet",
                         text: "Record",
-                        className: "-mr-3 px-3",
+                        className: "-mr-3",
                       })}
                     </div>
                   </div>
@@ -324,19 +327,13 @@ export function SettleUpSection({
               text: "Record another Settlement",
               className: "px-5",
             })}
-            <Button variant="quiet" aria-expanded={showWhy} onClick={() => setShowWhy((v) => !v)} className="-mx-3 px-3">
-              <GitCompareArrows aria-hidden /> {showWhy ? "Hide why" : "Why these payments?"}
-            </Button>
+            {whyToggle}
           </div>
         </>
       )}
 
       {state === "small" && (
-        <div className="mt-3">
-          <Button variant="quiet" aria-expanded={showWhy} onClick={() => setShowWhy((v) => !v)} className="-mx-3 px-3">
-            <GitCompareArrows aria-hidden /> {showWhy ? "Hide why" : "Why these payments?"}
-          </Button>
-        </div>
+        <div className="mt-3">{whyToggle}</div>
       )}
       {(state === "open" || state === "small") && showWhy && (
         <div className="mt-3">
@@ -375,6 +372,9 @@ function YourStanding({ balance, money }: { balance: number; money: (amount: num
   );
 }
 
+/** The Record button's role in the button hierarchy and its visible text. */
+type RecordTrigger = { variant: "default" | "outline" | "quiet"; text: string; className?: string };
+
 /** A button that opens the Settlement form, prefilled from a suggestion if given. */
 function RecordSettlement({
   group,
@@ -389,8 +389,7 @@ function RecordSettlement({
   suggestion: SuggestedSettlement | null;
   /** The trigger's accessible name, e.g. "Record: Sam pays Taylor $3.03". */
   label: string;
-  /** The trigger's role in the button hierarchy and its visible text. */
-  trigger: { variant: "default" | "outline" | "quiet"; text: string; className?: string };
+  trigger: RecordTrigger;
   onRecord: SettleUp["record"];
   onRecorded: (news: string) => void;
   /** Where focus goes once recorded, since this button may be gone. */

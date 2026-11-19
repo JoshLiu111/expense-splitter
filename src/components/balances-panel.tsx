@@ -57,6 +57,7 @@ export function BalancesPanel({
   const even = shown.filter((b) => b.amount === 0);
   const total = (rows: MemberBalance[]) =>
     rows.reduce((sum, b) => sum + b.amount, 0);
+  const anyoneOwes = owe.length + getBack.length > 0;
 
   const row = (balance: MemberBalance) => (
     <BalanceRow
@@ -79,7 +80,7 @@ export function BalancesPanel({
           aria-expanded={open}
           aria-controls={panelId}
           onClick={() => setOpen((v) => !v)}
-          className="-mr-3 px-3"
+          className="-mr-3"
         >
           {open ? "Hide" : "Show"}
           <ChevronDown
@@ -94,7 +95,7 @@ export function BalancesPanel({
       </div>
 
       <div id={panelId} hidden={!open} className="mt-2">
-        {owe.length + getBack.length > 0 && (
+        {anyoneOwes && (
           <div className="grid gap-8 sm:grid-cols-2 sm:gap-0">
             <BalanceSide
               title="Owe"
@@ -120,7 +121,7 @@ export function BalancesPanel({
         )}
 
         {even.length > 0 && (
-          <div className={cn(owe.length + getBack.length > 0 && "mt-6")}>
+          <div className={cn(anyoneOwes && "mt-6")}>
             <h3 className="flex items-center gap-1.5 pb-2 text-sm font-bold text-text-secondary">
               <Check aria-hidden className="size-4" strokeWidth={2.5} />
               Settled up
@@ -131,7 +132,7 @@ export function BalancesPanel({
           </div>
         )}
 
-        {owe.length + getBack.length > 0 && (
+        {anyoneOwes && (
           <p className="mt-4 flex items-start gap-1.5 text-sm text-text-secondary">
             <Check
               aria-hidden

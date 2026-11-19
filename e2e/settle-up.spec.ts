@@ -174,3 +174,42 @@ test("S2: a Former Member whose Balance reopens shows in Balances and can be set
   await expect(page.getByText("Settlement recorded.", { exact: false })).toBeVisible();
   await expect(page.getByTestId("balance-mem_olivia")).toHaveCount(0);
 });
+
+test("a long Member name never pushes a figure past the hero panel's edge", async ({ page }) => {
+  const long = "Jordan Alexander Park-Featherstonehaugh";
+  await page.goto("/guest/groups/new");
+  await field(page, "Name").fill("Long names");
+  await page.getByRole("button", { name: "Create Group" }).click();
+  await expect(page.getByRole("heading", { level: 1, name: "Long names" })).toBeVisible();
+  await page.getByRole("link", { name: "Group settings" }).click();
+  for (const name of [long, "Taylor Kim"]) {
+    await field(page, "Add a Member by name").fill(name);
+    await page.getByRole("button", { name: "Add Member" }).click();
+    await expect(page.getByRole("region", { name: "Members" }).getByText(name, { exact: true })).toBeVisible();
+  }
+  await page.getByRole("link", { name: "Back to Long names" }).click();
+
+  // Taylor paid a six-figure sum for everyone, so You and the long name both pay Taylor.
+  await page.getByRole("button", { name: "Add Expense", exact: true }).click();
+  await field(page, "Amount (USD)").fill("123456.78");
+  await field(page, "Description").fill("Villa");
+  await page
+    .locator("label")
+    .filter({ has: page.getByRole("radio", { name: "Taylor Kim", exact: true }) })
+    .filter({ visible: true })
+    .click();
+  await page.getByRole("button", { name: "Add Expense", exact: true }).click();
+  await expect(page.getByText("Expense added.")).toBeVisible();
+
+  for (const name of ["Settle up", "Balances"]) {
+    const panel = page.getByRole("region", { name });
+    const panelBox = (await panel.boundingBox())!;
+    for (const figure of await panel.locator(".amount").filter({ visible: true }).all()) {
+      const box = (await figure.boundingBox())!;
+      expect(box.x + box.width, `${name}: ${await figure.textContent()}`).toBeLessThanOrEqual(
+        panelBox.x + panelBox.width,
+      );
+    }
+  }
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+});
