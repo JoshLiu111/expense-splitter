@@ -90,15 +90,19 @@ _Avoid_: Current rate, live rate, market rate
 ### Balances and settling
 
 **Balance**:
-A Member's net position in a Group: total paid minus total owed, in Group Currency. Positive means others owe them. A Group's Balances always sum to zero.
+A Member's net position in a Group: total paid minus total owed, in Group Currency. Positive means others owe them. A Group's Balances always sum to zero. A Balance is one net figure per Member; a Debt is one amount between two Members, and a Member's Balance is what their Debts net to.
 _Avoid_: Debt, total
+
+**Debt**:
+The net amount one Member owes another from the Expenses they shared (and any Settlements between them), before Debt Simplification. A Group's Debts and its Suggested Settlements leave every Member with the same Balance.
+_Avoid_: IOU, payment
 
 **Settled Up**:
 The state where every Member's Balance is exactly zero.
 _Avoid_: Closed, paid off
 
 **Settlement**:
-A recorded payment, always in Group Currency, from a Member with a negative Balance to a Member with a positive Balance.
+A recorded payment, always in Group Currency, from a Member with a negative Balance to a Member with a positive Balance. "payment" in its everyday sense is fine (as in "Why these payments?"); just never use it as the name of a Settlement.
 _Avoid_: Payment, repayment, transfer
 
 **Small Change**:
