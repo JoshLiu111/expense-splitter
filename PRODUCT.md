@@ -21,7 +21,7 @@ Expense Splitter records who paid for what in a Group, splits each Expense equal
 
 ## Positioning
 
-More meticulous and more professional than consumer expense splitters. The mechanism behind that claim: amounts are integer minor units, every Leftover Cent is assigned, Balances always sum to zero, foreign-currency Expenses keep the Locked Rate they were recorded at, and "Why these payments?" traces each Suggested Settlement back to the Expenses behind it.
+More meticulous and more professional than consumer expense splitters. The mechanism behind that claim: amounts are integer minor units, every Leftover Cent is assigned, Balances always sum to zero, foreign-currency Expenses keep the Locked Rate they were recorded at, each Suggested Settlement in Settle up traces back to the Expenses behind it, and "Why these payments?" shows the Group's debts turning into the Suggested Settlements.
 
 ## Operating Context
 
