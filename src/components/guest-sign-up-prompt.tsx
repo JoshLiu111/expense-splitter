@@ -30,7 +30,8 @@ export function GuestSignUpPrompt() {
   function dismiss() {
     dismissSignUpPrompt(window.sessionStorage);
     window.dispatchEvent(new Event(CHANGE_EVENT));
-    document.getElementById("main-content")?.focus();
+    // Main starts just under the header, so focusing it must not scroll a page taller than the screen.
+    document.getElementById("main-content")?.focus({ preventScroll: true });
   }
 
   return (
