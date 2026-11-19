@@ -143,14 +143,10 @@ test("Why these payments? stops a Simplify run when Before is chosen part-way", 
 test.describe("with reduced motion", () => {
   test.use({ reducedMotion: "reduce" });
 
-  test("S2: each suggestion traces back to its Expenses, and Why these payments? shows before and after", async ({
+  test("S2: Why these payments? shows before and after", async ({
     page,
   }) => {
     await page.goto("/guest/groups/grp_japan_2024");
-    const toTaylor = settleUp(page).getByRole("listitem").filter({ hasText: "Sam Rivera pays Taylor Kim" });
-    await toTaylor.getByText(/^From “Kyoto ryokan \(2 nights\)” and \d+ other expenses$/).click();
-    await expect(toTaylor).toContainText("Taylor Kim paid · Mar 22, 2024$167.50");
-
     await settleUp(page).getByRole("button", { name: "Why these payments?" }).click();
     const graph = settleUp(page).getByRole("img", { name: /Before Debt Simplification/ });
     await expect(graph).toBeVisible();

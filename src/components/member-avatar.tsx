@@ -93,8 +93,8 @@ export function AvatarStack({
 }: {
   members: Pick<Member, "id" | "name" | "avatarColor">[];
   size?: AvatarSize;
-  /** The colour behind the stack. */
-  ring?: "ring-surface" | "ring-owed-subtle";
+  /** The colour behind the stack: a white panel, or the page itself. */
+  ring?: "ring-surface" | "ring-bg-primary";
 }) {
   return (
     <span aria-hidden className="flex -space-x-1.5">

@@ -15,7 +15,6 @@ import {
   validateSettlement,
   type GroupSnapshot,
   type Ledger,
-  type SettlementSource,
   type NewSettlementFields,
   type SuggestedSettlement,
 } from "@/domain";
@@ -23,7 +22,7 @@ import type { SettlementResult, SettleUp } from "@/settlements/settle-up";
 import { ErrorSummary, Field } from "@/components/form";
 import { AvatarStack, TransferPair } from "@/components/member-avatar";
 import { Button } from "@/components/ui/button";
-import { formatCalendarDate, pluralize, todayCalendarDate } from "@/lib/format";
+import { pluralize, todayCalendarDate } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 // The graph is secondary, so its code loads only when asked for.
@@ -57,8 +56,9 @@ const dialogClass =
 /**
  * The settle-up hero: the first thing on the Group page. Open Debts lead with
  * the visitor's own payment as the largest figure, then everyone else's
- * Suggested Settlements; Small Change clears in one tap; Settled Up is the
- * Settled Up Moment; a Group with no Expenses leads to adding the first.
+ * Suggested Settlements as one-line rows, recorded from "Record a payment";
+ * Small Change clears in one tap; Settled Up is the Settled Up Moment; a
+ * Group with no Expenses leads to adding the first.
  */
 export function SettleUpSection({
   group,
@@ -99,11 +99,6 @@ export function SettleUpSection({
   const mine = ledger.suggestions.filter((s) => s.fromId === me || s.toId === me);
   const others = ledger.suggestions.filter((s) => s.fromId !== me && s.toId !== me);
   const myBalance = ledger.balances.find((b) => b.memberId === me)?.amount ?? 0;
-  const explanation = explainSettlements(group);
-  const sourcesOf = (s: SuggestedSettlement) =>
-    [...explanation.suggestions, ...explanation.smallChange].find(
-      (e) => e.fromId === s.fromId && e.toId === s.toId,
-    )?.sources ?? [];
 
   function recorded(news: string) {
     onNews(news);
@@ -132,12 +127,6 @@ export function SettleUpSection({
   );
 
   const outstanding = ledger.suggestions.reduce((sum, s) => sum + s.amount, 0);
-  const mineTotal = mine.reduce((sum, s) => sum + s.amount, 0);
-  const whyToggle = (
-    <Button variant="quiet" aria-expanded={showWhy} onClick={() => setShowWhy((v) => !v)} className="-mx-3">
-      <GitCompareArrows aria-hidden /> {showWhy ? "Hide why" : "Why these payments?"}
-    </Button>
-  );
   const smallChangeTotal = ledger.smallChange.reduce((sum, s) => sum + s.amount, 0);
 
   return (
@@ -145,8 +134,8 @@ export function SettleUpSection({
       aria-labelledby="settle-up-heading"
       className={cn(
         "hero-panel",
-        state === "settled" &&
-          "border-success bg-owed-subtle motion-safe:animate-[celebrate_var(--duration-slow)_ease-out]",
+        // A scale pop only: the panel stays white.
+        state === "settled" && "motion-safe:animate-[celebrate_var(--duration-slow)_ease-out]",
       )}
     >
       <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
@@ -167,9 +156,9 @@ export function SettleUpSection({
       </div>
 
       {state === "empty" && (
-        <div className="mt-4 flex flex-col items-center py-4 text-center">
-          <AvatarStack members={group.members} size="md" />
-          <p className="mt-5 text-xl font-extrabold">No Expenses yet</p>
+        <div className="mt-6 flex flex-col items-center py-4 text-center">
+          <AvatarStack members={group.members.filter((m) => !m.former)} size="md" />
+          <p className="mt-5 text-2xl font-extrabold">No Expenses yet</p>
           <p className="mt-1 max-w-sm text-text-secondary">
             Record who paid for what, and the payments that settle this Group appear here.
           </p>
@@ -180,16 +169,15 @@ export function SettleUpSection({
       )}
 
       {state === "settled" && (
-        <div className="mt-4 flex flex-col items-center py-4 text-center">
+        <div className="mt-6 flex flex-col items-center py-4 text-center">
           <span className="relative">
-            <AvatarStack members={membersInBalances(group)} size="md" ring="ring-owed-subtle" />
-            <span className="absolute -right-6 -bottom-1 inline-flex size-7 items-center justify-center rounded-full bg-success text-on-accent ring-2 ring-owed-subtle">
+            <AvatarStack members={membersInBalances(group)} size="md" />
+            <span className="absolute -right-6 -bottom-1 inline-flex size-7 items-center justify-center rounded-full bg-success text-on-accent ring-2 ring-surface">
               <Check aria-hidden className="size-4" strokeWidth={3} />
             </span>
           </span>
-          <p className="mt-5 text-lg font-extrabold text-success">All settled up!</p>
+          <p className="mt-5 text-2xl font-extrabold text-text-primary">Everyone is Settled Up</p>
           <p className="mt-1 text-text-secondary">
-            Every Balance is exactly zero:{" "}
             <span className="amount font-semibold text-text-primary">{money(ledger.totalSpent)}</span> shared,
             nothing outstanding.
           </p>
@@ -197,21 +185,13 @@ export function SettleUpSection({
       )}
 
       {state === "small" && (
-        <div className="mt-4 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-4">
           <div className="min-w-0">
-            {me && <YourStanding balance={myBalance} money={money} />}
+            {me && <YourStanding balance={myBalance} money={money} className="mb-1" />}
             <p className="text-text-secondary">
-              Only Small Change left:{" "}
-              <span className="amount font-semibold text-text-primary">{money(smallChangeTotal)}</span>, nothing
-              worth a payment.
+              <span className="amount font-semibold text-text-primary">{money(smallChangeTotal)}</span> of Small
+              Change left; nothing worth a payment.
             </p>
-            <ul className="mt-1 text-sm text-text-secondary">
-              {ledger.smallChange.map((s) => (
-                <li key={`${s.fromId}-${s.toId}`} className="break-words">
-                  {nameOf(s.fromId)} pays {nameOf(s.toId)} <span className="amount">{money(s.amount)}</span>
-                </li>
-              ))}
-            </ul>
           </div>
           <div className="flex flex-col items-start gap-2">
             <Button variant="outline" onClick={clearSmallChange} disabled={clearing} className="px-5">
@@ -225,147 +205,108 @@ export function SettleUpSection({
       {state === "open" && (
         <>
           {me && mine.length === 0 && (
-            <div className="mt-4 border-b border-border pb-4">
-              <YourStanding balance={myBalance} money={money} />
-            </div>
+            <YourStanding balance={myBalance} money={money} className="mt-4 border-b border-border pb-4" />
           )}
           {mine.map((s) => {
             const youPay = s.fromId === me;
             const other = youPay ? s.toId : s.fromId;
             return (
-              <div key={`${s.fromId}-${s.toId}`} className="mt-4 border-b border-border pb-5">
-                <div className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-x-5 gap-y-4 sm:grid-cols-[auto_minmax(0,1fr)_auto]">
-                  <TransferPair from={memberOf(s.fromId)} to={memberOf(s.toId)} size="lg" />
-                  <p className={cn("min-w-0", youPay ? "text-owe" : "text-owed")}>
-                    <span className="block font-extrabold break-words">
-                      {youPay ? `You pay ${nameOf(other)}` : `${nameOf(other)} pays you`}
-                    </span>
-                    <span className="amount block text-xl leading-tight font-semibold sm:text-3xl">
-                      {money(s.amount)}
-                    </span>
-                  </p>
-                  {record(
-                    s,
-                    youPay
-                      ? `Record: you pay ${nameOf(other)} ${money(s.amount)}`
-                      : `Record: ${nameOf(other)} pays you ${money(s.amount)}`,
-                    { variant: "default", text: "Record this payment", className: "col-span-2 px-5 sm:col-span-1" },
-                  )}
-                </div>
-                <div className="mt-2 flex flex-col gap-1">
-                  {!s.sharedAnExpense && (
-                    <p className="text-sm text-text-secondary">
-                      You and {nameOf(other)} never shared an Expense; settling with them directly saves the Group
-                      a Settlement.
-                    </p>
-                  )}
-                  <PaymentSources
-                    group={group}
-                    payerName={youPay ? "you" : nameOf(s.fromId)}
-                    amount={s.amount}
-                    sources={sourcesOf(s)}
-                  />
-                </div>
+              <div
+                key={`${s.fromId}-${s.toId}`}
+                className="mt-4 grid grid-cols-[auto_minmax(0,1fr)] items-center gap-x-5 gap-y-4 border-b border-border py-5 sm:grid-cols-[auto_minmax(0,1fr)_auto]"
+              >
+                <TransferPair from={memberOf(s.fromId)} to={memberOf(s.toId)} size="lg" />
+                <p className={cn("min-w-0", youPay ? "text-owe" : "text-owed")}>
+                  <span className="block font-extrabold break-words">
+                    {youPay ? `You pay ${nameOf(other)}` : `${nameOf(other)} pays you`}
+                  </span>
+                  <span className="amount block text-xl leading-tight font-semibold sm:text-3xl">
+                    {money(s.amount)}
+                  </span>
+                </p>
+                {record(
+                  s,
+                  youPay
+                    ? `Record: you pay ${nameOf(other)} ${money(s.amount)}`
+                    : `Record: ${nameOf(other)} pays you ${money(s.amount)}`,
+                  { variant: "default", text: "Record this payment", className: "col-span-2 px-5 sm:col-span-1" },
+                )}
               </div>
             );
           })}
-          {me && mine.length > 0 && Math.abs(myBalance) > mineTotal && (
-            <p className="mt-2 text-sm text-text-secondary">
-              Plus{" "}
-              <span className="amount">
-                {money(Math.abs(myBalance) - mineTotal)}
-              </span>{" "}
-              of Small Change, not worth a payment.
-            </p>
-          )}
 
           {others.length > 0 && (
-            <ul aria-label={me ? "Other Suggested Settlements" : "Suggested Settlements"} className="mt-2">
+            <ul
+              aria-label={me ? "Other Suggested Settlements" : "Suggested Settlements"}
+              className={mine.length > 0 ? "mt-2" : "mt-4"}
+            >
               {others.map((s) => (
                 <li
                   key={`${s.fromId}-${s.toId}`}
-                  className="border-b border-border-subtle py-3 last:border-b-0"
+                  className="flex flex-wrap items-center gap-x-4 gap-y-1 border-b border-border-subtle py-3 last:border-b-0"
                 >
-                  <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-x-4 gap-y-1 sm:grid-cols-[auto_minmax(0,1fr)_auto_auto]">
-                    <TransferPair from={memberOf(s.fromId)} to={memberOf(s.toId)} />
-                    <p className="col-span-2 row-start-2 min-w-0 break-words text-text-secondary sm:col-span-1 sm:col-start-2 sm:row-start-1">
-                      <span className="font-semibold text-text-primary">{nameOf(s.fromId)}</span> pays{" "}
-                      <span className="font-semibold text-text-primary">{nameOf(s.toId)}</span>{" "}
-                      <span className="sr-only">{money(s.amount)}</span>
-                    </p>
-                    <span aria-hidden className="amount col-start-3 row-start-1 justify-self-end font-semibold">
-                      {money(s.amount)}
-                    </span>
-                    <div className="col-start-3 row-start-2 justify-self-end sm:col-start-4 sm:row-start-1">
-                      {record(s, `Record: ${nameOf(s.fromId)} pays ${nameOf(s.toId)} ${money(s.amount)}`, {
-                        variant: "quiet",
-                        text: "Record",
-                        className: "-mr-3",
-                      })}
-                    </div>
-                  </div>
-                  {!s.sharedAnExpense && (
-                    <p className="mt-1 text-sm text-text-secondary">
-                      {nameOf(s.fromId)} and {nameOf(s.toId)} never shared an Expense; settling directly saves the
-                      Group a Settlement.
-                    </p>
-                  )}
-                  <PaymentSources
-                    group={group}
-                    payerName={nameOf(s.fromId)}
-                    amount={s.amount}
-                    sources={sourcesOf(s)}
-                  />
+                  <TransferPair from={memberOf(s.fromId)} to={memberOf(s.toId)} />
+                  {/* On phones the names take their own line, so a long one never pushes the figure out. */}
+                  <p className="order-last min-w-0 basis-full break-words text-text-secondary sm:order-none sm:flex-1 sm:basis-0">
+                    <span className="font-semibold text-text-primary">{nameOf(s.fromId)}</span> pays{" "}
+                    <span className="font-semibold text-text-primary">{nameOf(s.toId)}</span>
+                    <span className="sr-only"> {money(s.amount)}</span>
+                  </p>
+                  <span aria-hidden className="amount ml-auto font-semibold">
+                    {money(s.amount)}
+                  </span>
                 </li>
               ))}
             </ul>
           )}
 
           <div className="mt-4 flex flex-wrap items-center gap-x-6 gap-y-2">
-            {record(null, "Record another Settlement", {
-              variant: "outline",
-              text: "Record another Settlement",
-              className: "px-5",
-            })}
-            {whyToggle}
+            {record(null, "Record a payment", { variant: "outline", text: "Record a payment", className: "px-5" })}
+            <Button variant="quiet" aria-expanded={showWhy} onClick={() => setShowWhy((v) => !v)}>
+              <GitCompareArrows aria-hidden /> {showWhy ? "Hide why" : "Why these payments?"}
+            </Button>
           </div>
+          {showWhy && (
+            <div className="mt-3">
+              <WhyThesePayments group={group} explanation={explainSettlements(group)} />
+            </div>
+          )}
         </>
-      )}
-
-      {state === "small" && (
-        <div className="mt-3">{whyToggle}</div>
-      )}
-      {(state === "open" || state === "small") && showWhy && (
-        <div className="mt-3">
-          <WhyThesePayments group={group} explanation={explanation} />
-        </div>
       )}
     </section>
   );
 }
 
 /**
- * The visitor's own line when no Suggested Settlement involves them: even
- * ("You're even"), or holding only Small Change.
+ * The visitor's own line when no Suggested Settlement involves them: settled
+ * up themselves, or holding only Small Change.
  */
-function YourStanding({ balance, money }: { balance: number; money: (amount: number) => string }) {
+function YourStanding({
+  balance,
+  money,
+  className,
+}: {
+  balance: number;
+  money: (amount: number) => string;
+  className?: string;
+}) {
   if (balance === 0) {
     return (
-      <p className="flex items-center gap-2 font-extrabold">
+      <p className={cn("flex items-center gap-2 font-extrabold", className)}>
         <Check aria-hidden className="size-5 shrink-0 text-success" strokeWidth={3} />
-        You&apos;re even: nothing for you to pay or get back.
+        You&apos;re settled up
       </p>
     );
   }
   return (
-    <p className={cn("flex items-center gap-2 font-extrabold", balance < 0 ? "text-owe" : "text-owed")}>
+    <p className={cn("flex items-center gap-2 font-extrabold", balance < 0 ? "text-owe" : "text-owed", className)}>
       {balance < 0 ? (
         <ArrowUpRight aria-hidden className="size-5 shrink-0" strokeWidth={2.5} />
       ) : (
         <ArrowDownLeft aria-hidden className="size-5 shrink-0" strokeWidth={2.5} />
       )}
       <span>
-        {balance < 0 ? "You owe" : "You get back"} only Small Change:{" "}
+        {balance < 0 ? "You owe" : "You get back"} Small Change of{" "}
         <span className="amount">{money(Math.abs(balance))}</span>
       </span>
     </p>
@@ -578,80 +519,5 @@ function SettlementForm({
         </Button>
       </div>
     </form>
-  );
-}
-
-/**
- * Where a Suggested Settlement's amount comes from, collapsed to one line
- * ("From “Kyoto ryokan (2 nights)” and 3 other expenses") that expands to
- * every source; the amounts add up to the suggestion.
- */
-function PaymentSources({
-  group,
-  payerName,
-  amount,
-  sources,
-}: {
-  group: GroupSnapshot;
-  /** Who pays, as the sentence should name them ("you" or a name). */
-  payerName: string;
-  amount: number;
-  sources: SettlementSource[];
-}) {
-  if (sources.length === 0) return null;
-  const money = (value: number) => formatMoney(value, group.currency);
-  const nameOf = (id: string) => group.members.find((m) => m.id === id)?.name ?? "Unknown member";
-  const described = sources.map((source) => {
-    if (source.kind === "expense") {
-      const expense = group.expenses.find((e) => e.id === source.id);
-      return {
-        source,
-        title: `“${expense?.description ?? "Deleted Expense"}”`,
-        detail: expense ? `${nameOf(expense.payerId)} paid · ${formatCalendarDate(expense.date)}` : "",
-      };
-    }
-    const settlement = group.settlements.find((s) => s.id === source.id);
-    return {
-      source,
-      title: settlement ? `Settlement from ${nameOf(settlement.fromId)}` : "A Settlement",
-      detail: settlement ? `received ${formatCalendarDate(settlement.date)}` : "",
-    };
-  });
-  const rest = sources.slice(1);
-  const restNoun = rest.every((s) => s.kind === "expense") ? "expense" : "item";
-  const summary =
-    rest.length === 0
-      ? `From ${described[0].title}`
-      : `From ${described[0].title} and ${pluralize(rest.length, `other ${restNoun}`)}`;
-
-  return (
-    <details className="text-sm">
-      <summary className="inline-flex min-h-11 cursor-pointer items-center rounded-md font-semibold text-accent">
-        {summary}
-      </summary>
-      <ul className="mt-1 flex flex-col gap-1 border-l-2 border-border pl-3">
-        {described.map(({ source, title, detail }) => (
-          <li key={`${source.kind}-${source.id}`} className="flex flex-wrap justify-between gap-x-3">
-            <span className="min-w-0 break-words">
-              <span className="font-semibold">{title}</span>
-              {detail && <span className="text-text-secondary"> · {detail}</span>}
-            </span>
-            <span className="amount">
-              {money(source.amount)}
-              {source.amount < source.full && (
-                <span className="text-text-secondary"> of {money(source.full)}</span>
-              )}
-            </span>
-          </li>
-        ))}
-        <li className="flex flex-wrap justify-between gap-x-3 border-t border-border-subtle pt-1 text-text-secondary">
-          <span>
-            What {payerName} {payerName === "you" ? "owe" : "owes"} from these, after what{" "}
-            {payerName === "you" ? "you" : "they"} paid for others
-          </span>
-          <span className="amount font-semibold text-text-primary">{money(amount)}</span>
-        </li>
-      </ul>
-    </details>
   );
 }

@@ -23,7 +23,7 @@ async function openAddExpense(page: Page) {
 
 test("S2: Guest adds an Equal Expense and sees Balances change", async ({ page }) => {
   await page.goto("/guest/groups/grp_birthday");
-  await expect(page.getByTestId("balance-mem_olivia")).toContainText("is settled up");
+  await expect(page.getByTestId("balances-settled-up")).toContainText("Olivia Hayes");
   await expect(page.getByTestId("balance-mem_ben")).toContainText("gets back $14.37");
 
   await openAddExpense(page);
@@ -45,7 +45,7 @@ test("S2: Guest adds an Equal Expense and sees Balances change", async ({ page }
   await expect(page.getByTestId("balance-mem_olivia")).toContainText("gets back $40.00");
   await expect(page.getByTestId("balance-mem_ben")).toContainText("owes $5.63");
   await expect(page.getByTestId("balance-mem_chloe")).toContainText("owes $34.37");
-  await expect(page.getByTestId("balance-mem_marcus")).toContainText("is settled up");
+  await expect(page.getByTestId("balances-settled-up")).toHaveText("Settled up: Marcus Webb");
   await expect(page.getByRole("status")).toContainText(
     "Balances updated. Olivia Hayes gets back $40.00. Ben Gutierrez owes $5.63.",
   );
@@ -94,7 +94,7 @@ test("a Guest edits and then deletes an Expense, and Balances recompute", async 
   await page.getByRole("button", { name: "Delete “Balloons”" }).click();
   await confirm.getByRole("button", { name: "Delete Expense" }).click();
   await expect(page.getByText("Deleted “Balloons”.")).toBeVisible();
-  await expect(page.getByTestId("balance-mem_olivia")).toContainText("is settled up");
+  await expect(page.getByTestId("balances-settled-up")).toContainText("Olivia Hayes");
   await expect(page.getByRole("heading", { name: "Balloons", exact: true })).toHaveCount(0);
 });
 

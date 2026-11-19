@@ -52,9 +52,10 @@ test("sign up, create a Group, sign out, sign in: the Group is still listed", as
   await page.getByRole("button", { name: "Create Group" }).click();
 
   await expect(page.getByRole("heading", { level: 1, name: "Flat 3B" })).toBeVisible();
-  await expect(page.getByText("Balances in GBP")).toBeVisible();
   // The creator is the Group's first Member.
+  await expect(page.getByText("1 member", { exact: true })).toBeVisible();
   await page.getByRole("link", { name: "Group settings" }).click();
+  await expect(field(page, "Group Currency")).toHaveValue("GBP");
   await expect(page.getByRole("region", { name: "Members" }).getByText("Maya Chen", { exact: true })).toBeVisible();
 
   await signOut(page);
@@ -84,10 +85,10 @@ test("a signed-in User's Expense is saved to their Group", async ({ page }) => {
   await page.getByRole("button", { name: "Add Expense", exact: true }).click();
 
   await expect(page.getByText("Expense added.")).toBeVisible();
-  await expect(page.getByText("1 expense ·")).toBeVisible();
+  await expect(page.getByText("1 member, $24.50 across 1 expense")).toBeVisible();
   await page.reload();
   await expect(page.getByRole("heading", { name: "Ramen" })).toBeVisible();
-  await expect(page.getByText("$24.50 spent")).toBeVisible();
+  await expect(page.getByText("1 member, $24.50 across 1 expense")).toBeVisible();
 });
 
 test("S2: a signed-in User's yen Expense is locked at the server's rate", async ({ page }) => {
@@ -108,7 +109,7 @@ test("S2: a signed-in User's yen Expense is locked at the server's rate", async 
   await expect(page.getByText("Expense added.")).toBeVisible();
   await page.reload();
   await expect(page.getByText("1 JPY = 0.00666667 USD")).toBeVisible();
-  await expect(page.getByText("Spent in JPY: ¥4,500 ≈ $30.00")).toBeVisible();
+  await expect(page.getByText("1 member, $30.00 across 1 expense")).toBeVisible();
 });
 
 test("a signed-in User's Percentage Split reloads on edit", async ({ page }) => {
@@ -222,7 +223,7 @@ test("a Guest creates a Group that lasts for the session", async ({ page }) => {
   await field(page, "Name").fill("Picnic");
   await page.getByRole("button", { name: "Create Group" }).click();
   await expect(page.getByRole("heading", { level: 1, name: "Picnic" })).toBeVisible();
-  await expect(page.getByText("Balances in USD")).toBeVisible();
+  await expect(page.getByText("1 member", { exact: true })).toBeVisible();
 
   await page.reload();
   await expect(page.getByRole("heading", { level: 1, name: "Picnic" })).toBeVisible();
@@ -261,8 +262,8 @@ test("a signed-in User sees their own Suggested Settlement and records it", asyn
   await settleUp.getByRole("button", { name: /^Record: Taylor pays you/ }).click();
   await page.getByRole("button", { name: "Record Settlement" }).click();
 
-  await expect(settleUp).toContainText("All settled up!");
+  await expect(settleUp).toContainText("Everyone is Settled Up");
   await page.reload();
-  await expect(page.getByRole("region", { name: "Settle up" })).toContainText("All settled up!");
+  await expect(page.getByRole("region", { name: "Settle up" })).toContainText("Everyone is Settled Up");
   await expect(page.getByRole("heading", { name: "Settlement: Taylor paid Maya Chen" })).toBeVisible();
 });

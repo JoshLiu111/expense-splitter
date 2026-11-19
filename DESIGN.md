@@ -248,9 +248,9 @@ Chart series use seven additional tokens (`--color-chart-1` to `--color-chart-7`
 The scale is a compact major third (13, 16, 20, 25, 31, 39px), with an 11px caption below it.
 
 ### Hierarchy
-- **Display** (800, 39px, 1.2): the landing page hero heading only.
-- **Headline** (800, 31px, 1.25): one per page; the page or Group name.
-- **Title** (700, 20px, 1.4): section headings such as Insights and Expenses; the Settle up and Balances panel headings at 800; also the "All settled up!" line (800).
+- **Display** (800, 39px, 1.2): the landing page hero heading, and the Group name on the Group page (with tight tracking).
+- **Headline** (800, 31px, 1.25): one per page; the page name. In the Settle up panel, also the Settled Up Moment's "Everyone is Settled Up" and "No Expenses yet".
+- **Title** (700, 20px, 1.4): section headings such as Insights and Expenses; the Settle up and Balances panel headings at 800.
 - **Body** (400, 16px, 1.55): prose, Member names, Expense descriptions.
 - **Label** (600, 13px, 1.45): buttons, field labels, legends, chips, metadata lines; the workhorse size.
 - **Caption** (400, 11px, 1.45): secondary conversions under an amount, avatar initials.
@@ -276,7 +276,7 @@ At 768px (`48rem`) the expense editor switches from a bottom sheet to an inline 
 
 ## Elevation & Depth
 
-The system is flat at rest. Depth comes from tonal steps (paper background, white sheet, slate header) and hairline borders, not shadows. Shadows exist only for layers that float above the page: dialogs, the mobile sheet, the floating "Add expense" button and the skip link use the large shadow; the open inline expense editor uses the medium one. Dark theme keeps the same roles with heavier black shadows.
+The system is flat at rest. Depth comes from tonal steps (paper background, white sheet, slate header) and hairline borders, not shadows. Shadows exist only for layers that float above the page: dialogs, the mobile sheet, the floating Add Expense button (a full-width pill inset 12px from a phone's edges, with no bar behind it; a default-size button at the bottom right from 768px) and the skip link use the large shadow; the open inline expense editor uses the medium one. Dark theme keeps the same roles with heavier black shadows.
 
 ### Shadow Vocabulary
 - **Rest** (`--shadow-sm`, `0 1px 2px rgba(15, 23, 42, 0.05)`): available for a subtle lift; rarely used.
@@ -298,9 +298,9 @@ Borders are 1px. Empty states use a dashed 1px `border-input` outline to read as
 Firm, compact and unadorned. Cobalt marks every action; how much of it a button carries says how important the action is.
 - **Shape:** one 10px radius for every button, minimum 44px tall; icon buttons are 44×44px.
 - **Primary** (`default`): cobalt fill, on-accent text, 13px semibold label, 8px × 16px padding (20px sides in the hero panels). The one main action in a block: Add Expense, Record this payment, Add the first Expense, Save.
-- **Secondary** (`outline`): sheet white with a control-edge border and cobalt text; hover fills with cobalt wash. An action beside or below the primary one: Record another Settlement, Clear Small Change, Cancel.
+- **Secondary** (`outline`): sheet white with a control-edge border and cobalt text; hover fills with cobalt wash. An action beside or below the primary one: Record a payment, Clear Small Change, Cancel.
 - **Quiet** (`quiet`): cobalt text, usually with a leading icon, no fill or border; hover fills with cobalt wash. Lesser actions inside a block: "Why these payments?", a suggestion's Record, Show / Hide Balances. When it sits at a panel's edge it pulls its 12px padding back with a negative margin so the text, not the hit area, lines up.
-- **Ghost** (`ghost`): neutral text, hover fills with hover slate. Chrome only: the header (user menu, theme toggle) and icon-only buttons such as Close. (Text buttons in the Expense rows and Group settings predate this rule; they move to quiet when those screens are rebuilt.)
+- **Ghost** (`ghost`): neutral text, hover fills with hover slate. Chrome only: the header (user menu, theme toggle) and icon-only buttons such as Close and the Group page's Group settings cog (graphite, ink on hover, pulled 10px into the column's right edge). (Text buttons in the Expense rows and Group settings predate this rule; they move to quiet when those screens are rebuilt.)
 - **Hover / Focus:** colour-only transitions at 120ms. Focus shows a 3px cobalt ring offset 2px from the page background.
 - **Link:** cobalt text, underline on hover.
 - **Disabled:** 50% opacity, no pointer events.
@@ -314,10 +314,11 @@ Selectable pills for Payer, participants and Split Type.
 
 ### Hero Panels
 The Group page's Settle up and Balances panels: the page's focal point, so they sit on sheet white rather than the paper background.
+- **Above them**, the Group header stays short: the back link, the Group name (39px extrabold) with the Group settings cog, then one row of the Members' overlapping 32px avatars and "4 members, $1,234.56 across 12 expenses" (13px graphite, the total in the mono figure style). The description and per-currency subtotals are not shown on the Group page. The header sits 32px above Settle up, the column's section gap.
 - **Shape:** 14px radius, a faint hairline border (`border-subtle`, there mostly so dark theme keeps the edge), no shadow.
 - **Padding:** 20px on phones, 28px from 640px. Heading 20px extrabold.
-- **Settle up** has four states. *Open Debts*: the header line counts the payments and their total; the signed-in User's own payment leads as the largest figure (avatars 48px, "You pay Taylor Kim" or "Taylor Kim pays you" in owe red or owed green over the amount, and a primary Record this payment), then everyone else's Suggested Settlements as rows (payer → payee avatars, names, figure, quiet Record), then a secondary Record another Settlement and a quiet "Why these payments?" that loads the graph on demand. A User with no suggestion of their own reads "You're even" (or how much Small Change they hold) first. *Small Change*: the amount left and a secondary Clear Small Change. *Settled Up*: the Settled Up Moment. *No Expenses*: the Members' avatars, "No Expenses yet" (25px extrabold) and a primary Add the first Expense. Empty means nothing recorded at all: Settlements left after every Expense is deleted still show as Open Debts.
-- **Balances** is a T-account: an Owe column (up-right arrow, debt red) and a Get back column (down-left arrow, credit green), largest first, each closing on its total; Members at zero are listed under "Settled up"; a check line confirms the two sides reconcile to zero. The columns stack on phones. A long name wraps at whole words and pushes its figure onto its own line rather than breaking a word or squeezing the figure. Hidden once Settled Up, with a quiet Show / Hide.
+- **Settle up** has four states. *Open Debts*: the header line counts the payments and their total; the signed-in User's own payment leads as the largest figure (avatars 48px, "You pay Taylor Kim" or "Taylor Kim pays you" in owe red or owed green over the amount, and a primary Record this payment), then everyone else's Suggested Settlements as single rows (payer → payee avatars, "Sam Rivera pays Taylor Kim", figure; on phones the names drop to their own line so a long name never pushes the figure out), with no per-row action, then a secondary Record a payment (opens the Settlement form for any payment, in every view) and a quiet "Why these payments?" that loads the graph on demand. A User with no suggestion of their own reads "You're settled up" (or how much Small Change they hold) in extrabold first. *Small Change*: the User's own line when signed in, then "$0.32 of Small Change left; nothing worth a payment." with a secondary Clear Small Change on the right; no suggestion list and no graph. *Settled Up*: the Settled Up Moment. *No Expenses*: the Members' avatars, "No Expenses yet" (31px extrabold) and a primary Add the first Expense. Empty means nothing recorded at all: Settlements left after every Expense is deleted still show as Open Debts.
+- **Balances** is a T-account: an Owe column (up-right arrow, debt red) and a Get back column (down-left arrow, credit green), largest first, each closing on its total; Members at zero share one line, "Settled up: Marcus Webb, Olivia Hayes", rather than $0.00 rows; a check line confirms the two sides reconcile to zero. The columns stack on phones. A long name wraps at whole words and pushes its figure onto its own line rather than breaking a word or squeezing the figure. Hidden once Settled Up, with a quiet Show / Hide.
 
 **The White Panel Rule.** On the Group page, Settle up and Balances sit on white hero panels (14px radius, faint hairline, no shadow); everything after them stays on the page background, so the hero reads as the page's focal point.
 
@@ -351,7 +352,7 @@ The signature component: a Balance as a pill.
 - **Sheet (below 768px):** full-width from the bottom edge, 14px top corners, a 40px × 4px rounded drag handle, floating shadow.
 
 ### Settled Up Moment
-When every Balance reaches zero, the Settle up hero panel itself turns credit mint with a success border: the Members' avatars with a success check, "All settled up!" in 20px extrabold success green, and how much was shared. It pops in once (scale 0.92 → 1.03 → 1 over 360ms), the system's only celebratory motion, stilled under reduced motion. Balances fold away beneath it.
+When every Balance reaches zero, the Settle up hero panel stays white: the Members' avatars with a success check badge, "Everyone is Settled Up" in 31px extrabold ink, and "$1,234.56 shared, nothing outstanding." The panel pops in once (scale 0.92 → 1.03 → 1 over 360ms), the system's only celebratory motion, stilled under reduced motion. Balances fold away beneath it.
 
 ### Simplify Animation
 In "Why these payments?", Simplify plays the Group's debts turning into the Suggested Settlements: once the graph has scrolled into view, Before's arrows draw in one at a time from payer to recipient, each amount appearing as its arrow lands; Before holds, fades out, and After's arrows draw in the same way. For Japan's six debts and three Suggested Settlements this runs about six seconds.

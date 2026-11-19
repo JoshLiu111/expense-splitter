@@ -23,12 +23,13 @@ import { BalancesPanel } from "@/components/balances-panel";
 import { ExpenseEditor } from "@/components/expense-editor";
 import { SettleUpSection } from "@/components/settle-up";
 import { ExpenseFilters, SpendingInsights } from "@/components/spending";
+import { AvatarStack } from "@/components/member-avatar";
 import { Button } from "@/components/ui/button";
 import { useTodaysRates } from "@/rates/use-todays-rates";
 import { describeBalance, formatCalendarDate, pluralize } from "@/lib/format";
 
 /**
- * A Group's summary, the settle-up hero (Settle up, then Balances), Insights
+ * A Group's header (name, Members, total spent), the settle-up hero (Settle up, then Balances), Insights
  * and the newest-first timeline, with Expense entry.
  * Details, Categories, Members and deletion live in Group settings, linked
  * from the header. Balances are recomputed from the Group on every render
@@ -62,6 +63,7 @@ export function GroupDetail({
   const insights = computeInsights(group, filter);
   const timeline = filtering ? insights.expenses : ledger.timeline;
   const members = new Map(group.members.map((m) => [m.id, m]));
+  const activeMembers = group.members.filter((m) => !m.former);
   const nameOf = (id: string) => members.get(id)?.name ?? "Unknown member";
 
   // `null`: closed; `{ expense: null }`: adding; otherwise editing that Expense.
@@ -119,52 +121,40 @@ export function GroupDetail({
 
   return (
     <div className="mx-auto flex max-w-content flex-col gap-8 pb-24 md:pb-0">
-      <div>
+      <header>
         <Link
           href={backHref}
           className="inline-flex min-h-11 items-center gap-1 rounded-md text-sm font-semibold text-accent"
         >
           <ArrowLeft aria-hidden className="size-4" /> {backLabel}
         </Link>
-        <div className="mt-2 flex flex-wrap items-start justify-between gap-3">
-          <h1 className="min-w-0 text-2xl font-extrabold break-words">{group.name}</h1>
-          <Button asChild variant="outline">
-            <Link href={settingsHref}>
-              <Settings aria-hidden /> Group settings
+        <div className="flex items-start justify-between gap-3">
+          <h1 className="min-w-0 text-3xl font-extrabold tracking-tight break-words">{group.name}</h1>
+          <Button asChild variant="ghost" size="icon" className="-mr-2.5 text-text-secondary hover:text-text-primary">
+            <Link href={settingsHref} aria-label="Group settings">
+              <Settings aria-hidden />
             </Link>
           </Button>
         </div>
-        {group.description && (
-          <p className="mt-1 text-text-secondary">{group.description}</p>
-        )}
-        <p className="mt-2 text-sm text-text-secondary">
-          {pluralize(ledger.expenseCount, "expense")} ·{" "}
-          <span className="amount text-text-primary">
-            {formatMoney(ledger.totalSpent, group.currency)}
-          </span>{" "}
-          spent · Balances in {group.currency}
-        </p>
-        {ledger.currencySubtotals.some((s) => s.currency !== group.currency) && (
-          <ul aria-label="Spent per currency" className="mt-1 flex flex-wrap gap-x-4 text-sm text-text-secondary">
-            {ledger.currencySubtotals.map((subtotal) => (
-              <li key={subtotal.currency}>
-                Spent in {subtotal.currency}:{" "}
-                <span className="amount text-text-primary">
-                  {formatMoney(subtotal.amount, subtotal.currency)}
-                </span>
-                {subtotal.currency !== group.currency && (
-                  <>
-                    {" "}
-                    ≈ <span className="amount">{formatMoney(subtotal.groupAmount, group.currency)}</span>
-                  </>
-                )}
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
+        <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2">
+          <AvatarStack members={activeMembers} ring="ring-bg-primary" />
+          <p className="text-sm text-text-secondary">
+            {pluralize(activeMembers.length, "member")}
+            {ledger.expenseCount > 0 && (
+              <>
+                ,{" "}
+                <span className="amount font-semibold text-text-primary">
+                  {formatMoney(ledger.totalSpent, group.currency)}
+                </span>{" "}
+                across {pluralize(ledger.expenseCount, "expense")}
+              </>
+            )}
+          </p>
+        </div>
+      </header>
 
-      <p role="status" className="empty:hidden">
+      {/* Out of the flow while it holds only screen-reader news, so it adds no gap. */}
+      <p role="status" className={actionNews ? undefined : "sr-only"}>
         {actionNews && <span className="font-semibold text-success">{actionNews} </span>}
         <span className="sr-only">{balanceNews}</span>
       </p>
@@ -268,13 +258,13 @@ export function GroupDetail({
       )}
 
       {!editing && (
-        // Always one tap away: a bottom bar on phones, a floating button on
-        // wide screens.
-        <div className="fixed inset-x-0 bottom-0 z-30 border-t border-border bg-bg-primary p-3 md:inset-x-auto md:right-6 md:bottom-6 md:border-0 md:bg-transparent md:p-0">
+        // Always one tap away: a full-width pill floating 12px in from the
+        // phone's edges, a floating button on wide screens.
+        <div className="pointer-events-none fixed inset-x-0 bottom-3 z-30 px-3 md:inset-x-auto md:right-6 md:bottom-6 md:px-0">
           <Button
             ref={addButton}
             onClick={() => open(null)}
-            className="w-full shadow-lg md:w-auto md:px-6 md:text-base"
+            className="pointer-events-auto w-full px-5 shadow-lg md:w-auto"
           >
             <Plus aria-hidden /> Add Expense
           </Button>

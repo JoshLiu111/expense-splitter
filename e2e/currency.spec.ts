@@ -28,7 +28,6 @@ test("S2: a Guest records a yen Expense at today's rate, overrides it, and re-lo
   await expect(page.getByText("Expense added.")).toBeVisible();
   await expect(row(page, "Ryokan")).toContainText("¥84,000");
   await expect(row(page, "Ryokan")).toContainText("≈ $560.00");
-  await expect(page.getByRole("list", { name: "Spent per currency" })).toContainText("Spent in JPY: ¥84,000 ≈ $560.00");
   await expect(page.getByTestId("balance-mem_olivia")).toContainText("gets back $420.00");
 
   // A manual rate, to match a card statement.

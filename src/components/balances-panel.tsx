@@ -11,6 +11,7 @@ import {
 import {
   FORMER_MEMBER_SUFFIX,
   formatMoney,
+  memberLabel,
   membersInBalances,
   type GroupSnapshot,
   type Ledger,
@@ -26,7 +27,8 @@ import { cn } from "@/lib/utils";
  * Balances as a T-account: who owes on one side, who gets back on the other,
  * each with its total, so the two sides visibly reconcile. Every side carries
  * a word and an arrow, every figure its sign, and every row a screen-reader
- * sentence, so colour is never the only cue. Collapsed once Settled Up.
+ * sentence, so colour is never the only cue. Members at zero share one
+ * "Settled up" line. Collapsed once Settled Up.
  */
 export function BalancesPanel({
   group,
@@ -121,15 +123,13 @@ export function BalancesPanel({
         )}
 
         {even.length > 0 && (
-          <div className={cn(anyoneOwes && "mt-6")}>
-            <h3 className="flex items-center gap-1.5 pb-2 text-sm font-bold text-text-secondary">
-              <Check aria-hidden className="size-4" strokeWidth={2.5} />
-              Settled up
-            </h3>
-            <ul aria-label="Settled up" className="border-t border-border">
-              {even.map(row)}
-            </ul>
-          </div>
+          // Nothing to show at zero, so Members who are Settled Up share one line.
+          <p data-testid="balances-settled-up" className={cn("text-sm text-text-secondary", anyoneOwes && "mt-4")}>
+            Settled up:{" "}
+            <span className="font-semibold text-text-primary">
+              {even.map((b) => memberLabel(members.get(b.memberId)!)).join(", ")}
+            </span>
+          </p>
         )}
 
         {anyoneOwes && (
@@ -230,7 +230,6 @@ function BalanceRow({
           "amount ml-auto font-semibold",
           amount < 0 && "text-owe",
           amount > 0 && "text-owed",
-          amount === 0 && "text-text-secondary",
         )}
       >
         {formatSignedMoney(amount, group.currency)}
@@ -238,3 +237,4 @@ function BalanceRow({
     </li>
   );
 }
+

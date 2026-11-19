@@ -23,8 +23,8 @@
       "chart-series": { "role": "neutral", "displayName": "Chart Series (light / dark)", "canonical": "#2a62d6", "tonalRamp": ["#2a62d6", "#08704b", "#b45309", "#b81f2f", "#7c3aed", "#0e7490", "#566073", "#5b8def"] }
     },
     "typographyMeta": {
-      "display": { "displayName": "Display", "purpose": "Landing page hero heading only." },
-      "headline": { "displayName": "Headline", "purpose": "One per page: the page or Group name." },
+      "display": { "displayName": "Display", "purpose": "Landing page hero heading; the Group name on the Group page." },
+      "headline": { "displayName": "Headline", "purpose": "One per page: the page name. Also \"Everyone is Settled Up\" and \"No Expenses yet\" in the Settle up panel." },
       "title": { "displayName": "Title", "purpose": "Section headings: Insights, Expenses; the Settle up and Balances hero panel headings (800)." },
       "body": { "displayName": "Body", "purpose": "Prose, Member names, Expense descriptions." },
       "label": { "displayName": "Label", "purpose": "Buttons, field labels, legends, chips, metadata." },
@@ -62,15 +62,15 @@
       "name": "Secondary Button",
       "kind": "button",
       "refersTo": "button-outline",
-      "description": "A secondary action beside or below the primary one: Record another Settlement, Clear Small Change, Cancel. Cobalt text on sheet white.",
-      "html": "<button class=\"ds-btn-outline\">Record another Settlement</button>",
+      "description": "A secondary action beside or below the primary one: Record a payment, Clear Small Change, Cancel. Cobalt text on sheet white.",
+      "html": "<button class=\"ds-btn-outline\">Record a payment</button>",
       "css": ".ds-btn-outline { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; padding: 8px 16px; border: 1px solid var(--color-border-input, #7d8799); border-radius: 10px; background: var(--color-surface, #fff); color: var(--color-accent, #2a62d6); font-family: Manrope, system-ui, sans-serif; font-size: 13px; font-weight: 600; cursor: pointer; transition: background-color 120ms cubic-bezier(0.2, 0, 0, 1); } .ds-btn-outline:hover { background: var(--color-accent-subtle, #e7eefc); } .ds-btn-outline:focus-visible { outline: none; box-shadow: 0 0 0 2px var(--color-bg-primary, #f6f8fb), 0 0 0 5px var(--color-focus, #2a62d6); }"
     },
     {
       "name": "Quiet Button",
       "kind": "button",
       "refersTo": "button-quiet",
-      "description": "Lesser actions inside a block: Why these payments?, a suggestion's Record, Show / Hide Balances. Cobalt text, usually with an icon.",
+      "description": "Lesser actions inside a block: Why these payments?, Show / Hide Balances. Cobalt text, usually with an icon.",
       "html": "<button class=\"ds-btn-quiet\">Why these payments?</button>",
       "css": ".ds-btn-quiet { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; padding: 8px 12px; border: none; border-radius: 10px; background: transparent; color: var(--color-accent, #2a62d6); font-family: Manrope, system-ui, sans-serif; font-size: 13px; font-weight: 600; cursor: pointer; transition: background-color 120ms cubic-bezier(0.2, 0, 0, 1); } .ds-btn-quiet:hover { background: var(--color-accent-subtle, #e7eefc); } .ds-btn-quiet:focus-visible { outline: none; box-shadow: 0 0 0 2px var(--color-bg-primary, #f6f8fb), 0 0 0 5px var(--color-focus, #2a62d6); }"
     },
@@ -126,7 +126,7 @@
       "name": "Settle up Hero Panel",
       "kind": "card",
       "refersTo": "hero-panel",
-      "description": "The Group page's first panel, on sheet white: the signed-in User's own payment as the largest figure, then everyone else's Suggested Settlements. Balances follows on the same panel style.",
+      "description": "The Group page's first panel, on sheet white: the signed-in User's own payment as the largest figure, then everyone else's Suggested Settlements as single rows, Record a payment and Why these payments?. Settled Up stays white with \"Everyone is Settled Up\". Balances follows on the same panel style.",
       "html": "<section class=\"ds-hero\"><h2 class=\"ds-hero-title\">Settle up</h2><div class=\"ds-hero-yours\"><p class=\"ds-hero-you\"><span>You pay Taylor Kim</span><span class=\"ds-hero-figure\">$315.09</span></p><button class=\"ds-hero-record\">Record this payment</button></div><div class=\"ds-hero-row\"><span>Jordan Park <span class=\"ds-hero-muted\">pays</span> Alex Chen</span><span class=\"ds-hero-amount\">$216.46</span></div></section>",
       "css": ".ds-hero { border: 1px solid var(--color-border-subtle, #e7ecf3); border-radius: 14px; background: var(--color-surface, #fff); padding: 20px; font-family: Manrope, system-ui, sans-serif; color: var(--color-text-primary, #131a26); } @media (min-width: 640px) { .ds-hero { padding: 28px; } .ds-hero-figure { font-size: 39px; } } .ds-hero-title { margin: 0; font-size: 20px; font-weight: 800; } .ds-hero-yours { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px; margin-top: 16px; padding-bottom: 20px; border-bottom: 1px solid var(--color-border, #dbe1ea); } .ds-hero-you { margin: 0; display: flex; flex-direction: column; color: var(--color-owe, #b81f2f); font-weight: 800; } .ds-hero-figure { font-family: 'IBM Plex Mono', ui-monospace, monospace; font-variant-numeric: tabular-nums; font-size: 25px; font-weight: 600; line-height: 1.25; white-space: nowrap; } .ds-hero-row { display: flex; justify-content: space-between; gap: 16px; padding: 12px 0; } .ds-hero-muted { color: var(--color-text-secondary, #566073); } .ds-hero-amount { font-family: 'IBM Plex Mono', ui-monospace, monospace; font-variant-numeric: tabular-nums; font-weight: 600; white-space: nowrap; } .ds-hero .ds-hero-record { display: inline-flex; align-items: center; min-height: 44px; padding: 8px 20px; border: none; border-radius: 10px; background: var(--color-accent, #2a62d6); color: var(--color-on-accent, #fff); font: inherit; font-size: 13px; font-weight: 600; }"
     }

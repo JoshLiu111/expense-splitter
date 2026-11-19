@@ -8,14 +8,23 @@ function field(page: Page, label: string) {
 const settleUp = (page: Page) => page.getByRole("region", { name: "Settle up" });
 const recordDialog = (page: Page) => page.getByRole("dialog", { name: "Record a Settlement" });
 
-test("S2: Guest records the suggested Settlement in parts and reaches All settled up!", async ({ page }) => {
+/** Opens "Record a payment" and fills in who paid whom, and how much if given. */
+async function recordPayment(page: Page, from: string, to: string, amount?: string) {
+  await settleUp(page).getByRole("button", { name: "Record a payment" }).click();
+  await field(page, "Paid by").selectOption({ label: from });
+  await field(page, "Paid to").selectOption({ label: to });
+  if (amount !== undefined) await field(page, "Amount (USD)").fill(amount);
+}
+
+test("S2: Guest records the suggested Settlement in parts and reaches Everyone is Settled Up", async ({ page }) => {
   await page.goto("/guest/groups/grp_birthday");
   await expect(settleUp(page)).toContainText("Chloe Yun pays Ben Gutierrez $14.37");
 
+  // Other people's payments are rows, not buttons; one action records any of them.
+  await expect(settleUp(page).getByRole("button", { name: /^Record:/ })).toHaveCount(0);
+
   // A partial Settlement shows what's left.
-  await settleUp(page).getByRole("button", { name: /^Record: Chloe Yun pays Ben Gutierrez/ }).click();
-  await expect(field(page, "Amount (USD)")).toHaveValue("14.37");
-  await field(page, "Amount (USD)").fill("10");
+  await recordPayment(page, "Chloe Yun", "Ben Gutierrez", "10");
   await expect(recordDialog(page)).toContainText("After this, Chloe Yun will still owe $4.37.");
   await page.getByRole("button", { name: "Record Settlement" }).click();
 
@@ -24,17 +33,16 @@ test("S2: Guest records the suggested Settlement in parts and reaches All settle
   await expect(page.locator("main ol > li").first()).toContainText("Settlement: Chloe Yun paid Ben Gutierrez");
 
   // Overpaying is refused with the most that can be paid.
-  await settleUp(page).getByRole("button", { name: /^Record: Chloe Yun pays Ben Gutierrez/ }).click();
-  await field(page, "Amount (USD)").fill("5");
+  await recordPayment(page, "Chloe Yun", "Ben Gutierrez", "5");
   await page.getByRole("button", { name: "Record Settlement" }).click();
   await expect(recordDialog(page).getByRole("alert")).toContainText("Chloe Yun can pay at most $4.37.");
 
   await field(page, "Amount (USD)").fill("4.37");
   await page.getByRole("button", { name: "Record Settlement" }).click();
 
-  await expect(settleUp(page)).toContainText("All settled up!");
+  await expect(settleUp(page)).toContainText("Everyone is Settled Up");
   await expect(page.getByRole("heading", { name: "Settle up" })).toBeFocused();
-  await expect(page.getByTestId("balance-mem_chloe")).toContainText("is settled up");
+  await expect(page.getByTestId("balances-settled-up")).toContainText("Chloe Yun");
 });
 
 test("S2: a Settlement can be deleted after confirming, restoring the debt", async ({ page }) => {
@@ -52,16 +60,17 @@ test("S2: once only Small Change is left, one tap clears it", async ({ page }) =
   // Camping ends with Omar owing Lily $0.32 once the three suggestions are paid.
   await page.goto("/guest/groups/grp_camping");
   for (let paid = 0; paid < 3; paid++) {
-    await settleUp(page).getByRole("button", { name: /^Record:/ }).first().click();
+    const first = settleUp(page).getByRole("list", { name: "Suggested Settlements" }).locator("li p").first();
+    const [, from, to, amount] = (await first.textContent())!.match(/^(.+) pays (.+) \$([\d,.]+)$/)!;
+    await recordPayment(page, from, to, amount.replaceAll(",", ""));
     await page.getByRole("button", { name: "Record Settlement" }).click();
     await expect(recordDialog(page)).toBeHidden();
   }
 
-  await expect(settleUp(page)).toContainText("Only Small Change left");
-  await expect(settleUp(page)).toContainText("Omar Hassan pays Lily Tran $0.32");
+  await expect(settleUp(page)).toContainText("$0.32 of Small Change left; nothing worth a payment.");
   await settleUp(page).getByRole("button", { name: "Clear Small Change" }).click();
 
-  await expect(settleUp(page)).toContainText("All settled up!");
+  await expect(settleUp(page)).toContainText("Everyone is Settled Up");
 });
 
 test("S2: a Member sees their own action first, with others' suggestions below it", async ({ page }) => {
@@ -95,7 +104,7 @@ test("S2: a Member sees their own action first, with others' suggestions below i
   await addExpense("90.40", "Fuel", "Taylor", ["Sam", "Jo"]);
   await addExpense("20", "Snacks", "Jo", ["You", "Taylor"]);
 
-  // Your own payment leads, as its own Record action; everyone else's follow.
+  // Your own payment leads, as its own Record action; everyone else's follow as rows.
   const yours = settleUp(page).getByRole("button", { name: "Record: you pay Taylor $45.20" });
   await expect(settleUp(page).getByText("You pay Taylor", { exact: true })).toBeVisible();
   await expect(yours).toHaveText("Record this payment");
@@ -103,12 +112,12 @@ test("S2: a Member sees their own action first, with others' suggestions below i
   await expect(others.getByRole("listitem")).toHaveCount(1);
   await expect(others).toContainText("Sam pays Jo $10.00");
   const order = await settleUp(page)
-    .getByRole("button", { name: /^Record:/ })
-    .evaluateAll((buttons) => buttons.map((b) => b.getAttribute("aria-label")));
-  expect(order).toEqual(["Record: you pay Taylor $45.20", "Record: Sam pays Jo $10.00"]);
+    .getByRole("button", { name: /^Record/ })
+    .evaluateAll((buttons) => buttons.map((b) => b.getAttribute("aria-label") ?? b.textContent));
+  expect(order).toEqual(["Record: you pay Taylor $45.20", "Record a payment"]);
 });
 
-test("S2: a Member whose own Balance is zero sees they're even while others still owe", async ({ page }) => {
+test("S2: a Member whose own Balance is zero sees they're settled up while others still owe", async ({ page }) => {
   await page.goto("/guest/groups/new");
   await field(page, "Name").fill("Lunch club");
   await page.getByRole("button", { name: "Create Group" }).click();
@@ -137,7 +146,7 @@ test("S2: a Member whose own Balance is zero sees they're even while others stil
   await page.getByRole("button", { name: "Add Expense", exact: true }).click();
   await expect(page.getByText("Expense added.")).toBeVisible();
 
-  await expect(settleUp(page)).toContainText("You're even");
+  await expect(settleUp(page)).toContainText("You're settled up");
   await expect(settleUp(page)).toContainText("Bo pays Ana $15.00");
 });
 
@@ -167,9 +176,9 @@ test("S2: a Former Member whose Balance reopens shows in Balances and can be set
   // The Balance chart labels her the same way.
   await expect(page.getByRole("rowheader", { name: "Olivia Hayes (Former Member)" })).toHaveCount(1);
 
-  // ...and it can still be settled from the suggestion.
-  await settleUp(page).getByRole("button", { name: /^Record: Chloe Yun pays Olivia Hayes/ }).click();
-  await expect(field(page, "Paid to")).toHaveValue("mem_olivia");
+  // ...and she can still be settled with.
+  await expect(settleUp(page)).toContainText("Chloe Yun pays Olivia Hayes $18.75");
+  await recordPayment(page, "Chloe Yun", "Olivia Hayes (Former Member)", "18.75");
   await page.getByRole("button", { name: "Record Settlement" }).click();
   await expect(page.getByText("Settlement recorded.", { exact: false })).toBeVisible();
   await expect(page.getByTestId("balance-mem_olivia")).toHaveCount(0);
