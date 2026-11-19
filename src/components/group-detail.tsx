@@ -257,7 +257,8 @@ export function GroupDetail({
         </section>
       )}
 
-      {!editing && (
+      {/* With nothing recorded, "Add the first Expense" in the hero is the only call to action. */}
+      {!editing && ledger.timeline.length > 0 && (
         // Always one tap away: a full-width pill floating 12px in from the
         // phone's edges, a floating button on wide screens.
         <div className="pointer-events-none fixed inset-x-0 bottom-3 z-30 px-3 md:inset-x-auto md:right-6 md:bottom-6 md:px-0">

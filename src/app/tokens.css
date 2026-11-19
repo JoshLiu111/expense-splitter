@@ -39,6 +39,8 @@
   --color-surface: #ffffff;
   --color-border: #dbe1ea;
   --color-border-subtle: #e7ecf3;
+  /* Hero panels (Settle up, Balances) sit on white with no edge in light theme. */
+  --color-border-panel: transparent;
   --color-border-input: #7d8799;
 
   --color-text-primary: #131a26;
@@ -139,6 +141,7 @@
     --color-surface: #10141c;
     --color-border: #212935;
     --color-border-subtle: #1a202b;
+    --color-border-panel: #1a202b;
     --color-border-input: #5a6478;
 
     --color-text-primary: #e7ebf2;
@@ -186,6 +189,7 @@
   --color-surface: #10141c;
   --color-border: #212935;
   --color-border-subtle: #1a202b;
+  --color-border-panel: #1a202b;
   --color-border-input: #5a6478;
 
   --color-text-primary: #e7ebf2;

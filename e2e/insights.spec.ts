@@ -250,7 +250,7 @@ test.describe("with reduced motion", () => {
     await page.getByRole("link", { name: "Back to Lunch club" }).click();
 
     // One Payer, so the only debt is already the only Suggested Settlement.
-    await page.getByRole("button", { name: "Add Expense", exact: true }).click();
+    await page.getByRole("button", { name: "Add the first Expense" }).click();
     await field(page, "Amount (USD)").fill("24.50");
     await field(page, "Description").fill("Ramen");
     await expect(page.getByRole("checkbox", { name: "Sam Rivera" })).toBeChecked();

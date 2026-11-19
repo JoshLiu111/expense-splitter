@@ -77,7 +77,7 @@ test("a signed-in User's Expense is saved to their Group", async ({ page }) => {
   await page.getByRole("button", { name: "Create Group" }).click();
   await expect(page.getByRole("heading", { level: 1, name: "Lunch club" })).toBeVisible();
 
-  await page.getByRole("button", { name: "Add Expense", exact: true }).click();
+  await page.getByRole("button", { name: "Add the first Expense" }).click();
   await field(page, "Amount (USD)").fill("24.50");
   await field(page, "Description").fill("Ramen");
   // Paid by me by default.
@@ -98,7 +98,7 @@ test("S2: a signed-in User's yen Expense is locked at the server's rate", async 
   await page.getByRole("button", { name: "Create Group" }).click();
   await expect(page.getByRole("heading", { level: 1, name: "Tokyo" })).toBeVisible();
 
-  await page.getByRole("button", { name: "Add Expense", exact: true }).click();
+  await page.getByRole("button", { name: "Add the first Expense" }).click();
   await field(page, "Currency").selectOption("JPY");
   await field(page, "Amount (JPY)").fill("4500");
   await field(page, "Description").fill("Sushi");
@@ -119,7 +119,7 @@ test("a signed-in User's Percentage Split reloads on edit", async ({ page }) => 
   await page.getByRole("button", { name: "Create Group" }).click();
   await expect(page.getByRole("heading", { level: 1, name: "Solo" })).toBeVisible();
 
-  await page.getByRole("button", { name: "Add Expense", exact: true }).click();
+  await page.getByRole("button", { name: "Add the first Expense" }).click();
   await field(page, "Amount (USD)").fill("12");
   await field(page, "Description").fill("Books");
   await page
@@ -248,7 +248,7 @@ test("a signed-in User sees their own Suggested Settlement and records it", asyn
   await page.getByRole("link", { name: "Back to Flat" }).click();
 
   // Maya pays $90.40, split equally with Taylor.
-  await page.getByRole("button", { name: "Add Expense", exact: true }).click();
+  await page.getByRole("button", { name: "Add the first Expense" }).click();
   await field(page, "Amount (USD)").fill("90.40");
   await field(page, "Description").fill("Groceries");
   await page.getByRole("button", { name: "Add Expense", exact: true }).click();

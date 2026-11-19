@@ -56,7 +56,8 @@ const dialogClass =
 /**
  * The settle-up hero: the first thing on the Group page. Open Debts lead with
  * the visitor's own payment as the largest figure, then everyone else's
- * Suggested Settlements as one-line rows, recorded from "Record a payment";
+ * Suggested Settlements as one-line rows; "Record a payment" shows only when
+ * the visitor has no Suggested Settlement of their own;
  * Small Change clears in one tap; Settled Up is the Settled Up Moment; a
  * Group with no Expenses leads to adding the first.
  */
@@ -261,8 +262,16 @@ export function SettleUpSection({
           )}
 
           <div className="mt-4 flex flex-wrap items-center gap-x-6 gap-y-2">
-            {record(null, "Record a payment", { variant: "outline", text: "Record a payment", className: "px-5" })}
-            <Button variant="quiet" aria-expanded={showWhy} onClick={() => setShowWhy((v) => !v)}>
+            {/* "Record this payment" opens a form that can be changed to any Settlement. */}
+            {mine.length === 0 &&
+              record(null, "Record a payment", { variant: "outline", text: "Record a payment", className: "px-5" })}
+            <Button
+              variant="quiet"
+              aria-expanded={showWhy}
+              onClick={() => setShowWhy((v) => !v)}
+              // Alone on its line, its icon lines up with the content edge, as in the comp.
+              className={mine.length > 0 ? "-ml-3" : undefined}
+            >
               <GitCompareArrows aria-hidden /> {showWhy ? "Hide why" : "Why these payments?"}
             </Button>
           </div>
@@ -292,10 +301,7 @@ function YourStanding({
 }) {
   if (balance === 0) {
     return (
-      <p className={cn("flex items-center gap-2 font-extrabold", className)}>
-        <Check aria-hidden className="size-5 shrink-0 text-success" strokeWidth={3} />
-        You&apos;re settled up
-      </p>
+      <p className={cn("font-extrabold", className)}>You&apos;re settled up</p>
     );
   }
   return (

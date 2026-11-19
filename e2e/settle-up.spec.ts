@@ -93,7 +93,8 @@ test("S2: a Member sees their own action first, with others' suggestions below i
   const chip = (role: "radio" | "checkbox", name: string) =>
     page.locator("label").filter({ has: page.getByRole(role, { name, exact: true }) }).filter({ visible: true });
   async function addExpense(amount: string, description: string, payer: string, without: string[]) {
-    await page.getByRole("button", { name: "Add Expense", exact: true }).click();
+    // The hero's "Add the first Expense" opens the editor until there is one; the floating button after.
+    await page.getByRole("button", { name: /^Add (the first )?Expense$/ }).click();
     await field(page, "Amount (USD)").fill(amount);
     await field(page, "Description").fill(description);
     await chip("radio", payer).click();
@@ -111,10 +112,12 @@ test("S2: a Member sees their own action first, with others' suggestions below i
   const others = settleUp(page).getByRole("list", { name: "Other Suggested Settlements" });
   await expect(others.getByRole("listitem")).toHaveCount(1);
   await expect(others).toContainText("Sam pays Jo $10.00");
+  // With a suggestion of your own, its Record is the only one; its form can be changed to any Settlement.
   const order = await settleUp(page)
     .getByRole("button", { name: /^Record/ })
     .evaluateAll((buttons) => buttons.map((b) => b.getAttribute("aria-label") ?? b.textContent));
-  expect(order).toEqual(["Record: you pay Taylor $45.20", "Record a payment"]);
+  expect(order).toEqual(["Record: you pay Taylor $45.20"]);
+  await expect(settleUp(page).getByRole("button", { name: "Why these payments?" })).toBeVisible();
 });
 
 test("S2: a Member whose own Balance is zero sees they're settled up while others still owe", async ({ page }) => {
@@ -132,8 +135,9 @@ test("S2: a Member whose own Balance is zero sees they're settled up while other
   }
   await page.getByRole("link", { name: "Back to Lunch club" }).click();
 
-  // An empty Group leads to its first Expense from the hero.
+  // An empty Group leads to its first Expense from the hero, its only call to action.
   await expect(settleUp(page)).toContainText("No Expenses yet");
+  await expect(page.getByRole("button", { name: "Add Expense", exact: true })).toHaveCount(0);
   await settleUp(page).getByRole("button", { name: "Add the first Expense" }).click();
 
   // Ana paid $30 shared by Ana and Bo: You aren't in it.
@@ -148,6 +152,10 @@ test("S2: a Member whose own Balance is zero sees they're settled up while other
 
   await expect(settleUp(page)).toContainText("You're settled up");
   await expect(settleUp(page)).toContainText("Bo pays Ana $15.00");
+  // With no suggestion of their own, they record from "Record a payment".
+  await expect(settleUp(page).getByRole("button", { name: "Record a payment" })).toBeVisible();
+  // The floating Add Expense is back once there is an Expense.
+  await expect(page.getByRole("button", { name: "Add Expense", exact: true })).toBeVisible();
 });
 
 test("S2: a Former Member whose Balance reopens shows in Balances and can be settled", async ({ page }) => {
@@ -199,7 +207,7 @@ test("a long Member name never pushes a figure past the hero panel's edge", asyn
   await page.getByRole("link", { name: "Back to Long names" }).click();
 
   // Taylor paid a six-figure sum for everyone, so You and the long name both pay Taylor.
-  await page.getByRole("button", { name: "Add Expense", exact: true }).click();
+  await page.getByRole("button", { name: "Add the first Expense" }).click();
   await field(page, "Amount (USD)").fill("123456.78");
   await field(page, "Description").fill("Villa");
   await page

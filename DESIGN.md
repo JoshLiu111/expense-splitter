@@ -212,10 +212,10 @@ A cool, low-chroma ledger palette with one cobalt accent and a semantic red/gree
 
 ### Secondary
 - **Debt Red** (`owe`) with **Debt Blush** (`owe-subtle`): a Member who owes. Text on its blush passes 4.5:1.
-- **Credit Green** (`owed`) with **Credit Mint** (`owed-subtle`): a Member who gets back. Also the background of the Settle up panel once the Group is Settled Up.
+- **Credit Green** (`owed`) with **Credit Mint** (`owed-subtle`): a Member who gets back.
 
 ### Tertiary
-- **Confirmation Green** (`success`): success announcements and the Settled Up border.
+- **Confirmation Green** (`success`): success announcements and the Settled Up Moment's check badge.
 - **Ochre Caution** (`warning`): warnings; darkened in light theme to reach 4.85:1.
 - **Alarm Red** (`error`): field errors, the error summary border and destructive actions.
 
@@ -224,7 +224,7 @@ A cool, low-chroma ledger palette with one cobalt accent and a semantic red/gree
 - **Header Slate** (`bg-secondary`): the site header band and inset notes such as the live split preview.
 - **Hover Slate** (`bg-tertiary`): hover background for ghost buttons; the neutral "settled up" Balance pill.
 - **Sheet White** (`surface`): panels (including the Settle up and Balances hero panels), list containers, dialogs, inputs and chips.
-- **Hairline** (`border`) and **Faint Hairline** (`border-subtle`): decorative rules and list dividers. About 1.3:1; never the only boundary of a control.
+- **Hairline** (`border`) and **Faint Hairline** (`border-subtle`): decorative rules and list dividers. About 1.3:1; never the only boundary of a control. The hero panels' edge (`border-panel`) is transparent in light theme and Faint Hairline in dark.
 - **Control Edge** (`border-input`): the boundary of inputs, chips and dashed empty states, at least 3:1 against surfaces.
 - **Ink** (`text-primary`), **Graphite** (`text-secondary`), **Pewter** (`text-tertiary`): body text, supporting text, and the least important metadata.
 
@@ -315,12 +315,12 @@ Selectable pills for Payer, participants and Split Type.
 ### Hero Panels
 The Group page's Settle up and Balances panels: the page's focal point, so they sit on sheet white rather than the paper background.
 - **Above them**, the Group header stays short: the back link, the Group name (39px extrabold) with the Group settings cog, then one row of the Members' overlapping 32px avatars and "4 members, $1,234.56 across 12 expenses" (13px graphite, the total in the mono figure style). The description and per-currency subtotals are not shown on the Group page. The header sits 32px above Settle up, the column's section gap.
-- **Shape:** 14px radius, a faint hairline border (`border-subtle`, there mostly so dark theme keeps the edge), no shadow.
+- **Shape:** 14px radius, no shadow. No border in light theme (white on paper is edge enough); dark theme keeps a faint hairline (`border-subtle`). The 1px border is always there, transparent in light, so nothing shifts between themes.
 - **Padding:** 20px on phones, 28px from 640px. Heading 20px extrabold.
-- **Settle up** has four states. *Open Debts*: the header line counts the payments and their total; the signed-in User's own payment leads as the largest figure (avatars 48px, "You pay Taylor Kim" or "Taylor Kim pays you" in owe red or owed green over the amount, and a primary Record this payment), then everyone else's Suggested Settlements as single rows (payer → payee avatars, "Sam Rivera pays Taylor Kim", figure; on phones the names drop to their own line so a long name never pushes the figure out), with no per-row action, then a secondary Record a payment (opens the Settlement form for any payment, in every view) and a quiet "Why these payments?" that loads the graph on demand. A User with no suggestion of their own reads "You're settled up" (or how much Small Change they hold) in extrabold first. *Small Change*: the User's own line when signed in, then "$0.32 of Small Change left; nothing worth a payment." with a secondary Clear Small Change on the right; no suggestion list and no graph. *Settled Up*: the Settled Up Moment. *No Expenses*: the Members' avatars, "No Expenses yet" (31px extrabold) and a primary Add the first Expense. Empty means nothing recorded at all: Settlements left after every Expense is deleted still show as Open Debts.
+- **Settle up** has four states. *Open Debts*: the header line counts the payments and their total; the signed-in User's own payment leads as the largest figure (avatars 48px, "You pay Taylor Kim" or "Taylor Kim pays you" in owe red or owed green over the amount, and a primary Record this payment), then everyone else's Suggested Settlements as single rows (payer → payee avatars, "Sam Rivera pays Taylor Kim", figure; on phones the names drop to their own line so a long name never pushes the figure out), with no per-row action, then a secondary Record a payment and a quiet "Why these payments?" that loads the graph on demand (always there in Open Debts). Record a payment shows only when the viewer has no Suggested Settlement of their own (Guests, or a signed-in User with none); a User with one records through Record this payment, whose form can be changed to any Settlement. A User with no suggestion of their own reads "You're settled up" (text only, no icon) or how much Small Change they hold, in extrabold first. *Small Change*: the User's own line when signed in ("You're settled up", text only, at a zero Balance), then "$0.32 of Small Change left; nothing worth a payment." with a secondary Clear Small Change on the right; no suggestion list and no graph. *Settled Up*: the Settled Up Moment. *No Expenses*: the Members' avatars, "No Expenses yet" (31px extrabold) and a primary Add the first Expense, the page's only call to action: the floating Add Expense is hidden. Empty means nothing recorded at all: Settlements left after every Expense is deleted still show as Open Debts.
 - **Balances** is a T-account: an Owe column (up-right arrow, debt red) and a Get back column (down-left arrow, credit green), largest first, each closing on its total; Members at zero share one line, "Settled up: Marcus Webb, Olivia Hayes", rather than $0.00 rows; a check line confirms the two sides reconcile to zero. The columns stack on phones. A long name wraps at whole words and pushes its figure onto its own line rather than breaking a word or squeezing the figure. Hidden once Settled Up, with a quiet Show / Hide.
 
-**The White Panel Rule.** On the Group page, Settle up and Balances sit on white hero panels (14px radius, faint hairline, no shadow); everything after them stays on the page background, so the hero reads as the page's focal point.
+**The White Panel Rule.** On the Group page, Settle up and Balances sit on white hero panels (14px radius, no shadow, borderless in light theme and a faint hairline in dark); everything after them stays on the page background, so the hero reads as the page's focal point.
 
 ### Cards / Containers
 The ledger panel: a list or block on a white sheet.

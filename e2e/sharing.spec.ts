@@ -83,7 +83,7 @@ test("S2: User A adds User B by email; B signs in and sees and edits the Group",
   await expect(page.getByRole("heading", { level: 1, name: "Flat 3B" })).toBeVisible();
 
   // Theo edits the Group as an equal: records an Expense he paid.
-  await page.getByRole("button", { name: "Add Expense", exact: true }).click();
+  await page.getByRole("button", { name: "Add the first Expense" }).click();
   await expect(page.getByRole("radio", { name: "Theo (you)" })).toBeChecked();
   await field(page, "Amount (USD)").fill("30");
   await field(page, "Description").fill("Cleaning supplies");
@@ -126,7 +126,7 @@ test("a Name-only Member given an email keeps their history and is linked", asyn
   await signUp(page, uniqueEmail(), "Maya Chen");
   await createGroup(page, "Lunch club");
   await addMember(page, "Lunch club", "Dev");
-  await page.getByRole("button", { name: "Add Expense", exact: true }).click();
+  await page.getByRole("button", { name: "Add the first Expense" }).click();
   await field(page, "Amount (USD)").fill("20");
   await field(page, "Description").fill("Pizza");
   await page.getByRole("button", { name: "Add Expense", exact: true }).click();
