@@ -62,6 +62,14 @@ export function monthRange(month: string): { from: CalendarDate; to: CalendarDat
   return { from: `${month}-01`, to: `${month}-${String(lastDay).padStart(2, "0")}` };
 }
 
+/** The month, `YYYY-MM`, whose dates a filter's range covers exactly, if any. */
+export function filterMonth(filter: ExpenseFilter): string | undefined {
+  const month = filter.from?.slice(0, 7);
+  if (!month) return undefined;
+  const range = monthRange(month);
+  return range.from === filter.from && range.to === filter.to ? month : undefined;
+}
+
 /**
  * Compute Insights: the Group's Expenses narrowed by a filter, with their
  * Category breakdown and spending per month, all in the Group Currency at

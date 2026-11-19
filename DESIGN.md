@@ -148,6 +148,19 @@ components:
     height: "44px"
   chip-selected:
     backgroundColor: "{colors.accent-subtle}"
+  tab:
+    textColor: "{colors.text-secondary}"
+    typography: "{typography.body}"
+    height: "44px"
+  tab-selected:
+    textColor: "{colors.text-primary}"
+  filter-chip:
+    backgroundColor: "{colors.accent-subtle}"
+    textColor: "{colors.text-primary}"
+    typography: "{typography.label}"
+    rounded: "{rounded.full}"
+    padding: "4px 12px 4px 16px"
+    height: "44px"
   hero-panel:
     backgroundColor: "{colors.surface}"
     rounded: "{rounded.xl}"
@@ -258,7 +271,7 @@ The scale is a compact major third (13, 16, 20, 25, 31, 39px), with an 11px capt
 ### Hierarchy
 - **Display** (800, 39px, 1.2): the landing page hero heading, and the Group name on the Group page (with tight tracking).
 - **Headline** (800, 31px, 1.25): one per page; the page name. In the Settle up panel, also the Settled Up Moment's "Everyone is Settled Up" and "No Expenses yet".
-- **Title** (700, 20px, 1.4): section headings such as Insights; the Settle up and Balances panel headings at 800.
+- **Title** (700, 20px, 1.4): section headings such as Group settings' sections; the Settle up and Balances panel headings at 800.
 - **Body** (400, 16px, 1.55): prose, Member names, Expense descriptions.
 - **Label** (600, 13px, 1.45): buttons, field labels, legends, chips, metadata lines; the workhorse size.
 - **Caption** (400, 11px, 1.45): secondary conversions under an amount, avatar initials.
@@ -273,7 +286,7 @@ The scale is a compact major third (13, 16, 20, 25, 31, 39px), with an 11px capt
 
 The page is a centred column inside an 80rem frame with 16px side padding. Reading content (a Group, the dashboard, forms) narrows further to a 42rem content column so lists read like a statement. The landing hero uses a two-column grid (1.1fr / 1fr) from 1024px; feature lists step from one to two (640px) to four columns (1024px). Insights charts sit in a two-column grid from 768px.
 
-The Group page opens on its settle-up hero, two white panels inside the content column: **Settle up** (what closes the Group) and then **Balances** (why). The hero does not widen the column. Everything after it (Insights, then the dated ledger of Expenses and Settlements) sits on the page background.
+The Group page opens on its settle-up hero, two white panels inside the content column: **Settle up** (what closes the Group) and then **Balances** (why). The hero does not widen the column. Everything after it sits on the page background: the Expenses | Insights tabs, showing the dated ledger of Expenses and Settlements by default and Insights on the second tab.
 
 Spacing is a 4px base scale. Inside components, 8–16px dominates (chip gaps 8px, list row padding 12px × 16px, panel padding 24px, hero panel padding 20px on phones and 28px from 640px); between sections, 32px. Forms stack fields with 20px gaps.
 
@@ -313,7 +326,7 @@ Firm, compact and unadorned. Cobalt marks every action; how much of it a button 
 - **Link:** cobalt text, underline on hover.
 - **Disabled:** 50% opacity, no pointer events.
 
-**The Three Cobalt Roles Rule.** Every button shares the 10px radius and is cobalt in one of three roles: filled for the one primary action in a block, outlined for a secondary one, quiet text for the rest. Neutral ghost buttons are chrome only.
+**The Three Cobalt Roles Rule.** Every button shares the 10px radius and is cobalt in one of three roles: filled for the one primary action in a block, outlined for a secondary one, quiet text for the rest. Neutral ghost buttons are chrome only. Tabs are not actions but places: the Expenses | Insights tabs stay ink and graphite with an ink underline and no radius (see Expenses | Insights Tabs).
 
 ### Chips
 Selectable pills for Payer, participants and Split Type.
@@ -330,18 +343,28 @@ The Group page's Settle up and Balances panels: the page's focal point, so they 
 
 **The White Panel Rule.** On the Group page, Settle up and Balances sit on white hero panels (14px radius, no shadow, borderless in light theme and a faint hairline in dark); everything after them stays on the page background, so the hero reads as the page's focal point.
 
+### Expenses | Insights Tabs
+Below the hero panels, Expenses and Insights are two views of one filtered set of Expenses, switched by underline tabs on the page background. There is no separate Insights heading and no always-open filter form.
+- **Tab row:** "Expenses" and "Insights" in 16px semibold, 24px apart, each at least 44px tall and square-cornered, with the standard focus ring; the selected tab in ink with a 2px ink underline sitting on the row's hairline (`border`), the other in graphite (ink on hover). Expenses is selected by default. The tabs follow the ARIA tabs pattern: arrow keys, Home and End move between them and select them; only the selected tab is in the tab order.
+- **Filter button:** a quiet cobalt button with a sliders icon at the right end of the tab row, pulled back 12px so its text lines up with the column's edge. It reads "Filter", or "Filter (2)" with two filters active (read out as "2 active"). It opens and closes the filter panel (Category, Member paid or included, month, and a From / To date range on a white sheet, the ledger panel's style), which is collapsed by default. It shows only once the Group has an Expense.
+- **Filter chips:** each active filter, in the panel's order, is a fully round chip below the tab row (cobalt border and cobalt wash, 13px semibold ink label, a graphite ×, at least 44px tall; hover tints it hover slate) that removes that filter on click; a whole calendar month reads as one chip ("March 2024"), any other range as "From …" and "To …" chips, and the Filter button counts chips. A quiet Clear all follows the chips and removes every filter at once. Keyboard focus never drops to the page: a removed chip hands it to the chip now in its place, and the last chip or Clear all hands it to the Filter button.
+- **Count line:** while filtering, 13px graphite text under the chips reads "Showing 4 matching Expenses of 13", adding "; Settlements are hidden while filtering" in the Expenses view. It is a polite live region, so the count is read out as filters change.
+- **Switching views keeps the filters.** Only the selected view renders, so Insights' charts (with their text alternatives) load the first time the Insights tab opens.
+- **Spacing:** with nothing between them, the ledger's top rule tucks under the tab row's hairline (and under the selected tab's underline), so one rule shows; the panel, chips and count line each sit 12px apart, and Insights starts 20px below the tab row.
+- **Empty:** with nothing recorded, neither the tabs nor the ledger show; the Settle up hero leads to the first Expense. A Group whose only entries are Settlements shows the tabs without the Filter button, and its Insights view reads "Insights appear once there are Expenses." in a dashed empty-state outline.
+
 ### Dated Ledger
-The Group's Expenses and Settlements, newest first, on the page background below the hero panels and Insights: no card, no heading (a visually hidden "Expenses and Settlements" names the region for screen readers).
+The Group's Expenses and Settlements, newest first: the Expenses view of the Expenses | Insights tabs, on the page background with no card and no visible heading (a visually hidden "Expenses and Settlements" names the region for screen readers).
 - **Rules:** a hairline (`border`) above each date and below the last; faint hairlines (`border-subtle`) between rows on the same date.
 - **Date column:** 52px wide, one date per day, aligned with that day's first row: the day of the month in 31px extrabold ink, the month beneath it in 11px semibold uppercase graphite, and the year beneath that (11px regular) on the first date and wherever the year changes. The full date is read out with every row.
 - **Expense row:** the Payer's 36px avatar; the description (16px semibold) with "Sam Rivera paid in Groceries" (13px graphite) beneath it; on the right the amount in Group Currency (mono, 16px semibold) and, when the Expense Currency differs, the Expense Currency amount beneath it (mono, 11px graphite), e.g. `$55.88` over `¥8,340`. Split Type, member count and the Locked Rate are not in the row; they live in the editor.
 - **Settlement row:** payer → payee in 24px avatars; "Sam Rivera paid Taylor Kim" (names semibold ink, "paid" graphite) with "Settlement" (13px graphite) beneath it; the amount in graphite, so it reads as money moving rather than money spent. No panel or dashed border sets it apart.
 - **Row:** at least 64px tall, 10px × 8px padding, 12px gaps, the avatar and amount vertically centred. The row bleeds 8px past the column on each side so its hover tint clears the avatar and figure. Long names and descriptions wrap at whole words (breaking a word only when it cannot fit); the amount never shrinks, so at 390px it stays inside the screen.
 - **Rows carry no buttons.** An Expense or Settlement row is one control: a click, tap or Enter anywhere on it opens it (the Expense editor, or a dialog stating the Settlement), hover tints it hover slate at 60%, and focus rings the whole row. Delete lives inside what the row opens: the Expense editor's quiet Delete Expense, the Settlement dialog's Delete Settlement, each confirmed first.
-- **Filtering** hides Settlements; a line above the ledger counts the matching Expenses with a quiet Clear filters, and no match reads "No Expenses match these filters." in a dashed empty-state outline.
+- **Filtering** hides Settlements; the tabs' count line says how many Expenses match, and no match reads "No Expenses match these filters." in a dashed empty-state outline.
 
 ### Cards / Containers
-The ledger panel: a list or block on a white sheet, such as Insights' filter panel and charts. The Group page's Expenses and Settlements are not in one; see Dated Ledger.
+The ledger panel: a list or block on a white sheet, such as the filter panel and Insights' charts. The Group page's Expenses and Settlements are not in one; see Dated Ledger.
 - **Corner Style:** 10px.
 - **Background:** sheet white.
 - **Shadow Strategy:** none (see Elevation & Depth).

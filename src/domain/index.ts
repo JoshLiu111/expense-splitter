@@ -27,7 +27,7 @@ export type {
   SettlementExplanation,
   SettlementSource,
 } from "./explain-settlements";
-export { computeInsights, isFiltering, monthRange } from "./insights";
+export { computeInsights, filterMonth, isFiltering, monthRange } from "./insights";
 export type { CategoryTotal, ExpenseEntry, ExpenseFilter, Insights, MonthTotal } from "./insights";
 export { importSampleGroups } from "./sample-data";
 export { amountText, CURRENCY_CODES, formatMoney, isCurrencyCode, parseAmount } from "./currency";

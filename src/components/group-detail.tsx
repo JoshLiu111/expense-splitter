@@ -4,12 +4,9 @@ import Link from "next/link";
 import { useRef, useState } from "react";
 import { ArrowLeft, Plus, Settings } from "lucide-react";
 import {
-  computeInsights,
   computeLedger,
   formatMoney,
-  isFiltering,
   type Expense,
-  type ExpenseFilter,
   type GroupSnapshot,
   type Settlement,
 } from "@/domain";
@@ -19,7 +16,7 @@ import { BalancesPanel } from "@/components/balances-panel";
 import { DatedLedger } from "@/components/dated-ledger";
 import { ExpenseEditor } from "@/components/expense-editor";
 import { SettleUpSection } from "@/components/settle-up";
-import { ExpenseFilters, SpendingInsights } from "@/components/spending";
+import { ExpensesAndInsights } from "@/components/expenses-and-insights";
 import { AvatarStack } from "@/components/member-avatar";
 import { Button } from "@/components/ui/button";
 import { useTodaysRates } from "@/rates/use-todays-rates";
@@ -27,7 +24,8 @@ import { describeBalance, pluralize } from "@/lib/format";
 
 /**
  * A Group's header (name, Members, total spent), the settle-up hero (Settle up, then Balances),
- * Insights and the dated ledger of Expenses and Settlements, with Expense entry.
+ * then Expenses | Insights (the dated ledger of Expenses and Settlements, and
+ * where the money went, over one shared filter), with Expense entry.
  * Details, Categories, Members and deletion live in Group settings, linked
  * from the header. Balances are recomputed from the Group on every render
  * (ADR 0004).
@@ -55,10 +53,6 @@ export function GroupDetail({
 }) {
   const ledger = computeLedger(group);
   const rates = useTodaysRates();
-  const [filter, setFilter] = useState<ExpenseFilter>({});
-  const filtering = isFiltering(filter);
-  const insights = computeInsights(group, filter);
-  const timeline = filtering ? insights.expenses : ledger.timeline;
   const members = new Map(group.members.map((m) => [m.id, m]));
   const activeMembers = group.members.filter((m) => !m.former);
   const nameOf = (id: string) => members.get(id)?.name ?? "Unknown member";
@@ -188,45 +182,13 @@ export function GroupDetail({
         <BalancesPanel group={group} ledger={ledger} currentMemberId={currentMemberId} />
       )}
 
-      {ledger.expenseCount > 0 && (
-        <section aria-labelledby="insights-heading" className="flex flex-col gap-4">
-          <h2 id="insights-heading" className="text-lg font-bold">
-            Insights
-          </h2>
-          <ExpenseFilters group={group} insights={insights} filter={filter} onChange={setFilter} />
-          <SpendingInsights
-            group={group}
-            insights={insights}
-            balances={ledger.balances}
-            filtering={filtering}
-          />
-        </section>
-      )}
-
       {/* With nothing recorded, the hero leads to the first Expense instead. */}
       {ledger.timeline.length > 0 && (
-        <section aria-labelledby="activity-heading">
-          {/* The ledger needs no visible heading; this one names the region and takes focus after a deletion. */}
-          <h2 id="activity-heading" ref={activityHeading} tabIndex={-1} className="sr-only">
-            Expenses and Settlements
-          </h2>
-          {/* Live, so the count is read out as filters change. */}
-          <div aria-live="polite" className="empty:hidden">
-            {filtering && (
-              <p className="mb-3 flex flex-wrap items-center gap-x-3 text-sm text-text-secondary">
-                Showing {pluralize(insights.expenses.length, "matching Expense")} of {ledger.expenseCount};
-                Settlements are hidden while filtering.
-                <Button variant="quiet" onClick={() => setFilter({})}>
-                  Clear filters
-                </Button>
-              </p>
-            )}
-          </div>
-          {timeline.length === 0 && filtering ? (
-            <p className="rounded-lg border border-dashed border-border-input p-6 text-text-secondary">
-              No Expenses match these filters.
-            </p>
-          ) : (
+        <ExpensesAndInsights
+          group={group}
+          ledger={ledger}
+          headingRef={activityHeading}
+          renderLedger={(timeline) => (
             <DatedLedger
               group={group}
               timeline={timeline}
@@ -234,7 +196,7 @@ export function GroupDetail({
               onDeleteSettlement={removeSettlement}
             />
           )}
-        </section>
+        />
       )}
 
       {/* With nothing recorded, "Add the first Expense" in the hero is the only call to action. */}
