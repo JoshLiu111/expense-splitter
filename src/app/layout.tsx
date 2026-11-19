@@ -55,7 +55,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
             </div>
           </div>
         </header>
-        <main id="main-content" tabIndex={-1} className="mx-auto max-w-page px-4 py-8 outline-none">
+        <main id="main-content" tabIndex={-1} className="outline-none">
           {children}
         </main>
       </body>

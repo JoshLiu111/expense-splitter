@@ -34,18 +34,15 @@ export function GuestSignUpPrompt() {
   }
 
   return (
-    // Rendered first inside <main>: negative margins pull it up against the
-    // header, and the clipped shadow paints its background edge to edge
-    // without causing horizontal scrolling.
     <section
       aria-label="Sign up to save your Groups"
-      className="-mx-4 -mt-8 mb-6 bg-accent-subtle shadow-[0_0_0_100vmax_var(--color-accent-subtle)] [clip-path:inset(0_-100vmax)]"
+      className="border-b border-border-subtle bg-accent-subtle"
     >
-      <div className="flex items-center gap-3 px-4 py-1">
+      <div className="mx-auto flex max-w-page items-center gap-3 px-4 py-1.5">
         <p className="flex-1 py-2 text-sm">
           <Link
             href="/sign-up"
-            className="rounded-sm font-semibold text-primary underline underline-offset-4 hover:text-accent-hover"
+            className="rounded-sm font-semibold text-accent underline underline-offset-4 hover:text-accent-hover"
           >
             Sign up
           </Link>{" "}
