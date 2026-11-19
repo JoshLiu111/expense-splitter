@@ -13,10 +13,10 @@ test("Guest opens /guest, opens a Group and sees the expected Balances", async (
   await page.getByRole("link", { name: /Trip to Japan/ }).click();
   await expect(page.getByRole("heading", { level: 1, name: "Trip to Japan" })).toBeVisible();
 
-  await expect(page.getByTestId("balance-mem_alex")).toContainText("gets back+$216.46");
-  await expect(page.getByTestId("balance-mem_jordan")).toContainText("owes−$219.49");
-  await expect(page.getByTestId("balance-mem_sam")).toContainText("owes−$315.09");
-  await expect(page.getByTestId("balance-mem_taylor")).toContainText("gets back+$318.12");
+  await expect(page.getByTestId("balance-mem_alex")).toContainText("gets back $216.46");
+  await expect(page.getByTestId("balance-mem_jordan")).toContainText("owes $219.49");
+  await expect(page.getByTestId("balance-mem_sam")).toContainText("owes $315.09");
+  await expect(page.getByTestId("balance-mem_taylor")).toContainText("gets back $318.12");
 
   // Original and converted amounts for a yen Expense.
   await expect(page.getByText("¥84,000")).toBeVisible();

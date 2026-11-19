@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-11-18T00:00:00Z",
+  "generatedAt": "2026-11-19T00:00:00Z",
   "title": "Design System: Expense Splitter",
   "extensions": {
     "colorMeta": {
@@ -25,7 +25,7 @@
     "typographyMeta": {
       "display": { "displayName": "Display", "purpose": "Landing page hero heading only." },
       "headline": { "displayName": "Headline", "purpose": "One per page: the page or Group name." },
-      "title": { "displayName": "Title", "purpose": "Section headings: Balances, Insights, Expenses." },
+      "title": { "displayName": "Title", "purpose": "Section headings: Insights, Expenses; the Settle up and Balances hero panel headings (800)." },
       "body": { "displayName": "Body", "purpose": "Prose, Member names, Expense descriptions." },
       "label": { "displayName": "Label", "purpose": "Buttons, field labels, legends, chips, metadata." },
       "caption": { "displayName": "Caption", "purpose": "Secondary conversions under an amount; avatar initials." },
@@ -54,25 +54,33 @@
       "name": "Primary Button",
       "kind": "button",
       "refersTo": "button-primary",
-      "description": "The main action: Add expense, Save, Record settlement.",
+      "description": "The one main action in a block: Add Expense, Record this payment, Add the first Expense, Save.",
       "html": "<button class=\"ds-btn-primary\">Add expense</button>",
-      "css": ".ds-btn-primary { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px; padding: 8px 16px; border: none; border-radius: 8px; background: var(--color-accent, #2a62d6); color: var(--color-on-accent, #fff); font-family: Manrope, system-ui, sans-serif; font-size: 13px; font-weight: 600; cursor: pointer; transition: background-color 120ms cubic-bezier(0.2, 0, 0, 1); } .ds-btn-primary:hover { background: var(--color-accent-hover, #2156c9); } .ds-btn-primary:focus-visible { outline: none; box-shadow: 0 0 0 2px var(--color-bg-primary, #f6f8fb), 0 0 0 5px var(--color-focus, #2a62d6); }"
+      "css": ".ds-btn-primary { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px; padding: 8px 16px; border: none; border-radius: 10px; background: var(--color-accent, #2a62d6); color: var(--color-on-accent, #fff); font-family: Manrope, system-ui, sans-serif; font-size: 13px; font-weight: 600; cursor: pointer; transition: background-color 120ms cubic-bezier(0.2, 0, 0, 1); } .ds-btn-primary:hover { background: var(--color-accent-hover, #2156c9); } .ds-btn-primary:focus-visible { outline: none; box-shadow: 0 0 0 2px var(--color-bg-primary, #f6f8fb), 0 0 0 5px var(--color-focus, #2a62d6); }"
     },
     {
-      "name": "Outline Button",
+      "name": "Secondary Button",
       "kind": "button",
       "refersTo": "button-outline",
-      "description": "Secondary actions beside a primary one.",
-      "html": "<button class=\"ds-btn-outline\">Cancel</button>",
-      "css": ".ds-btn-outline { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; padding: 8px 16px; border: 1px solid var(--color-border-input, #7d8799); border-radius: 8px; background: var(--color-surface, #fff); color: var(--color-text-primary, #131a26); font-family: Manrope, system-ui, sans-serif; font-size: 13px; font-weight: 600; cursor: pointer; transition: background-color 120ms cubic-bezier(0.2, 0, 0, 1); } .ds-btn-outline:hover { background: var(--color-bg-tertiary, #e3e9f1); } .ds-btn-outline:focus-visible { outline: none; box-shadow: 0 0 0 2px var(--color-bg-primary, #f6f8fb), 0 0 0 5px var(--color-focus, #2a62d6); }"
+      "description": "A secondary action beside or below the primary one: Record another Settlement, Clear Small Change, Cancel. Cobalt text on sheet white.",
+      "html": "<button class=\"ds-btn-outline\">Record another Settlement</button>",
+      "css": ".ds-btn-outline { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; padding: 8px 16px; border: 1px solid var(--color-border-input, #7d8799); border-radius: 10px; background: var(--color-surface, #fff); color: var(--color-accent, #2a62d6); font-family: Manrope, system-ui, sans-serif; font-size: 13px; font-weight: 600; cursor: pointer; transition: background-color 120ms cubic-bezier(0.2, 0, 0, 1); } .ds-btn-outline:hover { background: var(--color-accent-subtle, #e7eefc); } .ds-btn-outline:focus-visible { outline: none; box-shadow: 0 0 0 2px var(--color-bg-primary, #f6f8fb), 0 0 0 5px var(--color-focus, #2a62d6); }"
+    },
+    {
+      "name": "Quiet Button",
+      "kind": "button",
+      "refersTo": "button-quiet",
+      "description": "Lesser actions inside a block: Why these payments?, a suggestion's Record, Show / Hide Balances. Cobalt text, usually with an icon.",
+      "html": "<button class=\"ds-btn-quiet\">Why these payments?</button>",
+      "css": ".ds-btn-quiet { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; padding: 8px 12px; border: none; border-radius: 10px; background: transparent; color: var(--color-accent, #2a62d6); font-family: Manrope, system-ui, sans-serif; font-size: 13px; font-weight: 600; cursor: pointer; transition: background-color 120ms cubic-bezier(0.2, 0, 0, 1); } .ds-btn-quiet:hover { background: var(--color-accent-subtle, #e7eefc); } .ds-btn-quiet:focus-visible { outline: none; box-shadow: 0 0 0 2px var(--color-bg-primary, #f6f8fb), 0 0 0 5px var(--color-focus, #2a62d6); }"
     },
     {
       "name": "Ghost Button",
       "kind": "button",
       "refersTo": "button-ghost",
-      "description": "Header controls: user menu, theme toggle.",
+      "description": "Chrome only: header controls (user menu, theme toggle) and icon-only buttons such as Close.",
       "html": "<button class=\"ds-btn-ghost\">Sign in</button>",
-      "css": ".ds-btn-ghost { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; padding: 8px 16px; border: none; border-radius: 8px; background: transparent; color: var(--color-text-primary, #131a26); font-family: Manrope, system-ui, sans-serif; font-size: 13px; font-weight: 600; cursor: pointer; transition: background-color 120ms cubic-bezier(0.2, 0, 0, 1); } .ds-btn-ghost:hover { background: var(--color-bg-tertiary, #e3e9f1); } .ds-btn-ghost:focus-visible { outline: none; box-shadow: 0 0 0 2px var(--color-bg-primary, #f6f8fb), 0 0 0 5px var(--color-focus, #2a62d6); }"
+      "css": ".ds-btn-ghost { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; padding: 8px 16px; border: none; border-radius: 10px; background: transparent; color: var(--color-text-primary, #131a26); font-family: Manrope, system-ui, sans-serif; font-size: 13px; font-weight: 600; cursor: pointer; transition: background-color 120ms cubic-bezier(0.2, 0, 0, 1); } .ds-btn-ghost:hover { background: var(--color-bg-tertiary, #e3e9f1); } .ds-btn-ghost:focus-visible { outline: none; box-shadow: 0 0 0 2px var(--color-bg-primary, #f6f8fb), 0 0 0 5px var(--color-focus, #2a62d6); }"
     },
     {
       "name": "Text Field",
@@ -113,11 +121,19 @@
       "description": "Header band with product name and ghost-button controls.",
       "html": "<header class=\"ds-header\"><a class=\"ds-header-brand\" href=\"#\">Expense Splitter</a><div class=\"ds-header-actions\"><button class=\"ds-header-btn\">Sign in</button><button class=\"ds-header-btn\" aria-label=\"Toggle theme\"><svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" aria-hidden=\"true\"><path d=\"M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z\"/></svg></button></div></header>",
       "css": ".ds-header { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 4px 16px; padding: 8px 16px; background: var(--color-bg-secondary, #edf1f6); border-bottom: 1px solid var(--color-border-subtle, #e7ecf3); font-family: Manrope, system-ui, sans-serif; } .ds-header-brand { display: flex; align-items: center; min-height: 44px; font-size: 16px; font-weight: 700; color: var(--color-text-primary, #131a26); text-decoration: none; border-radius: 8px; } .ds-header-actions { display: flex; gap: 4px; } .ds-header-btn { display: inline-flex; align-items: center; justify-content: center; min-width: 44px; min-height: 44px; padding: 8px 12px; border: none; border-radius: 8px; background: transparent; color: var(--color-text-primary, #131a26); font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; } .ds-header-btn:hover { background: var(--color-bg-tertiary, #e3e9f1); } .ds-header-btn:focus-visible, .ds-header-brand:focus-visible { outline: 2px solid var(--color-focus, #2a62d6); outline-offset: 2px; }"
+    },
+    {
+      "name": "Settle up Hero Panel",
+      "kind": "card",
+      "refersTo": "hero-panel",
+      "description": "The Group page's first panel, on sheet white: the signed-in User's own payment as the largest figure, then everyone else's Suggested Settlements. Balances follows on the same panel style.",
+      "html": "<section class=\"ds-hero\"><h2 class=\"ds-hero-title\">Settle up</h2><div class=\"ds-hero-yours\"><p class=\"ds-hero-you\"><span>You pay Taylor Kim</span><span class=\"ds-hero-figure\">$315.09</span></p><button class=\"ds-hero-record\">Record this payment</button></div><div class=\"ds-hero-row\"><span>Jordan Park <span class=\"ds-hero-muted\">pays</span> Alex Chen</span><span class=\"ds-hero-amount\">$216.46</span></div></section>",
+      "css": ".ds-hero { border: 1px solid var(--color-border-subtle, #e7ecf3); border-radius: 14px; background: var(--color-surface, #fff); padding: 28px; font-family: Manrope, system-ui, sans-serif; color: var(--color-text-primary, #131a26); } .ds-hero-title { margin: 0; font-size: 18px; font-weight: 800; } .ds-hero-yours { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px; margin-top: 16px; padding-bottom: 20px; border-bottom: 1px solid var(--color-border, #dbe1ea); } .ds-hero-you { margin: 0; display: flex; flex-direction: column; color: var(--color-owe, #b81f2f); font-weight: 800; } .ds-hero-figure { font-family: 'IBM Plex Mono', ui-monospace, monospace; font-variant-numeric: tabular-nums; font-size: 31px; font-weight: 600; line-height: 1.25; white-space: nowrap; } .ds-hero-row { display: flex; justify-content: space-between; gap: 16px; padding: 12px 0; } .ds-hero-muted { color: var(--color-text-secondary, #566073); } .ds-hero-amount { font-family: 'IBM Plex Mono', ui-monospace, monospace; font-variant-numeric: tabular-nums; font-weight: 600; white-space: nowrap; } .ds-hero .ds-hero-record { display: inline-flex; align-items: center; min-height: 44px; padding: 8px 20px; border: none; border-radius: 10px; background: var(--color-accent, #2a62d6); color: var(--color-on-accent, #fff); font: inherit; font-size: 13px; font-weight: 600; }"
     }
   ],
   "narrative": {
     "northStar": "The Reconciled Ledger",
-    "overview": "Every screen reads like a ledger that has just been reconciled: quiet, cool, exact, and finished. The interface is a precision instrument for money, so its identity lives in correctness made visible rather than in decoration. A single cobalt accent marks what can be acted on; a red and green pair, always doubled by sign, icon and words, marks who owes whom; everything else is cool blue-grey paper and hairline rules.\n\nDensity is moderate and calm. Content sits in one narrow reading column (672px) so a Group's Balances, Expenses and Settlements scan top to bottom like a statement. Type is a confident grotesque (Manrope) set heavy for headings and plain for prose, while every monetary figure switches to a tabular monospace (IBM Plex Mono) so columns of amounts align to the digit. Surfaces are flat, separated by borders and tonal steps; shadows appear only on things that float.\n\nLight and dark themes are equal citizens: tokens swap, layouts do not. Dark is a cool graphite, not inverted grey. Motion is brief and functional, with one sanctioned moment of celebration when a Group is Settled Up and one deliberate piece of narrative motion when Simplify explains Debt Simplification.",
+    "overview": "Every screen reads like a ledger that has just been reconciled: quiet, cool, exact, and finished. The interface is a precision instrument for money, so its identity lives in correctness made visible rather than in decoration. A single cobalt accent marks what can be acted on; a red and green pair, always doubled by sign, icon and words, marks who owes whom; everything else is cool blue-grey paper and hairline rules.\n\nDensity is moderate and calm. Content sits in one narrow reading column (672px) so a Group reads top to bottom like a reconciled statement: the payments that close it, then the Balances, then the ledger. Type is a confident grotesque (Manrope) set heavy for headings and plain for prose, while every monetary figure switches to a tabular monospace (IBM Plex Mono) so columns of amounts align to the digit. Surfaces are flat, separated by borders and tonal steps; shadows appear only on things that float.\n\nLight and dark themes are equal citizens: tokens swap, layouts do not. Dark is a cool graphite, not inverted grey. Motion is brief and functional, with one sanctioned moment of celebration when a Group is Settled Up and one deliberate piece of narrative motion when Simplify explains Debt Simplification.",
     "keyCharacteristics": [
       "One cool-blue accent on cool blue-grey neutrals; no secondary brand colour.",
       "Money in IBM Plex Mono with tabular numerals, never truncated.",
@@ -133,6 +149,8 @@
       { "name": "The Figures in Mono Rule", "body": "Every monetary amount uses the `amount` utility: IBM Plex Mono, tabular numerals, `white-space: nowrap`. Never truncate or ellipsize a figure.", "section": "typography" },
       { "name": "The Two Weights of Voice Rule", "body": "Headings are 700 or 800; labels are 600; prose is 400. Weight 500 is reserved and almost never used.", "section": "typography" },
       { "name": "The 44 Pixel Floor Rule", "body": "Every button, chip, link-button and toggle is at least 44×44px, on every breakpoint.", "section": "layout" },
+      { "name": "The Three Cobalt Roles Rule", "body": "Every button shares the 10px radius and is cobalt in one of three roles: filled for the one primary action in a block, outlined for a secondary one, quiet text for the rest. Neutral ghost buttons are chrome only.", "section": "components" },
+      { "name": "The White Panel Rule", "body": "On the Group page, Settle up and Balances sit on white hero panels (14px radius, faint hairline, no shadow); everything after them stays on the page background, so the hero reads as the page's focal point.", "section": "components" },
       { "name": "The Only What Floats Rule", "body": "A shadow means \"this sits above the page\". Lists, panels and cards in the flow have a border and no shadow.", "section": "elevation" }
     ],
     "dos": [
@@ -142,7 +160,9 @@
       "Do use `border-input` (≥ 3:1) for any control boundary; keep `border` and `border-subtle` for decoration.",
       "Do style through the CSS variables in `tokens.css` so both themes follow automatically.",
       "Do keep transitions on the motion tokens (120 / 200 / 360ms, `cubic-bezier(0.2, 0, 0, 1)`), which collapse to 0ms under reduced motion. The one exception is the Simplify Animation.",
-      "Do keep reading content within the 42rem content column."
+      "Do keep reading content within the 42rem content column.",
+      "Do put the Group page's Settle up and Balances on white hero panels; the ledger below stays on the page background.",
+      "Do give each block at most one primary (filled) button; make the rest outline or quiet."
     ],
     "donts": [
       "Don't use `dark:` classes; theme switching swaps variables only.",
@@ -150,6 +170,7 @@
       "Don't use the `owe`/`owed` tokens for errors or success; charts use their own `chart-*` series tokens.",
       "Don't put shadows on in-flow panels, lists or cards.",
       "Don't truncate or ellipsize amounts.",
+      "Don't give a button its own radius or a neutral outline; every button is 10px and cobalt (ghost is for chrome only).",
       "Don't map shadcn's `accent` to a hover background; `accent` is the brand cobalt and hover uses `bg-tertiary`."
     ]
   }

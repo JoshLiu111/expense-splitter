@@ -1,4 +1,6 @@
+import { ArrowRight } from "lucide-react";
 import type { Member } from "@/domain";
+import { cn } from "@/lib/utils";
 
 export function initials(name: string): string {
   const parts = name.trim().split(/\s+/);
@@ -49,21 +51,85 @@ export function avatarFill(hex: string): string {
   return fill;
 }
 
+const AVATAR_SIZES = {
+  xs: "size-6 text-[0.625rem]",
+  sm: "size-8 text-xs",
+  md: "size-9 text-sm",
+  lg: "size-12 text-base",
+} as const;
+
+export type AvatarSize = keyof typeof AVATAR_SIZES;
+
 export function MemberAvatar({
   member,
   size = "md",
+  className,
 }: {
   member: Pick<Member, "name" | "avatarColor">;
-  size?: "sm" | "md";
+  size?: AvatarSize;
+  className?: string;
 }) {
   const fill = avatarFill(member.avatarColor);
   return (
     <span
       aria-hidden
-      className={`inline-flex shrink-0 items-center justify-center rounded-full font-bold ${size === "sm" ? "size-8 text-xs" : "size-9 text-sm"}`}
+      className={cn(
+        "inline-flex shrink-0 items-center justify-center rounded-full font-bold",
+        AVATAR_SIZES[size],
+        className,
+      )}
       style={{ backgroundColor: fill, color: textColourOn(fill) }}
     >
       {initials(member.name)}
+    </span>
+  );
+}
+
+/** Overlapping avatars, each cut out of what's behind it by a ring. */
+export function AvatarStack({
+  members,
+  size = "sm",
+  ring = "ring-surface",
+}: {
+  members: Pick<Member, "id" | "name" | "avatarColor">[];
+  size?: AvatarSize;
+  /** The colour behind the stack. */
+  ring?: "ring-surface" | "ring-bg-primary" | "ring-owed-subtle";
+}) {
+  return (
+    <span aria-hidden className="flex -space-x-1.5">
+      {members.map((m) => (
+        <MemberAvatar
+          key={m.id}
+          member={m}
+          size={size}
+          className={cn("ring-2", ring)}
+        />
+      ))}
+    </span>
+  );
+}
+
+/** Payer, arrow, payee: the shape of one payment. Decorative; the words say it. */
+export function TransferPair({
+  from,
+  to,
+  size = "sm",
+}: {
+  from: Pick<Member, "name" | "avatarColor">;
+  to: Pick<Member, "name" | "avatarColor">;
+  size?: AvatarSize;
+}) {
+  return (
+    <span aria-hidden className="inline-flex shrink-0 items-center gap-1">
+      <MemberAvatar member={from} size={size} />
+      <ArrowRight
+        className={cn(
+          "text-text-secondary",
+          size === "lg" ? "size-5" : "size-4",
+        )}
+      />
+      <MemberAvatar member={to} size={size} />
     </span>
   );
 }

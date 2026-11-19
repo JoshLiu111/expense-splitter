@@ -54,7 +54,8 @@ test("sign up, create a Group, sign out, sign in: the Group is still listed", as
   await expect(page.getByRole("heading", { level: 1, name: "Flat 3B" })).toBeVisible();
   await expect(page.getByText("Balances in GBP")).toBeVisible();
   // The creator is the Group's first Member.
-  await expect(page.getByRole("region", { name: "Balances" }).getByText("Maya Chen", { exact: true })).toBeVisible();
+  await page.getByRole("link", { name: "Group settings" }).click();
+  await expect(page.getByRole("region", { name: "Members" }).getByText("Maya Chen", { exact: true })).toBeVisible();
 
   await signOut(page);
   await page.getByRole("link", { name: "Sign in" }).click();
@@ -253,7 +254,10 @@ test("a signed-in User sees their own Suggested Settlement and records it", asyn
   await expect(page.getByText("Expense added.")).toBeVisible();
 
   const settleUp = page.getByRole("region", { name: "Settle up" });
-  await expect(settleUp).toContainText("You get back $45.20 → Taylor pays you $45.20");
+  await expect(settleUp.getByText("Taylor pays you", { exact: true })).toBeVisible();
+  await expect(settleUp.getByRole("button", { name: "Record: Taylor pays you $45.20" })).toHaveText(
+    "Record this payment",
+  );
   await settleUp.getByRole("button", { name: /^Record: Taylor pays you/ }).click();
   await page.getByRole("button", { name: "Record Settlement" }).click();
 

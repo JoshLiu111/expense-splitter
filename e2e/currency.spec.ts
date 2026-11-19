@@ -29,7 +29,7 @@ test("S2: a Guest records a yen Expense at today's rate, overrides it, and re-lo
   await expect(row(page, "Ryokan")).toContainText("¥84,000");
   await expect(row(page, "Ryokan")).toContainText("≈ $560.00");
   await expect(page.getByRole("list", { name: "Spent per currency" })).toContainText("Spent in JPY: ¥84,000 ≈ $560.00");
-  await expect(page.getByTestId("balance-mem_olivia")).toContainText("gets back+$420.00");
+  await expect(page.getByTestId("balance-mem_olivia")).toContainText("gets back $420.00");
 
   // A manual rate, to match a card statement.
   await page.getByRole("button", { name: "Edit “Ryokan”" }).click();
@@ -37,7 +37,7 @@ test("S2: a Guest records a yen Expense at today's rate, overrides it, and re-lo
   await expect(page.getByTestId("converted-preview")).toHaveText("¥84,000 ≈ $562.80");
   await page.getByRole("button", { name: "Save changes" }).click();
   await expect(row(page, "Ryokan")).toContainText("1 JPY = 0.0067 USD · manual rate");
-  await expect(page.getByTestId("balance-mem_olivia")).toContainText("gets back+$422.10");
+  await expect(page.getByTestId("balance-mem_olivia")).toContainText("gets back $422.10");
 
   // Editing the description keeps the Locked Rate.
   await page.getByRole("button", { name: "Edit “Ryokan”" }).click();
@@ -60,7 +60,7 @@ test("S2: a Guest records a yen Expense at today's rate, overrides it, and re-lo
 
 test("S2: editing a seed Expense keeps its Locked Rate, so past Balances never change", async ({ page }) => {
   await page.goto("/guest/groups/grp_japan_2024");
-  await expect(page.getByTestId("balance-mem_alex")).toContainText("gets back+$216.46");
+  await expect(page.getByTestId("balance-mem_alex")).toContainText("gets back $216.46");
 
   // Today's fixed rate (0.00666667) differs from the seed's 0.0067.
   const firstJpy = page
@@ -75,5 +75,5 @@ test("S2: editing a seed Expense keeps its Locked Rate, so past Balances never c
 
   await expect(page.getByText("Expense updated.")).toBeVisible();
   await expect(row(page, `${description} (edited)`)).toContainText("1 JPY = 0.0067 USD");
-  await expect(page.getByTestId("balance-mem_alex")).toContainText("gets back+$216.46");
+  await expect(page.getByTestId("balance-mem_alex")).toContainText("gets back $216.46");
 });

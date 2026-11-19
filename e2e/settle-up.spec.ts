@@ -20,7 +20,7 @@ test("S2: Guest records the suggested Settlement in parts and reaches All settle
   await page.getByRole("button", { name: "Record Settlement" }).click();
 
   await expect(page.getByText("Settlement recorded. Chloe Yun will still owe $4.37.")).toBeVisible();
-  await expect(page.getByTestId("balance-mem_chloe")).toContainText("owes−$4.37");
+  await expect(page.getByTestId("balance-mem_chloe")).toContainText("owes $4.37");
   await expect(page.locator("main ol > li").first()).toContainText("Settlement: Chloe Yun paid Ben Gutierrez");
 
   // Overpaying is refused with the most that can be paid.
@@ -34,7 +34,7 @@ test("S2: Guest records the suggested Settlement in parts and reaches All settle
 
   await expect(settleUp(page)).toContainText("All settled up!");
   await expect(page.getByRole("heading", { name: "Settle up" })).toBeFocused();
-  await expect(page.getByTestId("balance-mem_chloe")).toContainText("settled up$0.00");
+  await expect(page.getByTestId("balance-mem_chloe")).toContainText("is settled up");
 });
 
 test("S2: a Settlement can be deleted after confirming, restoring the debt", async ({ page }) => {
@@ -45,7 +45,7 @@ test("S2: a Settlement can be deleted after confirming, restoring the debt", asy
   await confirm.getByRole("button", { name: "Delete Settlement" }).click();
 
   await expect(page.getByText("Deleted the Settlement from Chloe Yun to Olivia Hayes.")).toBeVisible();
-  await expect(page.getByTestId("balance-mem_chloe")).toContainText("owes−$33.12");
+  await expect(page.getByTestId("balance-mem_chloe")).toContainText("owes $33.12");
 });
 
 test("S2: once only Small Change is left, one tap clears it", async ({ page }) => {
@@ -64,7 +64,7 @@ test("S2: once only Small Change is left, one tap clears it", async ({ page }) =
   await expect(settleUp(page)).toContainText("All settled up!");
 });
 
-test("S2: a Member sees their own action first, with others' suggestions collapsed", async ({ page }) => {
+test("S2: a Member sees their own action first, with others' suggestions below it", async ({ page }) => {
   await page.goto("/guest/groups/new");
   await field(page, "Name").fill("Road trip");
   await page.getByRole("button", { name: "Create Group" }).click();
@@ -95,13 +95,50 @@ test("S2: a Member sees their own action first, with others' suggestions collaps
   await addExpense("90.40", "Fuel", "Taylor", ["Sam", "Jo"]);
   await addExpense("20", "Snacks", "Jo", ["You", "Taylor"]);
 
-  await expect(settleUp(page)).toContainText("You owe $45.20 → pay Taylor $45.20");
-  // Each suggestion's sources are collapsed too, so pick the outer list.
-  const others = settleUp(page).locator("details", { hasText: "Other Suggested Settlements" });
-  await expect(others.locator("> summary")).toHaveText("Other Suggested Settlements (1)");
-  await expect(others.getByText("Sam pays Jo $10.00")).toBeHidden();
-  await others.locator("> summary").click();
-  await expect(others.getByText("Sam pays Jo $10.00")).toBeVisible();
+  // Your own payment leads, as its own Record action; everyone else's follow.
+  const yours = settleUp(page).getByRole("button", { name: "Record: you pay Taylor $45.20" });
+  await expect(settleUp(page).getByText("You pay Taylor", { exact: true })).toBeVisible();
+  await expect(yours).toHaveText("Record this payment");
+  const others = settleUp(page).getByRole("list", { name: "Other Suggested Settlements" });
+  await expect(others.getByRole("listitem")).toHaveCount(1);
+  await expect(others).toContainText("Sam pays Jo $10.00");
+  const order = await settleUp(page)
+    .getByRole("button", { name: /^Record:/ })
+    .evaluateAll((buttons) => buttons.map((b) => b.getAttribute("aria-label")));
+  expect(order).toEqual(["Record: you pay Taylor $45.20", "Record: Sam pays Jo $10.00"]);
+});
+
+test("S2: a Member whose own Balance is zero sees they're even while others still owe", async ({ page }) => {
+  await page.goto("/guest/groups/new");
+  await field(page, "Name").fill("Lunch club");
+  await page.getByRole("button", { name: "Create Group" }).click();
+  await expect(page.getByRole("heading", { level: 1, name: "Lunch club" })).toBeVisible();
+
+  await page.getByRole("link", { name: "Group settings" }).click();
+  const members = page.getByRole("region", { name: "Members" });
+  for (const name of ["Ana", "Bo"]) {
+    await field(page, "Add a Member by name").fill(name);
+    await page.getByRole("button", { name: "Add Member" }).click();
+    await expect(members.getByText(name, { exact: true })).toBeVisible();
+  }
+  await page.getByRole("link", { name: "Back to Lunch club" }).click();
+
+  // An empty Group leads to its first Expense from the hero.
+  await expect(settleUp(page)).toContainText("No Expenses yet");
+  await settleUp(page).getByRole("button", { name: "Add the first Expense" }).click();
+
+  // Ana paid $30 shared by Ana and Bo: You aren't in it.
+  const chip = (role: "radio" | "checkbox", name: string) =>
+    page.locator("label").filter({ has: page.getByRole(role, { name, exact: true }) }).filter({ visible: true });
+  await field(page, "Amount (USD)").fill("30");
+  await field(page, "Description").fill("Pizza");
+  await chip("radio", "Ana").click();
+  await chip("checkbox", "You").click();
+  await page.getByRole("button", { name: "Add Expense", exact: true }).click();
+  await expect(page.getByText("Expense added.")).toBeVisible();
+
+  await expect(settleUp(page)).toContainText("You're even");
+  await expect(settleUp(page)).toContainText("Bo pays Ana $15.00");
 });
 
 test("S2: a Former Member whose Balance reopens shows in Balances and can be settled", async ({ page }) => {

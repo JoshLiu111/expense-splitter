@@ -62,8 +62,8 @@ test("S1: an Exact Split must add up, shows the difference, and allows $0", asyn
   await page.getByRole("button", { name: "Add Expense", exact: true }).click();
 
   await expect(page.getByText("Expense added.")).toBeVisible();
-  await expect(page.getByTestId("balance-mem_olivia")).toContainText("gets back+$30.00");
-  await expect(page.getByTestId("balance-mem_ben")).toContainText("owes−$15.63");
+  await expect(page.getByTestId("balance-mem_olivia")).toContainText("gets back $30.00");
+  await expect(page.getByTestId("balance-mem_ben")).toContainText("owes $15.63");
   // The $0 Shares (Chloe, and Marcus left blank) aren't shown as owing.
   const row = page.locator("main ol > li").filter({ hasText: "Gift wrap" });
   await expect(row).toContainText("2 members");
