@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
+import { SIMPLIFY_TIMING, simplifyDurations } from "../src/components/simplify-timing";
 
 /** A visible form field by label (hidden cached pages can share labels). */
 function field(page: Page, label: string) {
@@ -77,41 +78,193 @@ test("S2: charts load with text alternatives", async ({ page }) => {
   );
 });
 
-test("S2: each suggestion traces back to its Expenses, and Why these payments? shows before and after", async ({
+test("Why these payments? Simplify draws Before, holds it, then draws After, with the graph in view", async ({
   page,
 }) => {
+  // Japan: 6 debts become 3 Suggested Settlements.
+  const { toAfterMs, totalMs } = simplifyDurations(6, 3);
+  // Scrolling into view comes first; the slack covers rendering and a busy CI machine.
+  const slackMs = SIMPLIFY_TIMING.scrollWaitMs + 1000;
   await page.goto("/guest/groups/grp_japan_2024");
-  const toTaylor = settleUp(page).getByRole("listitem").filter({ hasText: "Sam Rivera pays Taylor Kim" });
-  await toTaylor.getByText(/^From “Kyoto ryokan \(2 nights\)” and \d+ other expenses$/).click();
-  await expect(toTaylor).toContainText("Taylor Kim paid · Mar 22, 2024$167.50");
-
   await settleUp(page).getByRole("button", { name: "Why these payments?" }).click();
   const graph = settleUp(page).getByRole("img", { name: /Before Debt Simplification/ });
-  await expect(graph).toBeVisible();
-  await expect(settleUp(page)).toContainText(/Before: \d payments/);
-  await expect(settleUp(page)).toContainText("After: 3 payments");
-  // The graph plays from before to after by itself.
-  await expect(settleUp(page).getByRole("button", { name: "After", exact: true })).toHaveAttribute(
-    "aria-pressed",
-    "true",
-  );
+  const before = settleUp(page).getByRole("button", { name: "Before", exact: true });
+  const after = settleUp(page).getByRole("button", { name: "After", exact: true });
+  await expect(before).toHaveAttribute("aria-pressed", "true");
+
+  await settleUp(page).getByRole("button", { name: "Simplify" }).click();
+  await expect(before).toHaveAttribute("aria-pressed", "true");
+  await expect(after).toHaveAttribute("aria-pressed", "false");
+  await expect(after).toHaveAttribute("aria-pressed", "true", { timeout: toAfterMs + slackMs });
+  // Every After arrow ends up drawn with its amount showing, and Before is gone.
+  const opacities = (side: "before" | "after") =>
+    graph
+      .locator(`[data-edge][data-side=${side}]`)
+      .evaluateAll((edges) =>
+        edges.map((edge) => {
+          const label = edge.querySelector(":scope > g")!;
+          return `${getComputedStyle(edge).opacity}/${getComputedStyle(label).opacity}`;
+        }),
+      );
+  await expect.poll(() => opacities("after"), { timeout: totalMs - toAfterMs + slackMs }).toEqual(Array(3).fill("1/1"));
+  await expect.poll(() => opacities("before")).toEqual(Array(6).fill("0/0"));
+  // Read out once the run is over.
+  await expect(settleUp(page).getByRole("status")).toHaveText("Simplified. Showing After: 3 Suggested Settlements.");
+  // Once played through, the button offers to play it again.
+  await expect(settleUp(page).getByRole("button", { name: "Replay" })).toBeVisible();
+  await expect(settleUp(page).getByRole("button", { name: "Simplify" })).toHaveCount(0);
+
+  // The whole graph is in view, clear of the Add Expense bar.
+  await expect(graph).toBeInViewport({ ratio: 1 });
+  const graphBox = (await graph.boundingBox())!;
+  const barBox = (await page.getByRole("button", { name: "Add Expense", exact: true }).boundingBox())!;
+  expect(graphBox.y + graphBox.height <= barBox.y || graphBox.x + graphBox.width <= barBox.x).toBe(true);
 });
 
+test("Why these payments? stops a Simplify run when Before is chosen part-way", async ({ page }) => {
+  const { totalMs } = simplifyDurations(6, 3);
+  await page.goto("/guest/groups/grp_japan_2024");
+  await settleUp(page).getByRole("button", { name: "Why these payments?" }).click();
+  const before = settleUp(page).getByRole("button", { name: "Before", exact: true });
+  await settleUp(page).getByRole("button", { name: "Simplify" }).click();
+  await before.click();
+  // Long enough for the cancelled run to have switched to After and finished, had it carried on.
+  await page.waitForTimeout(totalMs + SIMPLIFY_TIMING.scrollWaitMs);
+  await expect(before).toHaveAttribute("aria-pressed", "true");
+  await expect(settleUp(page).getByRole("status")).toHaveText("");
+  await expect(settleUp(page).getByRole("button", { name: "Simplify" })).toBeVisible();
+});
+
+// The rest switch straight to After; the test above covers the animation.
 test.describe("with reduced motion", () => {
   test.use({ reducedMotion: "reduce" });
 
-  test("Why these payments? waits to be asked before switching", async ({ page }) => {
+  test("S2: each suggestion traces back to its Expenses, and Why these payments? shows before and after", async ({
+    page,
+  }) => {
+    await page.goto("/guest/groups/grp_japan_2024");
+    const toTaylor = settleUp(page).getByRole("listitem").filter({ hasText: "Sam Rivera pays Taylor Kim" });
+    await toTaylor.getByText(/^From “Kyoto ryokan \(2 nights\)” and \d+ other expenses$/).click();
+    await expect(toTaylor).toContainText("Taylor Kim paid · Mar 22, 2024$167.50");
+
+    await settleUp(page).getByRole("button", { name: "Why these payments?" }).click();
+    const graph = settleUp(page).getByRole("img", { name: /Before Debt Simplification/ });
+    await expect(graph).toBeVisible();
+    await expect(settleUp(page)).toContainText("Before: 6 debts");
+    await expect(settleUp(page)).toContainText("After: 3 Suggested Settlements");
+    await expect(settleUp(page)).toContainText("Every Balance is the same either way.");
+    // Debts read as who owes whom, not as payments to make.
+    await expect(settleUp(page).getByRole("listitem").filter({ hasText: /^\S+ \S+ owes / }).first()).toBeVisible();
+    await expect(settleUp(page).getByRole("button", { name: "Before", exact: true })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+  });
+
+  test("Why these payments? simplifies at once when asked", async ({ page }) => {
     await page.goto("/guest/groups/grp_japan_2024");
     await settleUp(page).getByRole("button", { name: "Why these payments?" }).click();
     const before = settleUp(page).getByRole("button", { name: "Before", exact: true });
     await expect(before).toHaveAttribute("aria-pressed", "true");
-    await page.waitForTimeout(1200);
-    await expect(before).toHaveAttribute("aria-pressed", "true");
-    await settleUp(page).getByRole("button", { name: "After", exact: true }).click();
+    await settleUp(page).getByRole("button", { name: "Simplify" }).click();
+    // No animation to wait for: After is shown straight away.
     await expect(settleUp(page).getByRole("button", { name: "After", exact: true })).toHaveAttribute(
       "aria-pressed",
       "true",
+      { timeout: 100 },
     );
+    await expect(settleUp(page).getByRole("status")).toHaveText("Simplified. Showing After: 3 Suggested Settlements.");
+    // The list the graph draws is marked current for assistive tech, not with extra words in its heading.
+    const afterList = settleUp(page).locator("[aria-current]");
+    await expect(afterList).toHaveCount(1);
+    await expect(afterList.getByRole("heading")).toHaveText("After: 3 Suggested Settlements");
+    // Replay clears the status before writing the same words, so they are read out again.
+    // The empty status lasts one frame, too short to poll for, so record every change.
+    const status = settleUp(page).getByRole("status");
+    await status.evaluate((el) => {
+      const seen: string[] = [];
+      (window as unknown as { statusSeen: string[] }).statusSeen = seen;
+      new MutationObserver(() => seen.push(el.textContent ?? "")).observe(el, {
+        childList: true,
+        characterData: true,
+        subtree: true,
+      });
+    });
+    await settleUp(page).getByRole("button", { name: "Replay" }).click();
+    const seen = () => page.evaluate(() => (window as unknown as { statusSeen: string[] }).statusSeen);
+    await expect.poll(seen).toContain("");
+    await expect(status).toHaveText("Simplified. Showing After: 3 Suggested Settlements.");
+    const changes = await seen();
+    expect(changes.indexOf("")).toBeLessThan(changes.lastIndexOf("Simplified. Showing After: 3 Suggested Settlements."));
+  });
+
+  test("Why these payments? keeps every amount apart and at 11px or more", async ({ page }) => {
+    for (const id of ["grp_japan_2024", "grp_apt_4b", "grp_office_lunch", "grp_birthday", "grp_camping"]) {
+      await page.goto(`/guest/groups/${id}`);
+      await settleUp(page).getByRole("button", { name: "Why these payments?" }).click();
+      for (const phase of ["Before", "After"]) {
+        if (phase === "After") await settleUp(page).getByRole("button", { name: "Simplify" }).click();
+        await expect(settleUp(page).getByRole("button", { name: phase, exact: true })).toHaveAttribute(
+          "aria-pressed",
+          "true",
+        );
+        const labels = await settleUp(page)
+          .locator("svg[role=img] [data-edge]")
+          .evaluateAll((edges) =>
+            edges
+              .filter((edge) => (edge as SVGGElement).style.opacity === "1")
+              .map((edge) => {
+                const text = edge.querySelector("text")!;
+                const { left, right, top, bottom } = text.getBoundingClientRect();
+                const px = text.getScreenCTM()!.a * Number(text.getAttribute("font-size"));
+                return { left, right, top, bottom, px };
+              }),
+          );
+        expect(labels.length, `${id} ${phase}`).toBeGreaterThan(0);
+        labels.forEach((a, i) => {
+          expect(a.px, `${id} ${phase} font size`).toBeGreaterThanOrEqual(11);
+          for (const b of labels.slice(i + 1)) {
+            const apart = a.right <= b.left || b.right <= a.left || a.bottom <= b.top || b.bottom <= a.top;
+            expect(apart, `${id} ${phase} labels overlap`).toBe(true);
+          }
+        });
+      }
+    }
+  });
+
+  test("Why these payments? says when the debts are already as simple as they get", async ({ page }) => {
+    await page.goto("/sign-up");
+    await field(page, "Name").fill("Maya Chen");
+    await field(page, "Email").fill(uniqueEmail());
+    await field(page, "Password").fill("correct-horse-battery");
+    await page.getByRole("button", { name: "Sign up", exact: true }).click();
+    await expect(page).toHaveURL(/\/dashboard$/);
+    await page.getByRole("link", { name: "New Group" }).click();
+    await field(page, "Name").fill("Lunch club");
+    await page.getByRole("button", { name: "Create Group" }).click();
+    await expect(page.getByRole("heading", { level: 1, name: "Lunch club" })).toBeVisible();
+    await field(page, "Add a Member by name").fill("Sam Rivera");
+    await page.getByRole("button", { name: "Add Member" }).click();
+    await expect(page.getByRole("region", { name: "Members" }).getByText("Sam Rivera", { exact: true })).toBeVisible();
+
+    // One Payer, so the only debt is already the only Suggested Settlement.
+    await page.getByRole("button", { name: "Add Expense", exact: true }).click();
+    await field(page, "Amount (USD)").fill("24.50");
+    await field(page, "Description").fill("Ramen");
+    await expect(page.getByRole("checkbox", { name: "Sam Rivera" })).toBeChecked();
+    await page.getByRole("button", { name: "Add Expense", exact: true }).click();
+    await expect(page.getByText("Expense added.")).toBeVisible();
+
+    await settleUp(page).getByRole("button", { name: "Why these payments?" }).click();
+    await expect(settleUp(page)).toContainText("These are already in their simplest form");
+    await expect(settleUp(page)).not.toContainText("fewer than before");
+    // One graph and one list, nothing to switch between.
+    await expect(settleUp(page).getByRole("img", { name: /Before Debt Simplification/ })).toBeVisible();
+    await expect(settleUp(page).getByRole("button", { name: "Simplify" })).toHaveCount(0);
+    await expect(settleUp(page).getByRole("button", { name: "Before", exact: true })).toHaveCount(0);
+    await expect(settleUp(page).getByRole("heading", { name: "1 Suggested Settlement", exact: true })).toBeVisible();
+    await expect(settleUp(page).getByRole("heading", { name: /^(Before|After):/ })).toHaveCount(0);
+    await expect(settleUp(page)).toContainText("Sam Rivera pays Maya Chen $12.25");
   });
 });
 

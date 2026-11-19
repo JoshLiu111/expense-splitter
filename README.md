@@ -149,7 +149,7 @@ _To be written by the author._
 
 **Why I chose this:** Settling up is the moment the app pays off, and the fewest Suggested Settlements is the most visible proof that the maths is right.
 
-**How it enhances the product:** Suggested Settlements use only Balances, so a Group of n Members is Settled Up in at most n − 1 Settlements; "Why these payments?" traces each suggestion back to the Expenses behind it, so Members trust the result.
+**How it enhances the product:** Suggested Settlements use only Balances, so a Group of n Members is Settled Up in at most n − 1 Settlements; each suggestion traces back to the Expenses behind it, and "Why these payments?" shows the debts it replaces, so Members trust the result.
 
 **Implementation highlights:** A pure function in the domain core, tested against hand-worked seed-data Balances; Small Change can be cleared in one action.
 

@@ -1,26 +1,52 @@
 "use client";
 
-import { useEffect, useId, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { Play } from "lucide-react";
-import { formatMoney, type DebtEdge, type GroupSnapshot, type SettlementExplanation } from "@/domain";
-import { initials, textColourOn } from "@/components/member-avatar";
+import {
+  computeLedger,
+  formatMoney,
+  type DebtEdge,
+  type GroupSnapshot,
+  type SettlementExplanation,
+} from "@/domain";
+import { layoutDebtGraph, NODE, SIZE, type EdgeLayout } from "@/components/debt-graph-layout";
+import { SIMPLIFY_TIMING, simplifyDurations, staggerFor } from "@/components/simplify-timing";
+import { avatarFill, initials, textColourOn } from "@/components/member-avatar";
 import { Button } from "@/components/ui/button";
 import { useMediaQuery } from "@/components/use-media-query";
 import { pluralize } from "@/lib/format";
-import { cn } from "@/lib/utils";
 
 type Phase = "before" | "after";
 
-const SIZE = 400;
-const CENTER = SIZE / 2;
-const RING = 120;
-const NODE = 22;
+/** After's arrows: neutral ink, since cobalt is only for what can be acted on. */
+const AFTER_INK = "var(--color-text-primary)";
+const BEFORE_INK = "var(--color-text-secondary)";
+
+/** What the graph shows: one side, or nothing while Simplify starts over. */
+type GraphPhase = Phase | "none";
+
+/**
+ * How the arrows move: not at all (reduced motion, or resetting before a
+ * run), a plain crossfade (the Before/After toggle), or Simplify's stages.
+ */
+type Motion = "instant" | "toggle" | "staged";
+
+/** How one arrow gets to its state: when it starts drawing, in a staged run. */
+interface EdgeMotion {
+  motion: Motion;
+  delayMs: number;
+}
+
+/** A selectable pill, as in the Expense form's chips. */
+const toggleClass =
+  "inline-flex min-h-11 cursor-pointer items-center rounded-full border border-border-input bg-surface px-4 text-sm font-semibold transition-colors duration-(--duration-fast) hover:bg-bg-tertiary aria-pressed:border-accent aria-pressed:bg-accent-subtle focus-visible:ring-[3px] focus-visible:ring-ring focus-visible:outline-none";
 
 /**
  * "Why these payments?": the Group's debts before Debt Simplification (who
  * owes whom, pair by pair) turning into the Suggested Settlements after it.
- * The graph animates from one to the other unless the visitor prefers
- * reduced motion; the lists beside it say the same in words.
+ * It opens on Before; "Simplify" brings the graph into view, draws Before
+ * arrow by arrow, holds it, fades it out and draws After the same way (or
+ * switches at once under reduced motion). The lists below say the same in words.
  */
 export default function WhyThesePayments({
   group,
@@ -30,152 +56,287 @@ export default function WhyThesePayments({
   explanation: SettlementExplanation;
 }) {
   const reducedMotion = useMediaQuery("(prefers-reduced-motion: reduce)");
-  const [phase, setPhase] = useState<Phase>("before");
+  const [phase, setPhase] = useState<GraphPhase>("before");
+  const [motion, setMotion] = useState<Motion>("instant");
+  // Read out once Simplify has finished, since the graph itself says nothing.
+  const [announcement, setAnnouncement] = useState("");
+  // Once Simplify has played through, its button offers to play it again.
+  const [played, setPlayed] = useState(false);
+  // What a Simplify run still has waiting (timers, frames, scroll listeners),
+  // undone by the next Simplify or toggle, or when the panel closes.
+  const pending = useRef<(() => void)[]>([]);
+  function cancelPending() {
+    pending.current.splice(0).forEach((cancel) => cancel());
+  }
+  useEffect(() => cancelPending, []);
+  function later(then: () => void, ms: number) {
+    const timer = window.setTimeout(then, ms);
+    pending.current.push(() => window.clearTimeout(timer));
+  }
+  function nextFrame(then: () => void) {
+    const frame = requestAnimationFrame(then);
+    pending.current.push(() => cancelAnimationFrame(frame));
+  }
+  function listen(type: "scroll" | "scrollend", then: () => void) {
+    window.addEventListener(type, then, { once: true });
+    pending.current.push(() => window.removeEventListener(type, then));
+  }
   const summaryId = useId();
+  const graph = useRef<SVGSVGElement>(null);
+  // Rendered width over viewBox width, so the graph's text keeps its size on screen.
+  const [scale, setScale] = useState(1);
+  useEffect(() => {
+    const svg = graph.current;
+    if (!svg) return;
+    const observer = new ResizeObserver(([entry]) => {
+      if (entry.contentRect.width > 0) setScale(entry.contentRect.width / SIZE);
+    });
+    observer.observe(svg);
+    return () => observer.disconnect();
+  }, []);
   const money = (amount: number) => formatMoney(amount, group.currency);
   const before = explanation.before;
   // Small Change is never suggested, so the "after" graph leaves it out.
   const after = explanation.suggestions;
   const smallChange = explanation.smallChange;
 
-  // Play the transition once on opening; with reduced motion, wait to be asked.
-  useEffect(() => {
-    if (reducedMotion) return;
-    const timer = setTimeout(() => setPhase("after"), 700);
-    return () => clearTimeout(timer);
-  }, [reducedMotion]);
-
-  function play() {
-    setPhase("before");
-    if (reducedMotion) return;
-    // Two frames, so the "before" state paints before animating away from it.
-    requestAnimationFrame(() => requestAnimationFrame(() => setTimeout(() => setPhase("after"), 400)));
+  function show(p: Phase) {
+    cancelPending();
+    setAnnouncement("");
+    setMotion(reducedMotion ? "instant" : "toggle");
+    setPhase(p);
   }
 
-  // Members on a ring: everyone with a debt either side, in Group order.
+  // Plays Before → After only when asked, once the graph is on screen to see it.
+  function simplify() {
+    cancelPending();
+    const finish = () => {
+      setAnnouncement(`Simplified. Showing After: ${pluralize(after.length, "Suggested Settlement")}.`);
+      setPlayed(true);
+    };
+    // Cleared first, so the same words are read out again on the next run.
+    setAnnouncement("");
+    if (reducedMotion) {
+      graph.current?.scrollIntoView({ block: "nearest" });
+      setMotion("instant");
+      setPhase("after");
+      // A frame later, so the cleared status renders before the words come back.
+      nextFrame(finish);
+      return;
+    }
+    // Clear the graph at once, then draw Before, hold, and move on to After.
+    setMotion("instant");
+    setPhase("none");
+    whenGraphInView(() => {
+      // Two frames, so the cleared graph paints before drawing starts.
+      nextFrame(() =>
+        nextFrame(() => {
+          const { toAfterMs, totalMs } = simplifyDurations(before.length, after.length);
+          setMotion("staged");
+          setPhase("before");
+          later(() => setPhase("after"), toAfterMs);
+          later(finish, totalMs);
+        }),
+      );
+    });
+  }
+
+  function whenGraphInView(then: () => void) {
+    const svg = graph.current;
+    if (!svg) return then();
+    const { top, bottom } = svg.getBoundingClientRect();
+    const clearance = parseFloat(getComputedStyle(svg).scrollMarginBottom) || 0;
+    if (top >= 0 && bottom <= window.innerHeight - clearance) return then();
+    let started = false;
+    const start = () => {
+      if (started) return;
+      started = true;
+      then();
+    };
+    let scrolled = false;
+    listen("scroll", () => (scrolled = true));
+    listen("scrollend", start);
+    later(start, SIMPLIFY_TIMING.scrollWaitMs);
+    svg.scrollIntoView({ block: "nearest", behavior: "smooth" });
+    // The browser may find nothing to scroll after all; then no scrollend comes.
+    later(() => {
+      if (!scrolled) start();
+    }, 100);
+  }
+
+  function motionFor(kind: Phase, index: number): EdgeMotion {
+    // After waits for Before to fade; Before starts drawing straight away.
+    const start = kind === "after" ? SIMPLIFY_TIMING.fadeMs : 0;
+    const count = kind === "after" ? after.length : before.length;
+    return { motion, delayMs: start + staggerFor(count) * index };
+  }
+
+  // Everyone with a debt either side, placed by Balance.
   const involved = new Set([...before, ...after, ...smallChange].flatMap((e) => [e.fromId, e.toId]));
-  const nodes = group.members.filter((m) => involved.has(m.id));
-  const position = new Map(
-    nodes.map((m, i) => {
-      const angle = (2 * Math.PI * i) / nodes.length - Math.PI / 2;
-      return [m.id, { x: CENTER + RING * Math.cos(angle), y: CENTER + RING * Math.sin(angle) }];
-    }),
-  );
+  const balances = new Map(computeLedger(group).balances.map((b) => [b.memberId, b.amount]));
+  const layout = layoutDebtGraph({
+    members: group.members.filter((m) => involved.has(m.id)),
+    balanceOf: (id) => balances.get(id) ?? 0,
+    before,
+    after,
+    label: (edge) => money(edge.amount),
+    scale,
+  });
+  const memberOf = new Map(group.members.map((m) => [m.id, m]));
   const nameOf = (id: string) => group.members.find((m) => m.id === id)?.name ?? "Unknown member";
   const saved = before.length - after.length;
+  // E.g. every Expense paid by one Member: the debts are the Suggested Settlements already.
+  const edgeKeys = (edges: DebtEdge[]) => edges.map((e) => `${e.fromId}-${e.toId}-${e.amount}`).sort().join();
+  const alreadySimplest = edgeKeys(before) === edgeKeys(after);
+  // Nothing to compare then: one graph of the Suggested Settlements.
+  const shown: GraphPhase = alreadySimplest ? "after" : phase;
 
   return (
     <div className="flex flex-col gap-4 rounded-lg border border-border bg-surface p-4">
       <p id={summaryId}>
-        Before Debt Simplification, the Group&apos;s debts take{" "}
-        <strong>{pluralize(before.length, "payment")}</strong> between the people who shared
-        Expenses. Using only Balances, <strong>{pluralize(after.length, "Suggested Settlement")}</strong>{" "}
-        {after.length === 1 ? "settles" : "settle"} everyone up
-        {saved > 0 ? `, ${saved} fewer than before` : ""}
-        {smallChange.length > 0 ? ", apart from Small Change" : ""}.
+        Before Debt Simplification, the people who shared Expenses owe each other in{" "}
+        <strong>{pluralize(before.length, "debt")}</strong>.{" "}
+        {alreadySimplest ? (
+          <>
+            These are already in their simplest form: each one is a Suggested Settlement as it
+            stands, so there is nothing to simplify.
+          </>
+        ) : (
+          <>
+            Using only Balances, <strong>{pluralize(after.length, "Suggested Settlement")}</strong>{" "}
+            {after.length === 1 ? "settles" : "settle"} everyone up
+            {smallChange.length > 0 ? " apart from Small Change" : ""}
+            {saved > 0 ? `, ${saved} fewer than before` : ""}. Every Balance is the same either way.
+          </>
+        )}
       </p>
 
-      <div className="flex flex-wrap items-center gap-2" role="group" aria-label="Show the graph">
-        {(["before", "after"] as const).map((p) => (
-          <Button
-            key={p}
-            variant={phase === p ? "default" : "outline"}
-            aria-pressed={phase === p}
-            onClick={() => setPhase(p)}
-          >
-            {p === "before" ? "Before" : "After"}
+      {!alreadySimplest && (
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="flex flex-wrap gap-2" role="group" aria-label="Show the graph">
+            {(["before", "after"] as const).map((p) => (
+              <button
+                key={p}
+                type="button"
+                className={toggleClass}
+                aria-pressed={phase === p}
+                onClick={() => show(p)}
+              >
+                {p === "before" ? "Before" : "After"}
+              </button>
+            ))}
+          </div>
+          <Button onClick={simplify}>
+            <Play aria-hidden /> {played ? "Replay" : "Simplify"}
           </Button>
-        ))}
-        <Button variant="ghost" onClick={play}>
-          <Play aria-hidden /> Replay
-        </Button>
-      </div>
+        </div>
+      )}
 
       <svg
+        ref={graph}
         viewBox={`0 0 ${SIZE} ${SIZE}`}
         role="img"
         aria-labelledby={summaryId}
-        className="mx-auto w-full max-w-sm [--graph-duration:calc(var(--duration-slow)*3)]"
+        // scroll-mb clears the fixed Add Expense bar when Simplify scrolls the graph into view.
+        className="mx-auto w-full max-w-sm scroll-mb-24"
       >
         <defs>
-          <Arrowhead id={`${summaryId}-before`} color="var(--color-text-secondary)" />
-          <Arrowhead id={`${summaryId}-after`} color="var(--color-accent)" />
+          <Arrowhead id={`${summaryId}-before`} color={BEFORE_INK} />
+          <Arrowhead id={`${summaryId}-after`} color={AFTER_INK} />
         </defs>
-        {before.map((edge) => (
+        {!alreadySimplest &&
+          layout.before.map((edge, i) => (
+            <Edge
+              motion={motionFor("before", i)}
+              maskId={`${summaryId}-mask-before-${i}`}
+              key={`before-${edge.edge.fromId}-${edge.edge.toId}`}
+              layout={edge}
+              label={money(edge.edge.amount)}
+              fontSize={layout.fontSize.label}
+              color={BEFORE_INK}
+              marker={`${summaryId}-before`}
+              shown={shown === "before"}
+              dashed
+            />
+          ))}
+        {layout.after.map((edge, i) => (
           <Edge
-            key={`before-${edge.fromId}-${edge.toId}`}
-            edge={edge}
-            from={position.get(edge.fromId)!}
-            to={position.get(edge.toId)!}
-            label={money(edge.amount)}
-            color="var(--color-text-secondary)"
-            marker={`${summaryId}-before`}
-            shown={phase === "before"}
-            dashed
-          />
-        ))}
-        {after.map((edge) => (
-          <Edge
-            key={`after-${edge.fromId}-${edge.toId}`}
-            edge={edge}
-            from={position.get(edge.fromId)!}
-            to={position.get(edge.toId)!}
-            label={money(edge.amount)}
-            color="var(--color-accent)"
+            motion={motionFor("after", i)}
+            maskId={`${summaryId}-mask-after-${i}`}
+            key={`after-${edge.edge.fromId}-${edge.edge.toId}`}
+            layout={edge}
+            label={money(edge.edge.amount)}
+            fontSize={layout.fontSize.label}
+            color={AFTER_INK}
             marker={`${summaryId}-after`}
-            shown={phase === "after"}
+            shown={shown === "after"}
           />
         ))}
-        {nodes.map((m) => {
-          const { x, y } = position.get(m.id)!;
-          const outward = { x: (x - CENTER) / RING, y: (y - CENTER) / RING };
+        {layout.nodes.map((node) => {
+          const fill = avatarFill(memberOf.get(node.id)!.avatarColor);
           return (
-            <g key={m.id}>
-              <circle cx={x} cy={y} r={NODE} fill={m.avatarColor} />
+            <g key={node.id}>
+              <circle cx={node.x} cy={node.y} r={NODE} fill={fill} />
               <text
-                x={x}
-                y={y}
+                x={node.x}
+                y={node.y}
                 textAnchor="middle"
                 dominantBaseline="central"
-                fontSize={13}
+                fontSize={layout.fontSize.initials}
                 fontWeight={700}
-                fill={textColourOn(m.avatarColor)}
+                fill={textColourOn(fill)}
               >
-                {initials(m.name)}
+                {initials(memberOf.get(node.id)!.name)}
               </text>
               <text
-                x={x + outward.x * (NODE + 14)}
-                y={y + outward.y * (NODE + 14)}
-                textAnchor={Math.abs(outward.x) < 0.3 ? "middle" : outward.x > 0 ? "start" : "end"}
+                x={node.nameAt.x}
+                y={node.nameAt.y}
+                textAnchor={node.nameAnchor}
                 dominantBaseline="central"
-                fontSize={13}
+                fontSize={layout.fontSize.name}
                 fontWeight={600}
                 fill="var(--color-text-primary)"
               >
-                {m.name.split(/\s+/)[0]}
+                {node.name}
               </text>
             </g>
           );
         })}
       </svg>
+      <p role="status" className="sr-only">
+        {announcement}
+      </p>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+      {alreadySimplest ? (
         <PaymentList
-          title={`Before: ${pluralize(before.length, "payment")}`}
-          current={phase === "before"}
-          edges={before}
-          nameOf={nameOf}
-          money={money}
-        />
-        <PaymentList
-          title={`After: ${pluralize(after.length, "payment")}`}
-          note={smallChange.length > 0 ? "Plus Small Change, which is never suggested." : undefined}
-          current={phase === "after"}
+          title={pluralize(after.length, "Suggested Settlement")}
+          verb="pays"
+          current={false}
           edges={after}
           nameOf={nameOf}
           money={money}
         />
-      </div>
+      ) : (
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <PaymentList
+            title={`Before: ${pluralize(before.length, "debt")}`}
+            verb="owes"
+            current={phase === "before"}
+            edges={before}
+            nameOf={nameOf}
+            money={money}
+          />
+          <PaymentList
+            title={`After: ${pluralize(after.length, "Suggested Settlement")}`}
+            verb="pays"
+            note={smallChange.length > 0 ? "Plus Small Change, which is never suggested." : undefined}
+            current={phase === "after"}
+            edges={after}
+            nameOf={nameOf}
+            money={money}
+          />
+        </div>
+      )}
     </div>
   );
 }
@@ -189,71 +350,108 @@ function Arrowhead({ id, color }: { id: string; color: string }) {
 }
 
 /**
- * One debt as an arrow from payer to recipient. Hidden arrows fade out;
- * shown ones draw themselves in, over `--graph-duration` (zero under
- * reduced motion).
+ * One debt as an arrow from payer to recipient. A mask along the path
+ * reveals it, dashes and arrowhead included, so an arrow can draw itself
+ * from payer to recipient; its amount appears as it lands. Hidden arrows
+ * fade out, then reset to undrawn.
  */
 function Edge({
-  edge,
-  from,
-  to,
+  motion: { motion, delayMs },
+  maskId,
+  layout,
   label,
+  fontSize,
   color,
   marker,
   shown,
   dashed = false,
 }: {
-  edge: DebtEdge;
-  from: { x: number; y: number };
-  to: { x: number; y: number };
+  motion: EdgeMotion;
+  maskId: string;
+  layout: EdgeLayout;
   label: string;
+  fontSize: number;
   color: string;
   marker: string;
   shown: boolean;
   dashed?: boolean;
 }) {
-  const dx = to.x - from.x;
-  const dy = to.y - from.y;
-  const distance = Math.hypot(dx, dy);
-  const ux = dx / distance;
-  const uy = dy / distance;
-  const start = { x: from.x + ux * (NODE + 3), y: from.y + uy * (NODE + 3) };
-  const end = { x: to.x - ux * (NODE + 6), y: to.y - uy * (NODE + 6) };
-  const length = Math.hypot(end.x - start.x, end.y - start.y);
-  // Labels sit beside the line, on the payer's right, so opposite debts don't collide.
-  const labelAt = { x: (start.x + end.x) / 2 - uy * 12, y: (start.y + end.y) / 2 + ux * 12 };
-  const transition =
-    "opacity var(--graph-duration) var(--ease-standard), stroke-dashoffset var(--graph-duration) var(--ease-standard)";
+  const { edge, path, length, labelBox } = layout;
+  const { drawMs, fadeMs, labelMs, fadeEase, drawEase } = SIMPLIFY_TIMING;
+  const transitions = {
+    instant: { group: "none", draw: "none", label: "none" },
+    // A plain crossfade: arrows arrive whole.
+    toggle: shown
+      ? { group: `opacity ${fadeMs}ms ${fadeEase}`, draw: "none", label: "none" }
+      : {
+          group: `opacity ${fadeMs}ms ${fadeEase}`,
+          draw: `stroke-dashoffset 0s linear ${fadeMs}ms`,
+          label: `opacity 0s linear ${fadeMs}ms`,
+        },
+    staged: shown
+      ? {
+          group: "none",
+          draw: `stroke-dashoffset ${drawMs}ms ${drawEase} ${delayMs}ms`,
+          label: `opacity ${labelMs}ms ${fadeEase} ${delayMs + drawMs * 0.8}ms`,
+        }
+      : {
+          group: `opacity ${fadeMs}ms ${fadeEase}`,
+          draw: `stroke-dashoffset 0s linear ${fadeMs}ms`,
+          label: `opacity 0s linear ${fadeMs}ms`,
+        },
+  }[motion];
 
   return (
-    <g data-edge={`${edge.fromId}-${edge.toId}`} style={{ opacity: shown ? 1 : 0, transition }}>
-      <line
-        x1={start.x}
-        y1={start.y}
-        x2={end.x}
-        y2={end.y}
+    <g
+      data-edge={`${edge.fromId}-${edge.toId}`}
+      data-side={dashed ? "before" : "after"}
+      style={{ opacity: shown ? 1 : 0, transition: transitions.group }}
+    >
+      <mask id={maskId} maskUnits="userSpaceOnUse" x={0} y={0} width={SIZE} height={SIZE}>
+        {/* Wide enough to uncover the arrowhead; the round cap runs just ahead of the line. */}
+        <path
+          d={path}
+          fill="none"
+          stroke="white"
+          strokeWidth={24}
+          strokeLinecap="round"
+          strokeDasharray={length + 24}
+          strokeDashoffset={shown ? 0 : length + 24}
+          style={{ transition: transitions.draw }}
+        />
+      </mask>
+      <path
+        d={path}
+        fill="none"
         stroke={color}
         strokeWidth={dashed ? 1.5 : 2.5}
         markerEnd={`url(#${marker})`}
-        strokeDasharray={dashed ? "5 4" : length}
-        strokeDashoffset={dashed || shown ? 0 : length}
-        style={{ transition }}
+        strokeDasharray={dashed ? "5 4" : undefined}
+        mask={`url(#${maskId})`}
       />
-      <text
-        x={labelAt.x}
-        y={labelAt.y}
-        textAnchor="middle"
-        dominantBaseline="central"
-        fontSize={11}
-        fontWeight={600}
-        fill={color}
-        stroke="var(--color-surface)"
-        strokeWidth={4}
-        paintOrder="stroke"
-        className="font-mono"
-      >
-        {label}
-      </text>
+      {/* On the arrow itself, over a patch of sheet, so each amount reads as its own arrow's. */}
+      <g style={{ opacity: shown ? 1 : 0, transition: transitions.label }}>
+        <rect
+          x={labelBox.cx - labelBox.w / 2}
+          y={labelBox.cy - labelBox.h / 2}
+          width={labelBox.w}
+          height={labelBox.h}
+          rx={3}
+          fill="var(--color-surface)"
+        />
+        <text
+          x={labelBox.cx}
+          y={labelBox.cy}
+          textAnchor="middle"
+          dominantBaseline="central"
+          fontSize={fontSize}
+          fontWeight={600}
+          fill={color}
+          className="font-mono"
+        >
+          {label}
+        </text>
+      </g>
     </g>
   );
 }
@@ -262,11 +460,14 @@ function PaymentList({
   title,
   current,
   edges,
+  verb,
   nameOf,
   money,
   note,
 }: {
   title: string;
+  /** "owes" for debts, "pays" for Suggested Settlements. */
+  verb: "owes" | "pays";
   /** A line under the list, e.g. about Small Change. */
   note?: string;
   current: boolean;
@@ -275,15 +476,13 @@ function PaymentList({
   money: (amount: number) => string;
 }) {
   return (
-    <div className={cn("rounded-md border p-3", current ? "border-accent" : "border-border")}>
-      <h4 className="text-sm font-semibold">
-        {title}
-        {current && <span className="font-normal text-text-secondary"> · shown in the graph</span>}
-      </h4>
+    // The pressed Before/After chip shows which list the graph draws.
+    <div aria-current={current || undefined}>
+      <h4 className="text-sm font-semibold">{title}</h4>
       <ul className="mt-2 flex flex-col gap-1 text-sm">
         {edges.map((e) => (
           <li key={`${e.fromId}-${e.toId}`}>
-            {nameOf(e.fromId)} pays {nameOf(e.toId)} <span className="amount">{money(e.amount)}</span>
+            {nameOf(e.fromId)} {verb} {nameOf(e.toId)} <span className="amount">{money(e.amount)}</span>
           </li>
         ))}
       </ul>
