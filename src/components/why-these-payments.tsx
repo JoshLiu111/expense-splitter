@@ -3,11 +3,10 @@
 import { useId, useRef, useState } from "react";
 import { Sparkles } from "lucide-react";
 import { formatMoney, type DebtEdge, type GroupSnapshot, type SettlementExplanation } from "@/domain";
-import { initials, textColourOn } from "@/components/member-avatar";
+import { avatarFill, initials, textColourOn } from "@/components/member-avatar";
 import { Button } from "@/components/ui/button";
 import { useMediaQuery } from "@/components/use-media-query";
 import { pluralize } from "@/lib/format";
-import { cn } from "@/lib/utils";
 
 type Phase = "before" | "after";
 
@@ -15,6 +14,13 @@ const SIZE = 400;
 const CENTER = SIZE / 2;
 const RING = 120;
 const NODE = 22;
+/** After's arrows: neutral ink, since cobalt is only for what can be acted on. */
+const AFTER_INK = "var(--color-text-primary)";
+const BEFORE_INK = "var(--color-text-secondary)";
+
+/** A selectable pill, as in the Expense form's chips. */
+const toggleClass =
+  "inline-flex min-h-11 cursor-pointer items-center rounded-full border border-border-input bg-surface px-4 text-sm font-semibold transition-colors duration-(--duration-fast) hover:bg-bg-tertiary aria-pressed:border-accent aria-pressed:bg-accent-subtle focus-visible:ring-[3px] focus-visible:ring-ring focus-visible:outline-none";
 
 /**
  * "Why these payments?": the Group's debts before Debt Simplification (who
@@ -92,17 +98,18 @@ export default function WhyThesePayments({
         <div className="flex flex-wrap items-center gap-2">
           <div className="flex flex-wrap gap-2" role="group" aria-label="Show the graph">
             {(["before", "after"] as const).map((p) => (
-              <Button
+              <button
                 key={p}
-                variant={phase === p ? "default" : "outline"}
+                type="button"
+                className={toggleClass}
                 aria-pressed={phase === p}
                 onClick={() => setPhase(p)}
               >
                 {p === "before" ? "Before" : "After"}
-              </Button>
+              </button>
             ))}
           </div>
-          <Button variant="ghost" onClick={simplify}>
+          <Button onClick={simplify}>
             <Sparkles aria-hidden /> Simplify
           </Button>
         </div>
@@ -116,8 +123,8 @@ export default function WhyThesePayments({
         className="mx-auto w-full max-w-sm [--graph-duration:calc(var(--duration-slow)*3)]"
       >
         <defs>
-          <Arrowhead id={`${summaryId}-before`} color="var(--color-text-secondary)" />
-          <Arrowhead id={`${summaryId}-after`} color="var(--color-accent)" />
+          <Arrowhead id={`${summaryId}-before`} color={BEFORE_INK} />
+          <Arrowhead id={`${summaryId}-after`} color={AFTER_INK} />
         </defs>
         {!alreadySimplest &&
           before.map((edge) => (
@@ -127,7 +134,7 @@ export default function WhyThesePayments({
               from={position.get(edge.fromId)!}
               to={position.get(edge.toId)!}
               label={money(edge.amount)}
-              color="var(--color-text-secondary)"
+              color={BEFORE_INK}
               marker={`${summaryId}-before`}
               shown={shown === "before"}
               dashed
@@ -140,17 +147,18 @@ export default function WhyThesePayments({
             from={position.get(edge.fromId)!}
             to={position.get(edge.toId)!}
             label={money(edge.amount)}
-            color="var(--color-accent)"
+            color={AFTER_INK}
             marker={`${summaryId}-after`}
             shown={shown === "after"}
           />
         ))}
         {nodes.map((m) => {
           const { x, y } = position.get(m.id)!;
+          const fill = avatarFill(m.avatarColor);
           const outward = { x: (x - CENTER) / RING, y: (y - CENTER) / RING };
           return (
             <g key={m.id}>
-              <circle cx={x} cy={y} r={NODE} fill={m.avatarColor} />
+              <circle cx={x} cy={y} r={NODE} fill={fill} />
               <text
                 x={x}
                 y={y}
@@ -158,7 +166,7 @@ export default function WhyThesePayments({
                 dominantBaseline="central"
                 fontSize={13}
                 fontWeight={700}
-                fill={textColourOn(m.avatarColor)}
+                fill={textColourOn(fill)}
               >
                 {initials(m.name)}
               </text>
@@ -310,7 +318,7 @@ function PaymentList({
   money: (amount: number) => string;
 }) {
   return (
-    <div className={cn("rounded-md border p-3", current ? "border-accent" : "border-border")}>
+    <div>
       <h4 className="text-sm font-semibold">
         {title}
         {current && <span className="font-normal text-text-secondary"> · shown in the graph</span>}
