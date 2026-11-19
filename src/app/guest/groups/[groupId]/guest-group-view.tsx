@@ -1,11 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useSearchParams } from "next/navigation";
 import type { ReactNode } from "react";
 import type { GroupSnapshot } from "@/domain";
 import { addCategory, deleteCategory, renameCategory } from "@/categories/manage-categories";
 import { GroupDetail } from "@/components/group-detail";
+import { GroupPagePrototype } from "@/components/group-page-prototype/group-page-prototype";
 import { GroupSettingsView } from "@/components/group-settings-view";
 import { deleteExpense, saveExpense } from "@/expenses/save-expense";
 import { addMember, deleteGroup, removeMember, updateGroupDetails } from "@/groups/manage-group";
@@ -46,9 +47,11 @@ function GuestGroup({ children }: { children: (group: GroupSnapshot) => ReactNod
 }
 
 export function GuestGroupView() {
+  // PROTOTYPE (JoshLiu111/issue-track#19): ?variant= swaps in a Group page direction.
+  const prototype = useSearchParams().has("variant");
   return (
     <GuestGroup>
-      {(group) => (
+      {(group) => prototype ? <GroupPagePrototype seed={group} /> : (
         <GroupDetail
           group={group}
           backHref="/guest"
