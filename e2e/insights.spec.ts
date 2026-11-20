@@ -315,26 +315,30 @@ test.describe("with reduced motion", () => {
           "aria-pressed",
           "true",
         );
-        const labels = await settleUp(page)
-          .locator("svg[role=img] [data-edge]")
-          .evaluateAll((edges) =>
-            edges
-              .filter((edge) => (edge as SVGGElement).style.opacity === "1")
-              .map((edge) => {
-                const text = edge.querySelector("text")!;
-                const { left, right, top, bottom } = text.getBoundingClientRect();
-                const px = text.getScreenCTM()!.a * Number(text.getAttribute("font-size"));
-                return { left, right, top, bottom, px };
-              }),
-          );
-        expect(labels.length, `${id} ${phase}`).toBeGreaterThan(0);
-        labels.forEach((a, i) => {
-          expect(a.px, `${id} ${phase} font size`).toBeGreaterThanOrEqual(11);
-          for (const b of labels.slice(i + 1)) {
-            const apart = a.right <= b.left || b.right <= a.left || a.bottom <= b.top || b.bottom <= a.top;
-            expect(apart, `${id} ${phase} labels overlap`).toBe(true);
-          }
-        });
+        // A ResizeObserver rescales the graph after it first renders, so measure until the rescale lands.
+        // The time limit keeps a real failure quick and naming its Group and phase.
+        await expect(async () => {
+          const labels = await settleUp(page)
+            .locator("svg[role=img] [data-edge]")
+            .evaluateAll((edges) =>
+              edges
+                .filter((edge) => (edge as SVGGElement).style.opacity === "1")
+                .map((edge) => {
+                  const text = edge.querySelector("text")!;
+                  const { left, right, top, bottom } = text.getBoundingClientRect();
+                  const px = text.getScreenCTM()!.a * Number(text.getAttribute("font-size"));
+                  return { left, right, top, bottom, px };
+                }),
+            );
+          expect(labels.length, `${id} ${phase}`).toBeGreaterThan(0);
+          labels.forEach((a, i) => {
+            expect(a.px, `${id} ${phase} font size`).toBeGreaterThanOrEqual(11);
+            for (const b of labels.slice(i + 1)) {
+              const apart = a.right <= b.left || b.right <= a.left || a.bottom <= b.top || b.bottom <= a.top;
+              expect(apart, `${id} ${phase} labels overlap`).toBe(true);
+            }
+          });
+        }).toPass({ timeout: 5_000 });
       }
     }
   });
