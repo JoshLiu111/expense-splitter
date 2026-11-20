@@ -16,6 +16,7 @@ import {
   parseAmount,
   currentMembers,
   selectableMembers,
+  SPLIT_TYPE_LABELS,
   type Expense,
   type GroupSnapshot,
   type CurrencyCode,
@@ -94,12 +95,9 @@ function initialSplitValues(group: GroupSnapshot, expense: Expense | null): Spli
   return values;
 }
 
-const SPLIT_TYPE_OPTIONS: { value: SplitType; label: string }[] = [
-  { value: "equal", label: "Equal" },
-  { value: "exact", label: "Exact" },
-  { value: "percentage", label: "Percentage" },
-  { value: "shares", label: "Shares" },
-];
+const SPLIT_TYPE_OPTIONS = (Object.entries(SPLIT_TYPE_LABELS) as [SplitType, string][]).map(
+  ([value, label]) => ({ value, label }),
+);
 
 const SPLIT_VALUE_LEGENDS: Record<AdvancedSplitType, string> = {
   exact: "Amount each Member owes",

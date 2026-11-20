@@ -1,3 +1,4 @@
+import { oldestFirst } from "./chronology";
 import { computeLedger, inGroupCurrency } from "./ledger";
 import type { SuggestedSettlement } from "./settle-up";
 import type { CalendarDate, GroupSnapshot, MinorUnits } from "./types";
@@ -150,10 +151,6 @@ function debtsByMember(group: GroupSnapshot): Map<string, { items: DebtItem[]; c
 
   for (const { items } of result.values()) items.sort(oldestFirst);
   return result;
-}
-
-function oldestFirst(a: DebtItem, b: DebtItem): number {
-  return a.date.localeCompare(b.date) || a.createdAt.localeCompare(b.createdAt);
 }
 
 function largestFirst(items: DebtItem[]): DebtItem[] {

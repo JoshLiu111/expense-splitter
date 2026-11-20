@@ -8,11 +8,16 @@ import { groupDeletionBlock, type GroupSnapshot } from "@/domain";
 import type { CategoryManagement } from "@/categories/manage-categories";
 import type { GroupManagement } from "@/groups/manage-group";
 import { CategoriesSection } from "@/components/categories-section";
-import { DeleteGroupSection, GroupDetailsSection, MembersSection } from "@/components/group-settings";
+import {
+  DeleteGroupSection,
+  ExportSection,
+  GroupDetailsSection,
+  MembersSection,
+} from "@/components/group-settings";
 
 /**
  * Everything a Member changes rarely: the Group's details, its Categories,
- * its Members, and deleting it. Reached from the Group page.
+ * its Members, exporting it as CSV, and deleting it. Reached from the Group page.
  */
 export function GroupSettingsView({
   group,
@@ -68,6 +73,8 @@ export function GroupSettingsView({
         onRemove={manage.removeMember}
         onNews={setNews}
       />
+
+      <ExportSection group={group} />
 
       <DeleteGroupSection
         group={group}

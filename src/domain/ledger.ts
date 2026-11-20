@@ -1,3 +1,4 @@
+import { oldestFirst, type Recorded } from "./chronology";
 import { convert, CURRENCY_CODES, exponentOf } from "./currency";
 import { simplifyDebts, type SuggestedSettlement } from "./settle-up";
 import type {
@@ -90,7 +91,7 @@ export function computeLedger(group: GroupSnapshot): Ledger {
   const add = (memberId: string, delta: MinorUnits) =>
     totals.set(memberId, (totals.get(memberId) ?? 0) + delta);
 
-  const entries: { entry: TimelineEntry; createdAt: string }[] = [];
+  const entries: { entry: TimelineEntry; recorded: Recorded }[] = [];
   let totalSpent = 0;
   const subtotals = new Map<CurrencyCode, CurrencySubtotal>();
 
@@ -112,7 +113,7 @@ export function computeLedger(group: GroupSnapshot): Ledger {
     subtotal.groupAmount += groupAmount;
     subtotals.set(expense.currency, subtotal);
     entries.push({
-      createdAt: expense.createdAt,
+      recorded: expense,
       entry: {
         kind: "expense",
         id: expense.id,
@@ -128,7 +129,7 @@ export function computeLedger(group: GroupSnapshot): Ledger {
     add(settlement.fromId, settlement.amount);
     add(settlement.toId, -settlement.amount);
     entries.push({
-      createdAt: settlement.createdAt,
+      recorded: settlement,
       entry: {
         kind: "settlement",
         id: settlement.id,
@@ -138,10 +139,8 @@ export function computeLedger(group: GroupSnapshot): Ledger {
     });
   }
 
-  entries.sort(
-    (x, y) =>
-      compare(y.entry.date, x.entry.date) || compare(y.createdAt, x.createdAt),
-  );
+  // Newest first.
+  entries.sort((x, y) => oldestFirst(y.recorded, x.recorded));
 
   const balances = group.members.map((m) => ({
     memberId: m.id,
@@ -187,8 +186,4 @@ export function inGroupCurrency(
     groupAmount: convert(share.amount, expense.currency, groupCurrency, expense.lockedRate),
   }));
   return { lines, groupAmount: lines.reduce((sum, line) => sum + line.groupAmount, 0) };
-}
-
-function compare(a: string, b: string): number {
-  return a < b ? -1 : a > b ? 1 : 0;
 }

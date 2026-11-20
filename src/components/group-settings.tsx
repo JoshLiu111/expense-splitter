@@ -2,11 +2,13 @@
 
 import { useId, useRef, useState, useTransition, type FormEvent, type RefObject } from "react";
 import { AlertDialog, Dialog } from "radix-ui";
-import { Mail, Trash2, UserPlus, X } from "lucide-react";
+import { Download, Mail, Trash2, UserPlus, X } from "lucide-react";
 import {
   CURRENCY_CODES,
   currencyLock,
   currentMembers,
+  groupCsv,
+  groupCsvFileName,
   MAX_GROUP_DESCRIPTION_LENGTH,
   MAX_GROUP_NAME_LENGTH,
   MAX_MEMBER_NAME_LENGTH,
@@ -496,6 +498,39 @@ function MemberEmailDialog({
         </Dialog.Content>
       </Dialog.Portal>
     </Dialog.Root>
+  );
+}
+
+/**
+ * Download the Group's Expenses and Settlements as a CSV file named after
+ * it. Built in the browser from the Group already shown, for Guests and
+ * signed-in Users alike.
+ */
+export function ExportSection({ group }: { group: GroupSnapshot }) {
+  function download() {
+    const blob = new Blob([groupCsv(group)], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = groupCsvFileName(group);
+    link.click();
+    // Let the download start before the URL goes.
+    setTimeout(() => URL.revokeObjectURL(url));
+  }
+
+  return (
+    <section aria-labelledby="export-heading">
+      <h2 id="export-heading" className="text-lg font-bold">
+        Export
+      </h2>
+      <p className="mt-1 text-sm text-text-secondary">
+        Every Expense and Settlement, with each Member&apos;s Share in {group.currency}, for a
+        spreadsheet.
+      </p>
+      <Button variant="outline" onClick={download} className="mt-3">
+        <Download aria-hidden /> Export CSV
+      </Button>
+    </section>
   );
 }
 
