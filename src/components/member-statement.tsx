@@ -5,6 +5,7 @@ import { ArrowDownLeft, ArrowUpRight, Check, X } from "lucide-react";
 import {
   FORMER_MEMBER_SUFFIX,
   formatMoney,
+  memberLabel,
   memberStatement,
   type GroupSnapshot,
   type Member,
@@ -110,7 +111,7 @@ function StatementBody({
 
       <dl className="border-t border-border pt-3 text-sm">
         <TotalRow label="Paid" amount={totals.paid} currency={currency} />
-        <TotalRow label="Shares" amount={-totals.shares} currency={currency} />
+        <TotalRow label="Share of Expenses" amount={-totals.shares} currency={currency} />
         {totals.settlementsMade > 0 && (
           <TotalRow label="Settlements made" amount={totals.settlementsMade} currency={currency} />
         )}
@@ -118,7 +119,7 @@ function StatementBody({
           <TotalRow label="Settlements received" amount={-totals.settlementsReceived} currency={currency} />
         )}
       </dl>
-      <BalanceTotal name={member.name} amount={balance} currency={currency} wide={wide} />
+      <BalanceTotal name={memberLabel(member)} amount={balance} currency={currency} wide={wide} />
     </>
   );
 }
@@ -159,7 +160,7 @@ function StatementRow({
   }
 
   const { expense } = line;
-  const foreign = expense.currency !== currency;
+  const otherCurrency = expense.currency !== currency;
   const isPayer = expense.payerId === memberId;
   return (
     <li data-testid={`statement-line-${line.id}`} className="flex items-center gap-3 py-2.5">
@@ -169,7 +170,7 @@ function StatementRow({
           {date} · Paid <span className="amount text-text-primary">{formatMoney(line.paid, currency)}</span> · Share{" "}
           <span className="amount text-text-primary">{formatMoney(line.share, currency)}</span>
         </p>
-        {foreign && (
+        {otherCurrency && (
           <p className="text-xs text-text-secondary">
             <span className="sr-only">In {expense.currency}: </span>
             {isPayer && (

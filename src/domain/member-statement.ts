@@ -10,7 +10,7 @@ export type StatementLine =
       expense: Expense;
       /** What the Member paid, in the Group Currency: the Expense's rounded lines if they were the Payer, else 0. */
       paid: MinorUnits;
-      /** Their Share converted at the Locked Rate and rounded on its own line (ADR 0001); 0 if they had none. */
+      /** Their Share converted at the Locked Rate and rounded on its own line (ADR 0001); 0 if they had none or it rounds to zero. */
       share: MinorUnits;
       /** Their Share in the Expense Currency. */
       expenseShare: MinorUnits;
@@ -60,9 +60,11 @@ export function memberStatement(group: GroupSnapshot, memberId: string): MemberS
   for (const expense of group.expenses) {
     const converted = inGroupCurrency(expense, group.currency);
     const own = converted.lines.find((l) => l.memberId === memberId);
-    const paid = expense.payerId === memberId ? converted.groupAmount : 0;
+    const isPayer = expense.payerId === memberId;
+    // A Share counts even when it rounds to zero in the Group Currency.
+    if (!isPayer && !own?.amount) continue;
+    const paid = isPayer ? converted.groupAmount : 0;
     const share = own?.groupAmount ?? 0;
-    if (paid === 0 && share === 0 && expense.payerId !== memberId) continue;
     lines.push({
       createdAt: expense.createdAt,
       line: {

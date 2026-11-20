@@ -75,7 +75,7 @@ describe("Member Statement: Expense lines", () => {
     },
   ]);
 
-  it("shows a foreign-currency Share in the Group Currency at the Locked Rate, with the Expense Currency amount", () => {
+  it("shows a Share in another Expense Currency in the Group Currency at the Locked Rate, with the Expense Currency amount", () => {
     expect(memberStatement(yen, "b").lines).toMatchObject([
       { kind: "expense", paid: 0, share: 812, expenseShare: 1212, net: -812 },
     ]);
@@ -95,6 +95,25 @@ describe("Member Statement: Expense lines", () => {
     ]);
     expect(memberStatement(group, "a").lines).toMatchObject([
       { kind: "expense", paid: 9, share: 3, expenseShare: 5, net: 6 },
+    ]);
+  });
+
+  it("keeps a Share that rounds to zero in the Group Currency, with its Expense Currency amount", () => {
+    // ¥1 × 0.004 = $0.004 → $0.00.
+    const group = usdGroup([
+      {
+        amount: 101,
+        currency: "JPY",
+        lockedRate: "0.004",
+        payerId: "a",
+        shares: [
+          { memberId: "a", amount: 100 },
+          { memberId: "b", amount: 1 },
+        ],
+      },
+    ]);
+    expect(memberStatement(group, "b").lines).toMatchObject([
+      { kind: "expense", paid: 0, share: 0, expenseShare: 1, net: 0 },
     ]);
   });
 

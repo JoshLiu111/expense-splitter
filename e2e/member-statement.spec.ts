@@ -17,7 +17,7 @@ test("a Guest opens a Member Statement from Balances with the keyboard, and it t
 
   const statement = page.getByRole("dialog", { name: "Jordan Park" });
   await expect(statement).toBeVisible();
-  // A foreign-currency Expense Jordan paid: paid and Share in USD, the yen amounts as secondary text,
+  // An Expense Jordan paid in yen, not the Group Currency: paid and Share in USD, the yen amounts as secondary text,
   // and the leftover yen of the Equal Split noted.
   const snacks = statement.getByTestId("statement-line-exp_006");
   await expect(snacks).toContainText("Fushimi Inari snacks & drinks");
