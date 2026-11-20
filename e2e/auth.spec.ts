@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { showSection } from "./group-page";
+import { GROUP_PAGE_SECTIONS, showSection } from "./group-page";
 
 /** A fresh email per test so runs never collide in the shared database. */
 function uniqueEmail(): string {
@@ -89,6 +89,9 @@ test("a signed-in User's Expense is saved to their Group", async ({ page }) => {
   await expect(page.getByText("Expense added.")).toBeVisible();
   await expect(page.getByText("1 member, $24.50 across 1 expense")).toBeVisible();
   await page.reload();
+  // My position first, then Expenses and Insights, collapsed.
+  await expect(page.getByRole("heading", { level: 2 })).toHaveText(GROUP_PAGE_SECTIONS);
+  await expect(page.getByRole("heading", { name: "Ramen" })).toHaveCount(0);
   await showSection(page, "Expenses");
   await expect(page.getByRole("heading", { name: "Ramen" })).toBeVisible();
   await expect(page.getByText("1 member, $24.50 across 1 expense")).toBeVisible();

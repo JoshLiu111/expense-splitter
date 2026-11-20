@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { showSection } from "./group-page";
+import { GROUP_PAGE_SECTIONS, hideSection, showSection } from "./group-page";
 import { SIMPLIFY_TIMING, simplifyDurations } from "../src/components/simplify-timing";
 
 /** A visible form field by label (hidden cached pages can share labels). */
@@ -9,8 +9,6 @@ function field(page: Page, label: string) {
 
 const timeline = (page: Page) => page.locator("main article");
 const insights = (page: Page) => page.getByRole("region", { name: "Insights", exact: true });
-const hide = (page: Page, name: "Expenses" | "Insights") =>
-  page.getByRole("button", { name: `Hide ${name}`, exact: true }).click();
 const categories = (page: Page) => page.getByRole("region", { name: "Categories" });
 const settleUp = (page: Page) => page.getByRole("region", { name: "Settle up" });
 
@@ -55,14 +53,14 @@ test("S2: Guest adds a Custom Category, files an Expense under it, renames it, a
 
 test("S2: the Group page puts my position first, with Expenses and Insights collapsed", async ({ page }) => {
   await page.goto("/guest/groups/grp_apt_4b");
-  await expect(page.getByRole("heading", { level: 2 })).toHaveText(["Settle up", "Balances", "Expenses", "Insights"]);
+  await expect(page.getByRole("heading", { level: 2 })).toHaveText(GROUP_PAGE_SECTIONS);
   // Both start collapsed; Add Expense stays one tap away.
   await expect(timeline(page)).toHaveCount(0);
   await expect(page.getByRole("button", { name: /^Filter/ })).toHaveCount(0);
   await expect(insights(page).getByRole("list", { name: "Spending by Category" })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Add Expense", exact: true })).toBeVisible();
 
-  // The toggles are disclosure buttons, like "Why these payments?", and work from the keyboard.
+  // The toggles are Show/Hide disclosure buttons, as Balances has, and work from the keyboard.
   const showExpenses = page.getByRole("button", { name: "Show Expenses", exact: true });
   await expect(showExpenses).toHaveAttribute("aria-expanded", "false");
   await showExpenses.focus();
@@ -71,7 +69,7 @@ test("S2: the Group page puts my position first, with Expenses and Insights coll
   await expect(timeline(page)).toHaveCount(12);
   await showSection(page, "Insights");
   await expect(insights(page)).toContainText("Housing$7,200.0086.0%");
-  await hide(page, "Insights");
+  await hideSection(page, "Insights");
   await expect(insights(page)).not.toContainText("Housing");
 
   // Not remembered: a fresh visit starts collapsed again.
@@ -117,7 +115,7 @@ test("S2: once Expenses are open, its filters narrow Expenses and Insights alike
   await expect(chips.getByRole("button", { name: "Remove filter: Drew Patel" })).toBeFocused();
 
   // Hiding Expenses drops its filters, so Insights never narrows out of sight.
-  await hide(page, "Expenses");
+  await hideSection(page, "Expenses");
   await expect(insights(page)).toContainText("Housing$7,200.0086.0%");
   await showSection(page, "Expenses");
   await expect(filterButton).toHaveText("Filter");

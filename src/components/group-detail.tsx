@@ -26,9 +26,10 @@ import { describeBalance, pluralize } from "@/lib/format";
  * A Group's header (name, Members, total spent), the settle-up hero (Settle
  * up, then Balances), then Expenses and Insights, each collapsed until opened
  * (the dated ledger of Expenses and Settlements, and where the money went,
- * over one shared filter), with Expense entry kept in view. Details, Categories, Members and deletion live in Group
- * settings, linked from the header beside Activity. Balances are recomputed
- * from the Group on every render (ADR 0004).
+ * over one shared filter), with Expense entry kept in view. Details,
+ * Categories, Members and deletion live in Group settings, linked from the
+ * header beside Activity. Balances are recomputed from the Group on every
+ * render (ADR 0004).
  *
  * `readOnly` is for a Former Member whose Balance has reopened (ADR 0006):
  * they see where they stand, Balances, Member Statements and Activity, but

@@ -1,7 +1,7 @@
 "use client";
 
 import { useId, useRef, useState, type ReactNode, type Ref } from "react";
-import { ChevronDown, SlidersHorizontal, X } from "lucide-react";
+import { SlidersHorizontal, X } from "lucide-react";
 import {
   computeInsights,
   isFiltering,
@@ -11,10 +11,10 @@ import {
   type TimelineEntry,
 } from "@/domain";
 import { filterChips } from "@/components/filter-chips";
+import { SectionToggle } from "@/components/section-toggle";
 import { ExpenseFilters, SpendingInsights } from "@/components/spending";
 import { Button } from "@/components/ui/button";
 import { pluralize } from "@/lib/format";
-import { cn } from "@/lib/utils";
 
 /**
  * Expenses, then Insights: two sections below the hero, each collapsed
@@ -105,7 +105,7 @@ export function ExpensesAndInsights({
             )}
             <SectionToggle
               ref={expensesToggle}
-              name="Expenses"
+              section="Expenses"
               open={expensesOpen}
               controls={`${id}-expenses-panel`}
               onToggle={toggleExpenses}
@@ -179,7 +179,7 @@ export function ExpensesAndInsights({
             Insights
           </h2>
           <SectionToggle
-            name="Insights"
+            section="Insights"
             open={insightsOpen}
             controls={`${id}-insights-panel`}
             onToggle={() => setInsightsOpen(!insightsOpen)}
@@ -207,40 +207,5 @@ export function ExpensesAndInsights({
         </div>
       </section>
     </div>
-  );
-}
-
-/** A section's Show/Hide disclosure, named for the section it opens. */
-function SectionToggle({
-  ref,
-  name,
-  open,
-  controls,
-  onToggle,
-  className,
-}: {
-  ref?: Ref<HTMLButtonElement>;
-  name: string;
-  open: boolean;
-  controls: string;
-  onToggle: () => void;
-  className?: string;
-}) {
-  return (
-    <Button
-      ref={ref}
-      variant="quiet"
-      aria-expanded={open}
-      aria-controls={controls}
-      onClick={onToggle}
-      className={className}
-    >
-      {open ? "Hide" : "Show"}
-      <ChevronDown
-        aria-hidden
-        className={cn("transition-transform duration-(--duration-fast)", open && "rotate-180")}
-      />
-      <span className="sr-only"> {name}</span>
-    </Button>
   );
 }
