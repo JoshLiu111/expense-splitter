@@ -19,7 +19,7 @@ A registered account holder who can sign in. One User may be the Linked identity
 _Avoid_: Account, customer
 
 **Linked Member**:
-A Member tied to a User, so that User can see and edit the Group.
+A Member tied to a User, so that User can see and edit the Group. Shown under their User's current name, whatever name they were added by, so a User's new name shows in every Group at once (Former Members who were Linked included).
 
 **Name-only Member**:
 A Member with no User behind it; still splits costs and carries a Balance.

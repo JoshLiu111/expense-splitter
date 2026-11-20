@@ -24,6 +24,11 @@ export function groupRepositoryContract(
   makeRepository: () => Promise<GroupRepository>,
   /** The `actorMemberId` this repository's changes to a Group are recorded under. */
   actorOf: (group: GroupSnapshot) => string | undefined,
+  /**
+   * Renames a User as Account Settings does; absent for a Guest, whose
+   * Groups have no Linked Members.
+   */
+  renameUser?: (userId: string, name: string) => Promise<void>,
 ) {
   it("creates a Group with no Expenses whose only Member is its creator", async () => {
     const repo = await makeRepository();
@@ -217,6 +222,21 @@ export function groupRepositoryContract(
     const after = await repo.getGroup(group.id);
     expect(after?.members).toEqual([group.members[0], { ...chloe, former: true }]);
     expect(after?.expenses).toEqual([past]);
+  });
+
+  it.skipIf(!renameUser)("shows a Linked Member under their User's current name in every Group, recording no Activity", async () => {
+    const repo = await makeRepository();
+    const flat = await repo.createGroup({ name: "Flat", description: "", currency: "USD" });
+    const trip = await repo.createGroup({ name: "Trip", description: "", currency: "EUR" });
+    await repo.addExpense(flat.id, lunch(flat));
+    const activity = await repo.listActivity(flat.id);
+
+    await renameUser!(flat.members[0].userId!, "Maya R.");
+
+    expect((await repo.getGroup(flat.id))?.members[0]).toEqual({ ...flat.members[0], name: "Maya R." });
+    expect((await repo.getGroup(trip.id))?.members[0].name).toBe("Maya R.");
+    expect((await repo.listGroups()).map((g) => g.members[0].name)).toEqual(["Maya R.", "Maya R."]);
+    expect(await repo.listActivity(flat.id)).toEqual(activity);
   });
 
   it("deletes a Group with everything in it", async () => {
