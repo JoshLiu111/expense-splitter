@@ -165,4 +165,11 @@ describe("Compute Insights: spending per Expense Currency", () => {
     expect(spent({ category: "Food & Drink" })).toEqual([{ currency: "JPY", amount: 107850 }]);
     expect(spent({ ...monthRange("2024-04") })).toEqual([]);
   });
+
+  it("leaves only the Group Currency when the filter keeps only Group Currency Expenses", () => {
+    // 15 March: the $236.50 JR Pass, the only Expense that day.
+    expect(computeInsights(japan, { from: "2024-03-15", to: "2024-03-15" }).byCurrency).toEqual([
+      { currency: "USD", amount: 23650, groupAmount: 23650 },
+    ]);
+  });
 });

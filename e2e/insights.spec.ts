@@ -108,6 +108,20 @@ test("Insights lists no per-currency subtotals when every Expense is in the Grou
   await expect(insights(page).getByRole("list", { name: "Spent per currency" })).toHaveCount(0);
 });
 
+test("Insights' per-currency subtotals follow the filters", async ({ page }) => {
+  await page.goto("/guest/groups/grp_japan_2024");
+  await tab(page, "Insights").click();
+  const spent = insights(page).getByRole("list", { name: "Spent per currency" });
+  await expect(spent).toContainText("Spent in JPY: ¥359,860");
+
+  // 15 March has only the JR Pass, paid in dollars.
+  await page.getByRole("button", { name: "Filter" }).click();
+  await field(page, "From date").fill("2024-03-15");
+  await field(page, "To date").fill("2024-03-15");
+  await expect(page.getByText("Showing 1 matching Expense of 13.")).toBeVisible();
+  await expect(spent).toHaveCount(0);
+});
+
 test("S2: charts load with text alternatives", async ({ page }) => {
   await page.goto("/guest/groups/grp_apt_4b");
   await tab(page, "Insights").click();

@@ -185,7 +185,7 @@ describe("Group Currency Expenses", () => {
   });
 });
 
-describe("Compute Insights: spending per Expense Currency", () => {
+describe("Compute Insights: subtotals at Locked Rates", () => {
   it("subtotals each currency in its own and the Group Currency, Group Currency first", () => {
     const ryokan = recorded(parseNewExpense(fields(), group, undefined, april));
     const snacks = {
