@@ -1,9 +1,11 @@
+import type { ActivityChange } from "@/domain";
 import {
   bigint,
   boolean,
   date,
   index,
   integer,
+  jsonb,
   pgTable,
   primaryKey,
   text,
@@ -92,6 +94,11 @@ export const groups = pgTable("groups", {
     onDelete: "set null",
   }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  /**
+   * Set on Groups created before Activity launched: the day it started, so
+   * the Activity page can say earlier Expenses and Settlements aren't listed.
+   */
+  activityStartedOn: date("activity_started_on", { mode: "string" }),
 });
 
 export const members = pgTable(
@@ -195,6 +202,30 @@ export const settlements = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [index("settlements_group_id_idx").on(t.groupId)],
+);
+
+/**
+ * Activity: one row per change to a Group's Expenses and Settlements, never
+ * updated or deleted except with its Group. `change` holds the Expense or
+ * Settlement as it was before and/or after; never a Balance (ADR 0004).
+ */
+export const activity = pgTable(
+  "activity",
+  {
+    id: text("id").primaryKey(),
+    groupId: text("group_id")
+      .notNull()
+      .references(() => groups.id, { onDelete: "cascade" }),
+    /** Recording order; breaks ties between entries made at the same moment. */
+    seq: integer("seq").notNull().generatedAlwaysAsIdentity(),
+    /** The acting User's Linked Member; kept, and still named, if they later leave. */
+    actorMemberId: text("actor_member_id")
+      .notNull()
+      .references(() => members.id),
+    at: timestamp("at", { withTimezone: true }).notNull().defaultNow(),
+    change: jsonb("change").$type<ActivityChange>().notNull(),
+  },
+  (t) => [index("activity_group_seq_idx").on(t.groupId, t.seq)],
 );
 
 // ---------------------------------------------------------------------------

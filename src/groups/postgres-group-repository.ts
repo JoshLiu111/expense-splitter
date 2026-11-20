@@ -1,7 +1,25 @@
-import { and, asc, eq, exists, inArray, isNull, max, notExists, sql } from "drizzle-orm";
-import type { CurrencyCode, Expense, GroupSnapshot, NewExpense, SplitType } from "@/domain";
+import { and, asc, desc, eq, exists, inArray, isNull, max, notExists, sql } from "drizzle-orm";
+import {
+  isSameExpense,
+  type ActivityChange,
+  type CurrencyCode,
+  type Expense,
+  type GroupSnapshot,
+  type NewExpense,
+  type Settlement,
+  type SplitType,
+} from "@/domain";
 import type { Database } from "@/db/client";
-import { customCategories, expenseShares, expenses, groups, members, settlements, user } from "@/db/schema";
+import {
+  activity,
+  customCategories,
+  expenseShares,
+  expenses,
+  groups,
+  members,
+  settlements,
+  user,
+} from "@/db/schema";
 import { AVATAR_COLORS, nextAvatarColor, type GroupRepository } from "./group-repository";
 
 /** The signed-in User a repository acts for. */
@@ -69,6 +87,61 @@ export async function claimPendingMembers(db: Database, verified: { id: string; 
       await tx.update(members).set({ userId: verified.id }).where(eq(members.id, member.id));
     }
   });
+}
+
+type ExpenseRow = typeof expenses.$inferSelect;
+type ShareRow = typeof expenseShares.$inferSelect;
+type SettlementRow = typeof settlements.$inferSelect;
+
+/** An Expense from its row and its Shares' rows, in Share order. */
+function toExpense(e: ExpenseRow, shares: ShareRow[]): Expense {
+  return {
+    id: e.id,
+    description: e.description,
+    amount: e.amount,
+    currency: e.currency as CurrencyCode,
+    lockedRate: e.lockedRate,
+    ...(e.manualRate ? { manualRate: true } : {}),
+    payerId: e.payerId,
+    splitType: e.splitType as SplitType,
+    shares: shares.map((share) => ({
+      memberId: share.memberId,
+      amount: share.amount,
+      ...(share.percentage !== null ? { percentage: share.percentage } : {}),
+      ...(share.ratio !== null ? { ratio: share.ratio } : {}),
+    })),
+    date: e.date,
+    createdAt: e.createdAt.toISOString(),
+    category: e.category,
+    ...(e.notes ? { notes: e.notes } : {}),
+  };
+}
+
+function toSettlement(s: SettlementRow): Settlement {
+  return {
+    id: s.id,
+    fromId: s.fromMemberId,
+    toId: s.toMemberId,
+    amount: s.amount,
+    date: s.date,
+    createdAt: s.createdAt.toISOString(),
+  };
+}
+
+/** One Expense of the Group, locked until the transaction ends; `null` if it isn't there. */
+async function lockExpense(tx: Tx, groupId: string, expenseId: string): Promise<Expense | null> {
+  const [row] = await tx
+    .select()
+    .from(expenses)
+    .where(and(eq(expenses.id, expenseId), eq(expenses.groupId, groupId)))
+    .for("update");
+  if (!row) return null;
+  const shares = await tx
+    .select()
+    .from(expenseShares)
+    .where(eq(expenseShares.expenseId, expenseId))
+    .orderBy(asc(expenseShares.position));
+  return toExpense(row, shares);
 }
 
 /**
@@ -145,40 +218,14 @@ export function createPostgresGroupRepository(
         .map((c) => ({ id: c.id, name: c.name })),
       expenses: expenseRows
         .filter((e) => e.groupId === g.id)
-        .map(
-          (e): Expense => ({
-            id: e.id,
-            description: e.description,
-            amount: e.amount,
-            currency: e.currency as CurrencyCode,
-            lockedRate: e.lockedRate,
-            ...(e.manualRate ? { manualRate: true } : {}),
-            payerId: e.payerId,
-            splitType: e.splitType as SplitType,
-            shares: shareRows
-              .filter((s) => s.share.expenseId === e.id)
-              .map((s) => ({
-                memberId: s.share.memberId,
-                amount: s.share.amount,
-                ...(s.share.percentage !== null ? { percentage: s.share.percentage } : {}),
-                ...(s.share.ratio !== null ? { ratio: s.share.ratio } : {}),
-              })),
-            date: e.date,
-            createdAt: e.createdAt.toISOString(),
-            category: e.category,
-            ...(e.notes ? { notes: e.notes } : {}),
-          }),
+        .map((e) =>
+          toExpense(
+            e,
+            shareRows.filter((r) => r.share.expenseId === e.id).map((r) => r.share),
+          ),
         ),
-      settlements: settlementRows
-        .filter((s) => s.groupId === g.id)
-        .map((s) => ({
-          id: s.id,
-          fromId: s.fromMemberId,
-          toId: s.toMemberId,
-          amount: s.amount,
-          date: s.date,
-          createdAt: s.createdAt.toISOString(),
-        })),
+      settlements: settlementRows.filter((s) => s.groupId === g.id).map(toSettlement),
+      ...(g.activityStartedOn ? { activityStartedOn: g.activityStartedOn } : {}),
     }));
   }
 
@@ -190,9 +237,16 @@ export function createPostgresGroupRepository(
     return row !== undefined;
   }
 
-  async function findExpense(groupId: string, expenseId: string): Promise<Expense | null> {
-    const [group] = await load(groupId);
-    return group?.expenses.find((e) => e.id === expenseId) ?? null;
+  /**
+   * Records an Activity entry in the same transaction as its change, under
+   * the User's Linked Member in that Group (one `canSee` already found).
+   */
+  async function record(tx: Tx, groupId: string, change: ActivityChange) {
+    const [actor] = await tx
+      .select({ id: members.id })
+      .from(members)
+      .where(and(eq(members.groupId, groupId), eq(members.userId, currentUser.id)));
+    await tx.insert(activity).values({ id: `act_${newId()}`, groupId, actorMemberId: actor.id, change });
   }
 
   async function insertShares(tx: Tx, expenseId: string, expense: NewExpense) {
@@ -251,34 +305,36 @@ export function createPostgresGroupRepository(
     async addExpense(groupId, input) {
       if (!(await canSee(groupId))) return null;
       const expenseId = `exp_${newId()}`;
-      await db.transaction(async (tx) => {
+      return db.transaction(async (tx) => {
         await tx.insert(expenses).values({ id: expenseId, groupId, ...expenseColumns(input) });
         await insertShares(tx, expenseId, input);
+        const expense = (await lockExpense(tx, groupId, expenseId))!;
+        await record(tx, groupId, { kind: "expense-added", expense });
+        return expense;
       });
-      return findExpense(groupId, expenseId);
     },
     async updateExpense(groupId, expenseId, input) {
       if (!(await canSee(groupId))) return null;
-      const updated = await db.transaction(async (tx) => {
-        const rows = await tx
-          .update(expenses)
-          .set(expenseColumns(input))
-          .where(and(eq(expenses.id, expenseId), eq(expenses.groupId, groupId)))
-          .returning({ id: expenses.id });
-        if (rows.length === 0) return false;
+      return db.transaction(async (tx) => {
+        const before = await lockExpense(tx, groupId, expenseId);
+        if (!before) return null;
+        await tx.update(expenses).set(expenseColumns(input)).where(eq(expenses.id, expenseId));
         await tx.delete(expenseShares).where(eq(expenseShares.expenseId, expenseId));
         await insertShares(tx, expenseId, input);
-        return true;
+        const after = (await lockExpense(tx, groupId, expenseId))!;
+        if (!isSameExpense(before, after)) await record(tx, groupId, { kind: "expense-edited", before, after });
+        return after;
       });
-      return updated ? findExpense(groupId, expenseId) : null;
     },
     async deleteExpense(groupId, expenseId) {
       if (!(await canSee(groupId))) return false;
-      const rows = await db
-        .delete(expenses)
-        .where(and(eq(expenses.id, expenseId), eq(expenses.groupId, groupId)))
-        .returning({ id: expenses.id });
-      return rows.length > 0;
+      return db.transaction(async (tx) => {
+        const expense = await lockExpense(tx, groupId, expenseId);
+        if (!expense) return false;
+        await tx.delete(expenses).where(eq(expenses.id, expenseId));
+        await record(tx, groupId, { kind: "expense-deleted", expense });
+        return true;
+      });
     },
     async addSettlement(groupId, input) {
       if (!(await canSee(groupId))) return null;
@@ -288,25 +344,34 @@ export function createPostgresGroupRepository(
         .from(members)
         .where(and(eq(members.groupId, groupId), inArray(members.id, [input.fromId, input.toId])));
       if (found.length !== new Set([input.fromId, input.toId]).size) return null;
-      const settlementId = `stl_${newId()}`;
-      await db.insert(settlements).values({
-        id: settlementId,
-        groupId,
-        fromMemberId: input.fromId,
-        toMemberId: input.toId,
-        amount: input.amount,
-        date: input.date,
+      return db.transaction(async (tx) => {
+        const [row] = await tx
+          .insert(settlements)
+          .values({
+            id: `stl_${newId()}`,
+            groupId,
+            fromMemberId: input.fromId,
+            toMemberId: input.toId,
+            amount: input.amount,
+            date: input.date,
+          })
+          .returning();
+        const settlement = toSettlement(row);
+        await record(tx, groupId, { kind: "settlement-added", settlement });
+        return settlement;
       });
-      const [group] = await load(groupId);
-      return group?.settlements.find((s) => s.id === settlementId) ?? null;
     },
     async deleteSettlement(groupId, settlementId) {
       if (!(await canSee(groupId))) return false;
-      const rows = await db
-        .delete(settlements)
-        .where(and(eq(settlements.id, settlementId), eq(settlements.groupId, groupId)))
-        .returning({ id: settlements.id });
-      return rows.length > 0;
+      return db.transaction(async (tx) => {
+        const [row] = await tx
+          .delete(settlements)
+          .where(and(eq(settlements.id, settlementId), eq(settlements.groupId, groupId)))
+          .returning();
+        if (!row) return false;
+        await record(tx, groupId, { kind: "settlement-deleted", settlement: toSettlement(row) });
+        return true;
+      });
     },
     async updateGroup(id, details) {
       if (!(await canSee(id))) return null;
@@ -400,6 +465,20 @@ export function createPostgresGroupRepository(
         )
         .returning({ id: customCategories.id });
       return rows.length > 0;
+    },
+    async listActivity(groupId) {
+      if (!(await canSee(groupId))) return null;
+      const rows = await db
+        .select()
+        .from(activity)
+        .where(eq(activity.groupId, groupId))
+        .orderBy(desc(activity.seq));
+      return rows.map((r) => ({
+        id: r.id,
+        at: r.at.toISOString(),
+        actorMemberId: r.actorMemberId,
+        change: r.change,
+      }));
     },
     async deleteGroup(id) {
       // Only the Group Creator may delete a Group, so scope the delete to them.

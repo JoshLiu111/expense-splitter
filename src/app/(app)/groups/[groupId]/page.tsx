@@ -37,6 +37,7 @@ async function UserGroup({ params }: Pick<PageProps<"/groups/[groupId]">, "param
       backHref="/dashboard"
       backLabel="All Groups"
       settingsHref={`/groups/${groupId}/settings`}
+      activityHref={`/groups/${groupId}/activity`}
       currentMemberId={group.members.find((m) => m.userId === user.id)?.id}
       onSaveExpense={saveUserExpense.bind(null, groupId)}
       onDeleteExpense={deleteUserExpense.bind(null, groupId)}

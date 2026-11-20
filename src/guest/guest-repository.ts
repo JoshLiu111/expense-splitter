@@ -1,4 +1,13 @@
-import type { CustomCategory, Expense, GroupSnapshot, Member, Settlement } from "@/domain";
+import {
+  isSameExpense,
+  type ActivityChange,
+  type ActivityEntry,
+  type CustomCategory,
+  type Expense,
+  type GroupSnapshot,
+  type Member,
+  type Settlement,
+} from "@/domain";
 import {
   AVATAR_COLORS,
   nextAvatarColor,
@@ -9,18 +18,27 @@ import {
 export const GUEST_MEMBER_NAME = "You";
 
 // v2: Shares keep the percentages and ratios they were entered with.
-const STORAGE_KEY = "expense-splitter:guest:v2";
+// v3: Activity, seeded for the sample Groups.
+const STORAGE_KEY = "expense-splitter:guest:v3";
+
+/** Each Group's Activity, newest first, by Group id. */
+export type GuestActivity = Record<string, ActivityEntry[]>;
 
 interface StoredState {
   version: 1;
   groups: GroupSnapshot[];
+  activity: GuestActivity;
 }
 
 /** A Guest repository that can also be read synchronously for rendering. */
 export interface GuestGroupRepository extends GroupRepository {
   /** The current Groups; the same array until something changes. */
   snapshot(): GroupSnapshot[];
+  /** A Group's Activity, newest first; the same array until something changes. */
+  activitySnapshot(groupId: string): ActivityEntry[];
 }
+
+const NO_ACTIVITY: ActivityEntry[] = [];
 
 /**
  * Guest Groups live in sessionStorage: seeded with the sample Groups on the
@@ -30,41 +48,72 @@ export interface GuestGroupRepository extends GroupRepository {
 export function createSessionStorageRepository(
   storage: Storage,
   seed: () => GroupSnapshot[],
-  newId: () => string = () => crypto.randomUUID(),
+  {
+    seedActivity = () => ({}),
+    newId = () => crypto.randomUUID(),
+  }: {
+    /** The sample Groups' Activity, seeded with them. */
+    seedActivity?: () => GuestActivity;
+    newId?: () => string;
+  } = {},
 ): GuestGroupRepository {
   let cachedRaw: string | null = null;
-  let cachedGroups: GroupSnapshot[] = [];
+  let cached: StoredState = { version: 1, groups: [], activity: {} };
 
-  function read(): GroupSnapshot[] {
+  function readState(): StoredState {
     let raw = storage.getItem(STORAGE_KEY);
     if (raw === null) {
-      raw = JSON.stringify({ version: 1, groups: seed() } satisfies StoredState);
+      raw = JSON.stringify({ version: 1, groups: seed(), activity: seedActivity() } satisfies StoredState);
       storage.setItem(STORAGE_KEY, raw);
     }
     if (raw !== cachedRaw) {
       const parsed = JSON.parse(raw) as StoredState;
-      cachedGroups = parsed.version === 1 ? parsed.groups : seed();
+      cached = parsed.version === 1 ? parsed : { version: 1, groups: seed(), activity: seedActivity() };
       cachedRaw = raw;
     }
-    return cachedGroups;
+    return cached;
   }
 
-  /** Applies `change` to one Group; `null` if the Group is missing. */
+  const read = () => readState().groups;
+
+  /**
+   * Applies `change` to one Group, recording the Activity entry it returns
+   * along with it; `null` if the Group is missing.
+   */
   function changeGroup(
     groupId: string,
     change: (group: GroupSnapshot) => GroupSnapshot,
+    activity?: (group: GroupSnapshot) => ActivityChange | null,
   ): GroupSnapshot | null {
-    const groups = read();
-    const group = groups.find((g) => g.id === groupId);
+    const state = readState();
+    const group = state.groups.find((g) => g.id === groupId);
     if (!group) return null;
     const changed = change(group);
-    write(groups.map((g) => (g.id === groupId ? changed : g)));
+    const recorded = activity?.(group);
+    write({
+      version: 1,
+      groups: state.groups.map((g) => (g.id === groupId ? changed : g)),
+      activity: recorded
+        ? {
+            ...state.activity,
+            [groupId]: [
+              // The Guest's own changes have no acting Member.
+              { id: `act_${newId()}`, at: new Date().toISOString(), change: recorded },
+              ...(state.activity[groupId] ?? []),
+            ],
+          }
+        : state.activity,
+    });
     return changed;
   }
 
   /** Applies `change` to one Group's Expenses; `false` if the Group is missing. */
-  function updateExpenses(groupId: string, change: (expenses: Expense[]) => Expense[]): boolean {
-    return changeGroup(groupId, (g) => ({ ...g, expenses: change(g.expenses) })) !== null;
+  function updateExpenses(
+    groupId: string,
+    change: (expenses: Expense[]) => Expense[],
+    activity: ActivityChange | null,
+  ): boolean {
+    return changeGroup(groupId, (g) => ({ ...g, expenses: change(g.expenses) }), () => activity) !== null;
   }
 
   function findExpense(groupId: string, expenseId: string): Expense | undefined {
@@ -73,12 +122,16 @@ export function createSessionStorageRepository(
       ?.expenses.find((e) => e.id === expenseId);
   }
 
-  function write(groups: GroupSnapshot[]) {
-    storage.setItem(STORAGE_KEY, JSON.stringify({ version: 1, groups } satisfies StoredState));
+  function write(state: StoredState) {
+    storage.setItem(STORAGE_KEY, JSON.stringify(state satisfies StoredState));
   }
 
   return {
     snapshot: read,
+    activitySnapshot: (groupId) => readState().activity[groupId] ?? NO_ACTIVITY,
+    async listActivity(groupId) {
+      return read().some((g) => g.id === groupId) ? (readState().activity[groupId] ?? NO_ACTIVITY) : null;
+    },
     async listGroups() {
       return read();
     },
@@ -94,7 +147,8 @@ export function createSessionStorageRepository(
         expenses: [],
         settlements: [],
       };
-      write([...read(), group]);
+      const state = readState();
+      write({ ...state, groups: [...state.groups, group] });
       return group;
     },
     async addExpense(groupId, input) {
@@ -103,18 +157,28 @@ export function createSessionStorageRepository(
         id: `exp_${newId()}`,
         createdAt: new Date().toISOString(),
       };
-      return updateExpenses(groupId, (expenses) => [...expenses, expense]) ? expense : null;
+      return updateExpenses(groupId, (expenses) => [...expenses, expense], { kind: "expense-added", expense })
+        ? expense
+        : null;
     },
     async updateExpense(groupId, expenseId, input) {
       const existing = findExpense(groupId, expenseId);
       if (!existing) return null;
       const expense: Expense = { ...input, id: existing.id, createdAt: existing.createdAt };
-      updateExpenses(groupId, (expenses) => expenses.map((e) => (e.id === expenseId ? expense : e)));
+      updateExpenses(
+        groupId,
+        (expenses) => expenses.map((e) => (e.id === expenseId ? expense : e)),
+        isSameExpense(existing, expense) ? null : { kind: "expense-edited", before: existing, after: expense },
+      );
       return expense;
     },
     async deleteExpense(groupId, expenseId) {
-      if (!findExpense(groupId, expenseId)) return false;
-      return updateExpenses(groupId, (expenses) => expenses.filter((e) => e.id !== expenseId));
+      const expense = findExpense(groupId, expenseId);
+      if (!expense) return false;
+      return updateExpenses(groupId, (expenses) => expenses.filter((e) => e.id !== expenseId), {
+        kind: "expense-deleted",
+        expense,
+      });
     },
     async addSettlement(groupId, input) {
       const settlement: Settlement = {
@@ -122,16 +186,23 @@ export function createSessionStorageRepository(
         id: `stl_${newId()}`,
         createdAt: new Date().toISOString(),
       };
-      const changed = changeGroup(groupId, (g) => ({ ...g, settlements: [...g.settlements, settlement] }));
+      const changed = changeGroup(
+        groupId,
+        (g) => ({ ...g, settlements: [...g.settlements, settlement] }),
+        () => ({ kind: "settlement-added", settlement }),
+      );
       return changed ? settlement : null;
     },
     async deleteSettlement(groupId, settlementId) {
-      const group = read().find((g) => g.id === groupId);
-      if (!group?.settlements.some((s) => s.id === settlementId)) return false;
-      changeGroup(groupId, (g) => ({
-        ...g,
-        settlements: g.settlements.filter((s) => s.id !== settlementId),
-      }));
+      const settlement = read()
+        .find((g) => g.id === groupId)
+        ?.settlements.find((s) => s.id === settlementId);
+      if (!settlement) return false;
+      changeGroup(
+        groupId,
+        (g) => ({ ...g, settlements: g.settlements.filter((s) => s.id !== settlementId) }),
+        () => ({ kind: "settlement-deleted", settlement }),
+      );
       return true;
     },
     async updateGroup(id, details) {
@@ -200,9 +271,11 @@ export function createSessionStorageRepository(
       return true;
     },
     async deleteGroup(id) {
-      const groups = read();
-      if (!groups.some((g) => g.id === id)) return false;
-      write(groups.filter((g) => g.id !== id));
+      const state = readState();
+      if (!state.groups.some((g) => g.id === id)) return false;
+      const activity = { ...state.activity };
+      delete activity[id];
+      write({ version: 1, groups: state.groups.filter((g) => g.id !== id), activity });
       return true;
     },
   };

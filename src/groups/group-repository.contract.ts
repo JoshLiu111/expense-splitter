@@ -1,4 +1,4 @@
-import { expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 import type { GroupSnapshot, NewExpense } from "@/domain";
 import type { GroupRepository } from "./group-repository";
 
@@ -20,7 +20,11 @@ function lunch(group: GroupSnapshot, overrides: Partial<NewExpense> = {}): NewEx
 }
 
 /** Behaviour every GroupRepository must share, Guest or Postgres. */
-export function groupRepositoryContract(makeRepository: () => Promise<GroupRepository>) {
+export function groupRepositoryContract(
+  makeRepository: () => Promise<GroupRepository>,
+  /** The `actorMemberId` this repository's changes to a Group are recorded under. */
+  actorOf: (group: GroupSnapshot) => string | undefined,
+) {
   it("creates a Group with no Expenses whose only Member is its creator", async () => {
     const repo = await makeRepository();
     const group = await repo.createGroup({
@@ -312,5 +316,75 @@ export function groupRepositoryContract(makeRepository: () => Promise<GroupRepos
     expect(await repo.renameCategory(group.id, theirs!.id, "Mine")).toBeNull();
     expect(await repo.deleteCategory(group.id, theirs!.id)).toBe(false);
     expect((await repo.getGroup(other.id))?.customCategories).toEqual([theirs]);
+  });
+
+  describe("Activity", () => {
+    it("records adding an Expense: who added it, when, and the Expense", async () => {
+      const repo = await makeRepository();
+      const group = await repo.createGroup({ name: "Flat", description: "", currency: "USD" });
+      const before = new Date().toISOString();
+
+      const expense = await repo.addExpense(group.id, lunch(group));
+
+      const activity = await repo.listActivity(group.id);
+      expect(activity).toEqual([
+        {
+          id: expect.any(String),
+          at: expect.any(String),
+          ...(actorOf(group) ? { actorMemberId: actorOf(group) } : {}),
+          change: { kind: "expense-added", expense },
+        },
+      ]);
+      expect(activity![0].at >= before).toBe(true);
+    });
+
+    it("records an edit with the Expense before and after, newest first, and nothing for an edit that changes nothing", async () => {
+      const repo = await makeRepository();
+      const group = await repo.createGroup({ name: "Flat", description: "", currency: "USD" });
+      const before = await repo.addExpense(group.id, lunch(group));
+
+      const after = await repo.updateExpense(group.id, before!.id, lunch(group, { description: "Brunch" }));
+      await repo.updateExpense(group.id, before!.id, lunch(group, { description: "Brunch" }));
+
+      const activity = await repo.listActivity(group.id);
+      expect(activity?.map((a) => a.change)).toEqual([
+        { kind: "expense-edited", before, after },
+        { kind: "expense-added", expense: before },
+      ]);
+    });
+
+    it("records deleting an Expense and adding and deleting a Settlement, as they were", async () => {
+      const repo = await makeRepository();
+      const group = await repo.createGroup({ name: "Flat", description: "", currency: "USD" });
+      const chloe = await repo.addMember(group.id, { name: "Chloe" });
+      const me = group.members[0].id;
+      const expense = await repo.addExpense(group.id, lunch(group, { shares: [{ memberId: chloe!.id, amount: 2450 }] }));
+      const settlement = await repo.addSettlement(group.id, { fromId: chloe!.id, toId: me, amount: 1000, date: "2026-03-02" });
+
+      await repo.deleteSettlement(group.id, settlement!.id);
+      await repo.deleteExpense(group.id, expense!.id);
+
+      expect((await repo.listActivity(group.id))?.map((a) => a.change)).toEqual([
+        { kind: "expense-deleted", expense },
+        { kind: "settlement-deleted", settlement },
+        { kind: "settlement-added", settlement },
+        { kind: "expense-added", expense },
+      ]);
+    });
+
+    it("records nothing for changes refused, and deletes Activity with its Group", async () => {
+      const repo = await makeRepository();
+      const group = await repo.createGroup({ name: "Flat", description: "", currency: "USD" });
+      await repo.addExpense(group.id, lunch(group));
+
+      await repo.deleteExpense(group.id, "exp_missing");
+      await repo.updateExpense(group.id, "exp_missing", lunch(group));
+      await repo.deleteSettlement(group.id, "stl_missing");
+      expect(await repo.listActivity(group.id)).toHaveLength(1);
+
+      await repo.deleteGroup(group.id);
+      expect(await repo.listActivity(group.id)).toBeNull();
+      expect(await repo.listActivity("grp_missing")).toBeNull();
+    });
   });
 }

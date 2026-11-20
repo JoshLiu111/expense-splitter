@@ -1,6 +1,7 @@
 "use client";
 
-import { X } from "lucide-react";
+import Link from "next/link";
+import { History, X } from "lucide-react";
 import { Dialog } from "radix-ui";
 import { formatMoney, type Expense, type GroupSnapshot, type NewExpenseFields } from "@/domain";
 import type { TodaysRatesState } from "@/rates/use-todays-rates";
@@ -16,6 +17,8 @@ interface ExpenseEditorProps {
   expense: Expense | null;
   rates: TodaysRatesState;
   currentMemberId: string | undefined;
+  /** Where "View changes" leads: Activity, at this Expense's entries. */
+  changesHref: (expense: Expense) => string;
   onSave: (fields: NewExpenseFields) => Promise<ExpenseResult>;
   onClose: () => void;
   onSaved: () => void;
@@ -27,12 +30,23 @@ interface ExpenseEditorProps {
  * Expense entry: an inline panel on wide screens (no modal for a routine
  * action), an accessible bottom sheet on phones. The sheet traps focus and
  * returns it to whatever opened it. An existing Expense can be deleted from
- * here, after confirmation.
+ * here, after confirmation, and its changes viewed in Activity.
  */
 export function ExpenseEditor(props: ExpenseEditorProps) {
   const wide = useMediaQuery("(min-width: 48rem)");
   const { expense } = props;
   const title = expense ? "Edit Expense" : "Add Expense";
+  // At the panel's edge it pulls its padding back so the text lines up. The
+  // editor closes as it goes, so the Group page isn't left behind a sheet
+  // when it is kept for coming back.
+  const viewChanges = (className?: string) =>
+    expense && (
+      <Button asChild variant="quiet" className={className}>
+        <Link href={props.changesHref(expense)} onClick={props.onClose}>
+          <History aria-hidden /> View changes
+        </Link>
+      </Button>
+    );
   const form = (
     <ExpenseForm
       key={expense?.id ?? "new"}
@@ -64,9 +78,12 @@ export function ExpenseEditor(props: ExpenseEditorProps) {
         aria-labelledby="expense-editor-heading"
         className="rounded-lg border border-accent bg-surface p-6 shadow-md"
       >
-        <h2 id="expense-editor-heading" className="mb-4 text-lg font-bold">
-          {title}
-        </h2>
+        <div className="mb-4 flex items-center justify-between gap-2">
+          <h2 id="expense-editor-heading" className="text-lg font-bold">
+            {title}
+          </h2>
+          {viewChanges("-mr-3")}
+        </div>
         {form}
       </section>
     );
@@ -84,7 +101,8 @@ export function ExpenseEditor(props: ExpenseEditorProps) {
         >
           <div aria-hidden className="mx-auto mb-2 h-1 w-10 rounded-full bg-border-input" />
           <div className="mb-4 flex items-center justify-between gap-2">
-            <Dialog.Title className="text-lg font-bold">{title}</Dialog.Title>
+            <Dialog.Title className="mr-auto text-lg font-bold">{title}</Dialog.Title>
+            {viewChanges()}
             <Dialog.Close asChild>
               <Button variant="ghost" size="icon" aria-label="Close">
                 <X aria-hidden />
