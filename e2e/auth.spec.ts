@@ -292,6 +292,8 @@ test("a signed-in User sees their own Suggested Settlement and records it", asyn
   await page.getByRole("button", { name: "Record Settlement" }).click();
 
   await expect(settleUp).toContainText("Everyone is Settled Up");
+  // Balances change before the server confirms; reload only once it has.
+  await expect(page.getByText("Settlement recorded.")).toBeVisible();
   await page.reload();
   await expect(page.getByRole("region", { name: "Settle up" })).toContainText("Everyone is Settled Up");
   await expect(page.getByRole("heading", { name: "Settlement: Taylor paid Maya Chen" })).toBeVisible();

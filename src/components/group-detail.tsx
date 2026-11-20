@@ -45,6 +45,7 @@ export function GroupDetail({
   onDeleteExpense,
   settleUp,
   readOnly = false,
+  unconfirmed,
 }: {
   group: GroupSnapshot;
   backHref: string;
@@ -60,6 +61,11 @@ export function GroupDetail({
   settleUp: SettleUp;
   /** The visitor is a Former Member reading a reopened Balance. */
   readOnly?: boolean;
+  /**
+   * Ids of Expenses and Settlements in `group` the server hasn't confirmed
+   * yet: they count in Balances but can't be opened until it has.
+   */
+  unconfirmed?: ReadonlySet<string>;
 }) {
   const ledger = computeLedger(group);
   const rates = useTodaysRates();
@@ -226,6 +232,7 @@ export function GroupDetail({
               timeline={timeline}
               onOpenExpense={readOnly ? undefined : open}
               onDeleteSettlement={readOnly ? undefined : removeSettlement}
+              unconfirmed={unconfirmed}
             />
           )}
         />
