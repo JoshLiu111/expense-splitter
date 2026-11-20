@@ -508,7 +508,8 @@ function PaymentList<E extends DebtEdge>({
       <h4 id={titleId} className="text-sm font-semibold">
         {title}
       </h4>
-      <ul aria-labelledby={titleId} className="mt-2 flex flex-col gap-1 text-sm">
+      {/* Entries with details need more room between them, or one's sources run into the next. */}
+      <ul aria-labelledby={titleId} className={`mt-2 flex flex-col text-sm ${detail ? "gap-3" : "gap-1"}`}>
         {edges.map((e) => (
           <li key={`${e.fromId}-${e.toId}`}>
             {nameOf(e.fromId)} {verb} {nameOf(e.toId)} <span className="amount">{money(e.amount)}</span>

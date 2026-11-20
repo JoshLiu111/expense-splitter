@@ -51,22 +51,25 @@ export function PaymentSources({
       <summary className="inline-flex min-h-11 cursor-pointer items-center rounded-md font-semibold text-accent">
         {summary}
       </summary>
-      <ul className="mt-1 flex flex-col gap-1 border-l-2 border-border pl-3">
+      {/* Amounts keep their own column, so a narrow panel wraps the titles, never the figures. */}
+      <ul className="mt-1 flex flex-col gap-2 border-l-2 border-border pl-3">
         {described.map(({ source, title, detail }) => (
-          <li key={`${source.kind}-${source.id}`} className="flex flex-wrap justify-between gap-x-3">
-            <span className="min-w-0 break-words">
-              <span className="font-semibold">{title}</span>
-              {detail && <span className="text-text-secondary"> · {detail}</span>}
+          <li key={`${source.kind}-${source.id}`} className="grid grid-cols-[minmax(0,1fr)_auto] gap-x-3">
+            <span className="break-words">
+              <span className="block font-semibold">{title}</span>
+              {detail && <span className="block text-text-secondary">{detail}</span>}
             </span>
-            <span className="amount">
+            <span className="amount text-right">
               {money(source.amount)}
-              {source.amount < source.full && <span className="text-text-secondary"> of {money(source.full)}</span>}
+              {source.amount < source.full && (
+                <span className="block text-text-secondary">of {money(source.full)}</span>
+              )}
             </span>
           </li>
         ))}
-        <li className="flex flex-wrap justify-between gap-x-3 border-t border-border-subtle pt-1 text-text-secondary">
+        <li className="grid grid-cols-[minmax(0,1fr)_auto] gap-x-3 border-t border-border-subtle pt-2 text-text-secondary">
           <span>What {payerName} owes from these, after what they paid for others</span>
-          <span className="amount font-semibold text-text-primary">{money(amount)}</span>
+          <span className="amount text-right font-semibold text-text-primary">{money(amount)}</span>
         </li>
       </ul>
     </details>
