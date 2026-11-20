@@ -27,6 +27,11 @@ export interface Member {
   userId?: string;
   avatarColor: string;
   /**
+   * A Linked Member's avatar image, from their User; Name-only and Pending
+   * Members have none and show coloured initials.
+   */
+  avatarUrl?: string;
+  /**
    * A Former Member: removed at zero Balance, so no longer selectable for
    * new Expenses but still shown on past ones.
    */

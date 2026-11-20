@@ -10,6 +10,7 @@ import {
   type Expense,
   type ExpenseField,
   type GroupSnapshot,
+  type Member,
   type Share,
 } from "@/domain";
 import { formatCalendarDate } from "@/lib/format";
@@ -31,6 +32,8 @@ export interface ActivityItem {
   /** ISO timestamp of the change. */
   at: string;
   actor: string;
+  /** The Member who made the change, for their avatar; absent for the Guest or a Member no longer in the Group. */
+  actorMember?: Member;
   /** What kind of change it was. */
   kind: ActivityChange["kind"];
   /** The Expense or Settlement changed. */
@@ -49,13 +52,13 @@ const GUEST_ACTOR = "You";
 /** Shows Activity entries, in the order given. */
 export function activityItems(entries: readonly ActivityEntry[], group: GroupSnapshot): ActivityItem[] {
   const actorOf = (memberId: string | undefined) => {
-    if (memberId === undefined) return GUEST_ACTOR;
+    if (memberId === undefined) return { actor: GUEST_ACTOR };
     const member = group.members.find((m) => m.id === memberId);
-    return member ? memberLabel(member) : "Unknown member";
+    return member ? { actor: memberLabel(member), actorMember: member } : { actor: "Unknown member" };
   };
   return entries.map((entry): ActivityItem => {
     const { change } = entry;
-    const shown = { id: entry.id, at: entry.at, actor: actorOf(entry.actorMemberId), kind: change.kind };
+    const shown = { id: entry.id, at: entry.at, ...actorOf(entry.actorMemberId), kind: change.kind };
     switch (change.kind) {
       case "expense-added":
       case "expense-deleted":

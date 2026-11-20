@@ -200,9 +200,12 @@ export function createPostgresGroupRepository(
 
     const ids = groupRows.map((g) => g.id);
     const [memberRows, expenseRows, shareRows, settlementRows, categoryRows] = await Promise.all([
+      // A Linked Member is shown under their User's current name and avatar,
+      // so a change in Account Settings reaches every Group at once.
       db
-        .select()
+        .select({ member: members, userName: user.name, userImage: user.image })
         .from(members)
+        .leftJoin(user, eq(members.userId, user.id))
         .where(inArray(members.groupId, ids))
         .orderBy(asc(members.position)),
       db.select().from(expenses).where(inArray(expenses.groupId, ids)),
@@ -227,14 +230,15 @@ export function createPostgresGroupRepository(
       currency: g.currency as CurrencyCode,
       ...(g.creatorUserId ? { creatorUserId: g.creatorUserId } : {}),
       members: memberRows
-        .filter((m) => m.groupId === g.id)
-        .map((m) => ({
+        .filter((row) => row.member.groupId === g.id)
+        .map(({ member: m, userName, userImage }) => ({
           id: m.id,
-          name: m.name,
+          name: userName ?? m.name,
           avatarColor: m.avatarColor,
           ...(m.email ? { email: m.email } : {}),
           ...(m.userId ? { userId: m.userId } : {}),
           ...(m.former ? { former: true } : {}),
+          ...(userImage ? { avatarUrl: userImage } : {}),
         })),
       customCategories: categoryRows
         .filter((c) => c.groupId === g.id)

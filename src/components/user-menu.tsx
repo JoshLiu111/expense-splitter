@@ -1,9 +1,13 @@
 import Link from "next/link";
+import { UserRoundCog } from "lucide-react";
 import { signOut } from "@/app/(auth)/actions";
 import { getCurrentUser } from "@/auth/session";
 import { Button } from "@/components/ui/button";
 
-/** Sign-in links, or the signed-in User with a sign-out button. Reads the session. */
+/**
+ * Sign-in links, or the signed-in User with Account Settings and a sign-out
+ * button. Reads the session.
+ */
 export async function UserMenu() {
   const user = await getCurrentUser();
 
@@ -28,6 +32,11 @@ export async function UserMenu() {
       <span className="hidden max-w-40 truncate px-2 text-sm text-text-secondary sm:inline">
         {user.name}
       </span>
+      <Button asChild variant="ghost" size="icon">
+        <Link href="/account" aria-label="Account Settings" title="Account Settings">
+          <UserRoundCog aria-hidden />
+        </Link>
+      </Button>
       <form action={signOut}>
         <Button type="submit" variant="outline">
           Sign out

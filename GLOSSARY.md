@@ -19,7 +19,7 @@ A registered account holder who can sign in. One User may be the Linked identity
 _Avoid_: Account, customer
 
 **Linked Member**:
-A Member tied to a User, so that User can see and edit the Group.
+A Member tied to a User, so that User can see and edit the Group. Shown under their User's current name, whatever name they were added by, and with their User's avatar image if they have one, so a change to either shows in every Group at once (Former Members who were Linked included). Name-only and Pending Members have no avatar image and show coloured initials.
 
 **Name-only Member**:
 A Member with no User behind it; still splits costs and carries a Balance.
@@ -130,3 +130,7 @@ _Avoid_: History, change log, audit log, feed
 **Guest**:
 A visitor exploring the sample Groups without an account; their changes last only for the browser session and are never carried into a User.
 _Avoid_: Demo user, anonymous user
+
+**Account Settings**:
+The page where a signed-in User changes what belongs to them as a User, such as their display name, avatar image or password. These changes belong to the User, not to any Group, so they are never recorded in any Group's Activity. A Guest has no Account Settings.
+_Avoid_: Profile, preferences, user settings

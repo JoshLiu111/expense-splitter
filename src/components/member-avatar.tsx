@@ -1,6 +1,7 @@
 import { ArrowRight } from "lucide-react";
 import type { Member } from "@/domain";
 import { cn } from "@/lib/utils";
+import { MemberAvatarImage } from "./member-avatar-image";
 
 export function initials(name: string): string {
   const parts = name.trim().split(/\s+/);
@@ -60,49 +61,63 @@ const AVATAR_SIZES = {
 
 export type AvatarSize = keyof typeof AVATAR_SIZES;
 
+/**
+ * A Member's avatar: their image over their coloured initials, or the
+ * initials alone. Decorative by default, for where the Member's name is
+ * visible text right beside it; `named` gives it the Member's name as its
+ * accessible name, for where it stands alone (as in an AvatarStack).
+ */
 export function MemberAvatar({
   member,
   size = "md",
+  named = false,
   className,
 }: {
-  member: Pick<Member, "name" | "avatarColor">;
+  member: Pick<Member, "name" | "avatarColor" | "avatarUrl">;
   size?: AvatarSize;
+  named?: boolean;
   className?: string;
 }) {
   const fill = avatarFill(member.avatarColor);
   return (
     <span
-      aria-hidden
+      {...(named ? { role: "img", "aria-label": member.name } : { "aria-hidden": true })}
       className={cn(
-        "inline-flex shrink-0 items-center justify-center rounded-full font-bold",
+        "relative inline-flex shrink-0 items-center justify-center rounded-full font-bold",
         AVATAR_SIZES[size],
         className,
       )}
       style={{ backgroundColor: fill, color: textColourOn(fill) }}
     >
-      {initials(member.name)}
+      {/* Named or not, the initials and image are never read out on their own. */}
+      <span aria-hidden>{initials(member.name)}</span>
+      {member.avatarUrl && <MemberAvatarImage key={member.avatarUrl} src={member.avatarUrl} />}
     </span>
   );
 }
 
-/** Overlapping avatars, each cut out of what's behind it by a ring. */
+/**
+ * Overlapping avatars, each cut out of what's behind it by a ring. No name
+ * is shown beside them, so each avatar is named for its Member.
+ */
 export function AvatarStack({
   members,
   size = "sm",
   ring = "ring-surface",
 }: {
-  members: Pick<Member, "id" | "name" | "avatarColor">[];
+  members: Pick<Member, "id" | "name" | "avatarColor" | "avatarUrl">[];
   size?: AvatarSize;
   /** The colour behind the stack: a white panel, or the page itself. */
   ring?: "ring-surface" | "ring-bg-primary";
 }) {
   return (
-    <span aria-hidden className="flex -space-x-1.5">
+    <span className="flex -space-x-1.5">
       {members.map((m) => (
         <MemberAvatar
           key={m.id}
           member={m}
           size={size}
+          named
           className={cn("ring-2", ring)}
         />
       ))}
@@ -116,8 +131,8 @@ export function TransferPair({
   to,
   size = "sm",
 }: {
-  from: Pick<Member, "name" | "avatarColor">;
-  to: Pick<Member, "name" | "avatarColor">;
+  from: Pick<Member, "name" | "avatarColor" | "avatarUrl">;
+  to: Pick<Member, "name" | "avatarColor" | "avatarUrl">;
   size?: AvatarSize;
 }) {
   return (

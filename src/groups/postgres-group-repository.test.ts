@@ -1,6 +1,8 @@
-import { eq, sql } from "drizzle-orm";
-import { migrate } from "drizzle-orm/node-postgres/migrator";
+import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { removeAvatar, setAvatar, updateDisplayName } from "@/account/account";
+import { createMemoryAvatarStore } from "@/account/avatar-store";
+import { anImage } from "@/test/images";
 import { createDatabase, type Database } from "@/db/client";
 import { groups, members, user } from "@/db/schema";
 import { groupRepositoryContract } from "./group-repository.contract";
@@ -17,12 +19,11 @@ describe.skipIf(!url)("Postgres GroupRepository", () => {
   let close: () => Promise<void>;
   let userCount = 0;
 
-  beforeAll(async () => {
+  // The database is migrated and emptied once per run (src/test/database-setup.ts).
+  beforeAll(() => {
     const created = createDatabase(url!);
     db = created.db;
     close = () => created.pool.end();
-    await migrate(db, { migrationsFolder: "drizzle" });
-    await db.execute(sql`truncate table "user", groups cascade`);
   });
 
   afterAll(async () => {
@@ -46,6 +47,20 @@ describe.skipIf(!url)("Postgres GroupRepository", () => {
   groupRepositoryContract(
     async () => createPostgresGroupRepository(db, await aUser()),
     (group) => group.members[0].id,
+    {
+      aUser: () => aUser({ verified: true }),
+      async rename(userId, name) {
+        expect(await updateDisplayName(db, { id: userId }, { name })).toEqual({ ok: true });
+      },
+      async setAvatar(userId) {
+        const store = createMemoryAvatarStore();
+        expect(await setAvatar(db, store, { id: userId }, anImage("png"))).toEqual({ ok: true });
+        return store.urls()[0];
+      },
+      async removeAvatar(userId) {
+        expect(await removeAvatar(db, createMemoryAvatarStore(), { id: userId })).toEqual({ ok: true });
+      },
+    },
   );
 
   it("records the creating User as Group Creator and as a Linked Member", async () => {
@@ -255,7 +270,7 @@ describe.skipIf(!url)("Postgres GroupRepository", () => {
     });
   });
 
-  it("links a Member added by a verified User's email; that User sees and edits the Group", async () => {
+  it("links a Member added by a verified User's email, under that User's name; that User sees and edits the Group", async () => {
     const mayasRepo = createPostgresGroupRepository(db, await aUser());
     const theo = await aUser({ verified: true });
     const group = await mayasRepo.createGroup({ name: "Shared", description: "", currency: "USD" });
@@ -264,7 +279,7 @@ describe.skipIf(!url)("Postgres GroupRepository", () => {
 
     expect(added).toEqual({
       id: expect.any(String),
-      name: "Theo",
+      name: theo.name,
       email: theo.email,
       userId: theo.id,
       avatarColor: expect.any(String),
@@ -288,7 +303,7 @@ describe.skipIf(!url)("Postgres GroupRepository", () => {
     expect(await createPostgresGroupRepository(db, unverified).getGroup(group.id)).toBeNull();
   });
 
-  it("links a Name-only Member given a verified User's email, keeping their history", async () => {
+  it("links a Name-only Member given a verified User's email, keeping their history, under that User's name", async () => {
     const mayasRepo = createPostgresGroupRepository(db, await aUser());
     const theo = await aUser({ verified: true });
     const group = await mayasRepo.createGroup({ name: "Shared", description: "", currency: "USD" });
@@ -296,6 +311,7 @@ describe.skipIf(!url)("Postgres GroupRepository", () => {
 
     expect(await mayasRepo.setMemberEmail(group.id, named!.id, theo.email)).toEqual({
       ...named,
+      name: theo.name,
       email: theo.email,
       userId: theo.id,
     });
@@ -316,7 +332,7 @@ describe.skipIf(!url)("Postgres GroupRepository", () => {
     await claimPendingMembers(db, theo);
 
     const theosView = await createPostgresGroupRepository(db, theo).getGroup(group.id);
-    expect(theosView?.members).toContainEqual({ ...pending, userId: theo.id });
+    expect(theosView?.members).toContainEqual({ ...pending, name: theo.name, userId: theo.id });
   });
 
   it("claims nothing in a Group where the User is already a Linked Member", async () => {

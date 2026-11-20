@@ -5,6 +5,7 @@ import { useEffect, useId, useRef, useSyncExternalStore } from "react";
 import { ArrowLeft } from "lucide-react";
 import type { ActivityChange, ActivityEntry, GroupSnapshot } from "@/domain";
 import { activityItems, type ActivityItem } from "@/components/activity-view";
+import { MemberAvatar } from "@/components/member-avatar";
 import { formatCalendarDate } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
@@ -120,46 +121,52 @@ function ActivityRow({
         focused && "-mx-3 rounded-md border-l-4 border-l-accent bg-accent-subtle/50 px-3",
       )}
     >
-      <p id={`${id}-summary`} className="break-words">
-        <span className="font-semibold">{item.actor}</span> {ACTIONS[item.kind]}{" "}
-        <span className="font-semibold">{item.title}</span>
-        {focused && <span className="sr-only"> (the Expense you opened)</span>}
-      </p>
-      <p className="mt-0.5 text-sm text-text-secondary">
-        <LocalTime iso={item.at} />
-      </p>
+      <div className="flex items-start gap-3">
+        {/* Decorative: the actor's name is the first words beside it. */}
+        {item.actorMember && <MemberAvatar member={item.actorMember} size="sm" />}
+        <div className="min-w-0 flex-1">
+          <p id={`${id}-summary`} className="break-words">
+            <span className="font-semibold">{item.actor}</span> {ACTIONS[item.kind]}{" "}
+            <span className="font-semibold">{item.title}</span>
+            {focused && <span className="sr-only"> (the Expense you opened)</span>}
+          </p>
+          <p className="mt-0.5 text-sm text-text-secondary">
+            <LocalTime iso={item.at} />
+          </p>
 
-      {item.changes.length > 0 && (
-        <dl className="mt-3 grid gap-x-4 gap-y-1.5 text-sm sm:grid-cols-[minmax(0,12rem)_minmax(0,1fr)]">
-          {item.changes.map((change) => (
-            <div key={`${change.memberId ?? ""} ${change.label}`} className="contents">
-              <dt className="font-semibold break-words text-text-secondary">{change.label}</dt>
-              <dd className="mb-1.5 break-words sm:mb-0">
-                <span className="sr-only">changed from </span>
-                <span className={cn("text-text-secondary line-through", change.money && "amount")}>
-                  {change.before}
-                </span>
-                <span aria-hidden className="px-1.5 text-text-tertiary">
-                  →
-                </span>
-                <span className="sr-only"> to </span>
-                <span className={cn("font-semibold", change.money && "amount")}>{change.after}</span>
-              </dd>
-            </div>
-          ))}
-        </dl>
-      )}
+          {item.changes.length > 0 && (
+            <dl className="mt-3 grid gap-x-4 gap-y-1.5 text-sm sm:grid-cols-[minmax(0,12rem)_minmax(0,1fr)]">
+              {item.changes.map((change) => (
+                <div key={`${change.memberId ?? ""} ${change.label}`} className="contents">
+                  <dt className="font-semibold break-words text-text-secondary">{change.label}</dt>
+                  <dd className="mb-1.5 break-words sm:mb-0">
+                    <span className="sr-only">changed from </span>
+                    <span className={cn("text-text-secondary line-through", change.money && "amount")}>
+                      {change.before}
+                    </span>
+                    <span aria-hidden className="px-1.5 text-text-tertiary">
+                      →
+                    </span>
+                    <span className="sr-only"> to </span>
+                    <span className={cn("font-semibold", change.money && "amount")}>{change.after}</span>
+                  </dd>
+                </div>
+              ))}
+            </dl>
+          )}
 
-      {item.details.length > 0 && (
-        <dl className="mt-3 grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-1 text-sm">
-          {item.details.map((detail) => (
-            <div key={detail.label} className="contents">
-              <dt className="font-semibold text-text-secondary">{detail.label}</dt>
-              <dd className={cn("break-words", detail.money && "amount")}>{detail.value}</dd>
-            </div>
-          ))}
-        </dl>
-      )}
+          {item.details.length > 0 && (
+            <dl className="mt-3 grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-1 text-sm">
+              {item.details.map((detail) => (
+                <div key={detail.label} className="contents">
+                  <dt className="font-semibold text-text-secondary">{detail.label}</dt>
+                  <dd className={cn("break-words", detail.money && "amount")}>{detail.value}</dd>
+                </div>
+              ))}
+            </dl>
+          )}
+        </div>
+      </div>
     </li>
   );
 }

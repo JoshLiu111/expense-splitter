@@ -15,6 +15,7 @@
     "db:migrate": "drizzle-kit migrate"
   },
   "dependencies": {
+    "@vercel/blob": "^2.9.0",
     "better-auth": "^1.7.25",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",

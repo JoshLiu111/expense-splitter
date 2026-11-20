@@ -18,26 +18,13 @@ import {
   type Member,
   type NewGroupFields,
 } from "@/domain";
-import type { ManageResult, NewMemberFields } from "@/groups/manage-group";
+import type { AddMemberResult, ManageResult, NewMemberFields } from "@/groups/manage-group";
+import { attempt } from "@/components/attempt";
 import { ErrorSummary, Field } from "@/components/form";
 import { MemberAvatar } from "@/components/member-avatar";
 import { Button } from "@/components/ui/button";
 
 type Failure = Extract<ManageResult, { ok: false }>;
-
-const OFFLINE: Failure = {
-  ok: false,
-  errors: { form: "Couldn't save the change. Check your connection and try again." },
-};
-
-/** Runs a management call, turning a thrown network error into a Failure. */
-async function attempt(call: () => Promise<ManageResult>): Promise<ManageResult> {
-  try {
-    return await call();
-  } catch {
-    return OFFLINE;
-  }
-}
 
 const dialogClass =
   "fixed top-1/2 left-1/2 z-50 max-h-[92dvh] w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-lg border border-border bg-surface p-6 shadow-lg outline-none";
@@ -194,7 +181,7 @@ export function MembersSection({
 }: {
   group: GroupSnapshot;
   headingRef: RefObject<HTMLHeadingElement | null>;
-  onAdd: (fields: NewMemberFields) => Promise<ManageResult>;
+  onAdd: (fields: NewMemberFields) => Promise<AddMemberResult>;
   onSetEmail?: (memberId: string, email: string) => Promise<ManageResult>;
   onRemove: (memberId: string) => Promise<ManageResult>;
   onNews: (news: string) => void;
@@ -328,7 +315,7 @@ function AddMemberForm({
 }: {
   /** Offer an email field, to add a Linked or Pending Member. */
   byEmail: boolean;
-  onAdd: (fields: NewMemberFields) => Promise<ManageResult>;
+  onAdd: (fields: NewMemberFields) => Promise<AddMemberResult>;
   onAdded: (name: string) => void;
 }) {
   const [fields, setFields] = useState<NewMemberFields>({ name: "", email: "" });
@@ -343,7 +330,7 @@ function AddMemberForm({
     startTransition(async () => {
       const result = await attempt(() => onAdd(fields));
       if (result.ok) {
-        onAdded(fields.name.trim());
+        onAdded(result.name);
         setFields({ name: "", email: "" });
         setErrors(undefined);
       } else {
