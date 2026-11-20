@@ -147,6 +147,97 @@ describe.skipIf(!url)("Postgres GroupRepository", () => {
     expect(await theosRepo.listGroups()).toEqual([]);
   });
 
+  it("lets a Linked Former Member read, but not change, the Group while their Balance is reopened (ADR 0006)", async () => {
+    const maya = await aUser();
+    const theo = await aUser({ verified: true });
+    const mayasRepo = createPostgresGroupRepository(db, maya);
+    const theosRepo = createPostgresGroupRepository(db, theo);
+    const group = await mayasRepo.createGroup({ name: "Shared", description: "", currency: "USD" });
+    const mayaMember = group.members[0].id;
+    const theoMember = (await mayasRepo.addMember(group.id, { name: "Theo", email: theo.email }))!.id;
+    const dinner = {
+      description: "Dinner",
+      amount: 10000,
+      currency: "USD" as const,
+      lockedRate: "1",
+      payerId: mayaMember,
+      splitType: "equal" as const,
+      shares: [
+        { memberId: mayaMember, amount: 5000 },
+        { memberId: theoMember, amount: 5000 },
+      ],
+      date: "2026-03-01",
+      category: "Food & Drink",
+    };
+    const expense = (await mayasRepo.addExpense(group.id, dinner))!;
+    // Theo pays back his $50 in two Settlements, so he can be removed at zero.
+    const repaid = { fromId: theoMember, toId: mayaMember, date: "2026-03-02" };
+    const kept = (await theosRepo.addSettlement(group.id, { ...repaid, amount: 2000 }))!;
+    const paid = (await theosRepo.addSettlement(group.id, { ...repaid, amount: 3000 }))!;
+    const category = (await mayasRepo.addCategory(group.id, "Utilities"))!;
+    await mayasRepo.removeMember(group.id, theoMember);
+
+    // Deleting one Settlement reopens Theo's Balance at -$30.
+    await mayasRepo.deleteSettlement(group.id, paid.id);
+
+    const theosView = await theosRepo.getGroup(group.id);
+    expect(theosView).toEqual(await mayasRepo.getGroup(group.id));
+    expect((await theosRepo.listGroups()).map((g) => g.id)).toEqual([group.id]);
+    expect(await theosRepo.listActivity(group.id)).toEqual(await mayasRepo.listActivity(group.id));
+
+    const settlement = { fromId: theoMember, toId: mayaMember, amount: 3000, date: "2026-03-03" };
+    expect(await theosRepo.addExpense(group.id, dinner)).toBeNull();
+    expect(await theosRepo.updateExpense(group.id, expense.id, { ...dinner, amount: 1 })).toBeNull();
+    expect(await theosRepo.deleteExpense(group.id, expense.id)).toBe(false);
+    expect(await theosRepo.addSettlement(group.id, settlement)).toBeNull();
+    expect(await theosRepo.updateGroup(group.id, { name: "Mine", description: "", currency: "USD" })).toBeNull();
+    expect(await theosRepo.addMember(group.id, { name: "Zoe" })).toBeNull();
+    expect(await theosRepo.setMemberEmail(group.id, theoMember, "x@example.test")).toBeNull();
+    expect(await theosRepo.removeMember(group.id, mayaMember)).toBe(false);
+    expect(await theosRepo.deleteSettlement(group.id, kept.id)).toBe(false);
+    expect(await theosRepo.addCategory(group.id, "Mine")).toBeNull();
+    expect(await theosRepo.renameCategory(group.id, category.id, "Mine")).toBeNull();
+    expect(await theosRepo.deleteCategory(group.id, category.id)).toBe(false);
+    expect(await theosRepo.deleteGroup(group.id)).toBe(false);
+    expect(await mayasRepo.getGroup(group.id)).toEqual(theosView);
+    expect(await mayasRepo.listActivity(group.id)).toHaveLength(4);
+
+    // Once the reopened Balance is settled, the Group is gone again.
+    await mayasRepo.addSettlement(group.id, settlement);
+    expect(await theosRepo.getGroup(group.id)).toBeNull();
+    expect(await theosRepo.listGroups()).toEqual([]);
+    expect(await theosRepo.listActivity(group.id)).toBeNull();
+  });
+
+  it("keeps a Group Creator who is a Former Member with a reopened Balance from deleting it", async () => {
+    const maya = await aUser();
+    const theo = await aUser();
+    const mayasRepo = createPostgresGroupRepository(db, maya);
+    const group = await mayasRepo.createGroup({ name: "Shared", description: "", currency: "USD" });
+    const mayaMember = group.members[0].id;
+    // Theo is a Linked Member too, inserted directly as a fixture.
+    await db.insert(members).values({
+      id: "mem_theo_reopened",
+      groupId: group.id,
+      name: theo.name,
+      userId: theo.id,
+      avatarColor: "#10B981",
+      position: 1,
+    });
+    const theosRepo = createPostgresGroupRepository(db, theo);
+    await theosRepo.removeMember(group.id, mayaMember);
+    await theosRepo.addSettlement(group.id, {
+      fromId: "mem_theo_reopened",
+      toId: mayaMember,
+      amount: 500,
+      date: "2026-03-01",
+    });
+
+    expect(await mayasRepo.getGroup(group.id)).not.toBeNull();
+    expect(await mayasRepo.deleteGroup(group.id)).toBe(false);
+    expect(await theosRepo.getGroup(group.id)).not.toBeNull();
+  });
+
   it("keeps another User from managing a Group's details and Members", async () => {
     const mayasRepo = createPostgresGroupRepository(db, await aUser());
     const group = await mayasRepo.createGroup({ name: "Private", description: "", currency: "USD" });

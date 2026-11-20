@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRef, useState } from "react";
-import { ArrowLeft, History, Plus, Settings } from "lucide-react";
+import { ArrowLeft, Eye, History, Plus, Settings } from "lucide-react";
 import {
   computeLedger,
   formatMoney,
@@ -29,6 +29,10 @@ import { describeBalance, pluralize } from "@/lib/format";
  * Expense entry. Details, Categories, Members and deletion live in Group
  * settings, linked from the header beside Activity. Balances are recomputed
  * from the Group on every render (ADR 0004).
+ *
+ * `readOnly` is for a Former Member whose Balance has reopened (ADR 0006):
+ * they see where they stand, Balances, Member Statements and Activity, but
+ * nothing that adds, edits, deletes or records.
  */
 export function GroupDetail({
   group,
@@ -40,6 +44,7 @@ export function GroupDetail({
   onSaveExpense,
   onDeleteExpense,
   settleUp,
+  readOnly = false,
 }: {
   group: GroupSnapshot;
   backHref: string;
@@ -53,6 +58,8 @@ export function GroupDetail({
   onSaveExpense: SaveExpense;
   onDeleteExpense: DeleteExpense;
   settleUp: SettleUp;
+  /** The visitor is a Former Member reading a reopened Balance. */
+  readOnly?: boolean;
 }) {
   const ledger = computeLedger(group);
   const rates = useTodaysRates();
@@ -130,11 +137,13 @@ export function GroupDetail({
                 <History aria-hidden />
               </Link>
             </Button>
-            <Button asChild variant="ghost" size="icon" className="text-text-secondary hover:text-text-primary">
-              <Link href={settingsHref} aria-label="Group settings" title="Group settings">
-                <Settings aria-hidden />
-              </Link>
-            </Button>
+            {!readOnly && (
+              <Button asChild variant="ghost" size="icon" className="text-text-secondary hover:text-text-primary">
+                <Link href={settingsHref} aria-label="Group settings" title="Group settings">
+                  <Settings aria-hidden />
+                </Link>
+              </Button>
+            )}
           </div>
         </div>
         <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2">
@@ -153,6 +162,17 @@ export function GroupDetail({
           </p>
         </div>
       </header>
+
+      {readOnly && (
+        <div role="note" className="flex gap-3 rounded-md bg-bg-secondary px-4 py-3">
+          <Eye aria-hidden className="mt-0.5 size-5 shrink-0 text-text-secondary" />
+          <p className="text-sm">
+            <span className="font-semibold">You were removed from this Group</span>, but a change to a past Expense
+            or Settlement has given you a Balance again. You can view the Group until it&apos;s settled; once
+            it&apos;s paid, a Linked Member records the Settlement.
+          </p>
+        </div>
+      )}
 
       {/* Out of the flow while it holds only screen-reader news, so it adds no gap. */}
       <p role="status" className={actionNews ? undefined : "sr-only"}>
@@ -187,6 +207,7 @@ export function GroupDetail({
         settleUp={settleUp}
         onNews={setActionNews}
         onAddExpense={() => open(null)}
+        readOnly={readOnly}
       />
 
       {ledger.timeline.length > 0 && (
@@ -203,15 +224,15 @@ export function GroupDetail({
             <DatedLedger
               group={group}
               timeline={timeline}
-              onOpenExpense={open}
-              onDeleteSettlement={removeSettlement}
+              onOpenExpense={readOnly ? undefined : open}
+              onDeleteSettlement={readOnly ? undefined : removeSettlement}
             />
           )}
         />
       )}
 
       {/* With nothing recorded, "Add the first Expense" in the hero is the only call to action. */}
-      {!editing && ledger.timeline.length > 0 && (
+      {!editing && !readOnly && ledger.timeline.length > 0 && (
         // Always one tap away: a full-width pill floating 12px in from the
         // phone's edges, a floating button on wide screens.
         <div className="pointer-events-none fixed inset-x-0 bottom-3 z-30 px-3 md:inset-x-auto md:right-6 md:bottom-6 md:px-0">

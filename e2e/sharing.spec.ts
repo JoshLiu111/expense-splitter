@@ -14,6 +14,15 @@ function field(page: Page, label: string) {
 
 const members = (page: Page) => page.getByRole("region", { name: "Members" });
 
+/** The ledger row of Theo's Settlement to Maya of this amount. */
+function settlementRow(page: Page, amount: string) {
+  return page
+    .getByRole("region", { name: "Expenses and Settlements" })
+    .getByRole("article")
+    .filter({ has: page.getByRole("heading", { name: "Settlement: Theo paid Maya Chen", exact: true }) })
+    .filter({ hasText: amount });
+}
+
 async function signUp(page: Page, email: string, name: string) {
   await page.goto("/sign-up");
   await expect(page.getByRole("heading", { level: 1, name: "Sign up" })).toBeVisible();
@@ -94,6 +103,92 @@ test("S2: User A adds User B by email; B signs in and sees and edits the Group",
   await page.getByRole("link", { name: "Group settings" }).click();
   await expect(page.getByRole("button", { name: "Delete Group" })).toBeDisabled();
   await expect(page.getByText("Only the Group Creator, Maya Chen, can delete this Group.")).toBeVisible();
+});
+
+test("S2: a removed User whose Balance reopens reads the Group until it is settled (ADR 0006)", async ({ page }) => {
+  // Two Users, four sign-ins: a long journey.
+  test.slow();
+  const bEmail = uniqueEmail();
+  const aEmail = uniqueEmail();
+  await signUp(page, bEmail, "Theo Brown");
+  await verifyEmail(page, bEmail);
+  await page.goto("/dashboard");
+  await signOut(page);
+
+  // Maya pays $30 for both; Theo pays back his $15 in two parts, so he can be removed at zero.
+  await signUp(page, aEmail, "Maya Chen");
+  await createGroup(page, "Flat 3B");
+  await addMember(page, "Flat 3B", "Theo", bEmail);
+  await page.getByRole("button", { name: "Add the first Expense" }).click();
+  await field(page, "Amount (USD)").fill("30");
+  await field(page, "Description").fill("Groceries");
+  await page.getByRole("button", { name: "Add Expense", exact: true }).click();
+  await expect(page.getByText("Expense added.")).toBeVisible();
+  await page.getByRole("button", { name: "Record: Theo pays you $15.00" }).click();
+  await field(page, "Amount (USD)").fill("10");
+  await page.getByRole("button", { name: "Record Settlement" }).click();
+  await expect(page.getByText("Settlement recorded.", { exact: false })).toBeVisible();
+  await page.getByRole("button", { name: "Record: Theo pays you $5.00" }).click();
+  await page.getByRole("button", { name: "Record Settlement" }).click();
+  await expect(page.getByRole("region", { name: "Settle up" })).toContainText("Everyone is Settled Up");
+  await page.getByRole("link", { name: "Group settings" }).click();
+  await page.getByRole("button", { name: "Remove Theo" }).click();
+  await page
+    .getByRole("alertdialog", { name: "Remove Theo from the Group?" })
+    .getByRole("button", { name: "Remove Member" })
+    .click();
+  await expect(page.getByText("Removed Theo.")).toBeVisible();
+  await page.getByRole("link", { name: "Back to Flat 3B" }).click();
+
+  // Deleting his $5 Settlement reopens Theo's Balance.
+  await settlementRow(page, "$5.00").getByRole("button").click();
+  await page.getByRole("dialog", { name: "Settlement" }).getByRole("button", { name: "Delete Settlement" }).click();
+  await page
+    .getByRole("alertdialog", { name: "Delete this Settlement?" })
+    .getByRole("button", { name: "Delete Settlement" })
+    .click();
+  await expect(page.getByTestId(/^balance-/).filter({ hasText: "Theo (Former Member)" })).toContainText("$5.00");
+  await signOut(page);
+
+  // Theo sees the Group again, marked read-only.
+  await signIn(page, bEmail);
+  const listed = page.getByRole("link", { name: /Flat 3B/ });
+  await expect(listed).toContainText("Read-only");
+  await expect(listed).toContainText("$5.00");
+  await listed.click();
+  await expect(page.getByRole("heading", { level: 1, name: "Flat 3B" })).toBeVisible();
+  await expect(page.getByRole("note")).toContainText("You were removed from this Group");
+  await expect(page.getByRole("region", { name: "Settle up" })).toContainText("You pay Maya Chen");
+  await expect(page.getByRole("region", { name: "Settle up" })).toContainText("$5.00");
+  await expect(page.getByRole("button", { name: /^Record/ })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Add Expense" })).toHaveCount(0);
+  await expect(page.getByRole("link", { name: "Group settings" })).toHaveCount(0);
+  await expect(page.getByRole("link", { name: "Activity" })).toBeVisible();
+  // Rows still state each Expense and Settlement, but change nothing.
+  await expect(page.getByRole("button", { name: /Groceries/ })).toHaveCount(0);
+  await settlementRow(page, "$10.00").getByRole("button").click();
+  await expect(page.getByRole("dialog", { name: "Settlement" })).toContainText("Theo paid Maya Chen $10.00");
+  await expect(page.getByRole("button", { name: "Delete Settlement" })).toHaveCount(0);
+  await page.getByRole("dialog", { name: "Settlement" }).getByRole("button", { name: "Close" }).click();
+  // His Member Statement itemises the reopened Balance.
+  await page.getByTestId(/^balance-/).filter({ hasText: "Theo (Former Member)" }).getByRole("button").click();
+  await expect(page.getByRole("dialog", { name: /Theo/ }).getByTestId("member-statement-balance")).toContainText("$5.00");
+  await page.getByRole("dialog", { name: /Theo/ }).getByRole("button", { name: "Close" }).click();
+  // Group settings send him back to the Group.
+  const groupUrl = page.url();
+  await page.goto(`${groupUrl}/settings`);
+  await expect(page).toHaveURL(groupUrl);
+  await signOut(page);
+
+  // Maya records the Settlement; the Group leaves Theo's list.
+  await signIn(page, aEmail);
+  await page.getByRole("link", { name: /Flat 3B/ }).click();
+  await page.getByRole("button", { name: "Record: Theo pays you $5.00" }).click();
+  await page.getByRole("button", { name: "Record Settlement" }).click();
+  await expect(page.getByRole("region", { name: "Settle up" })).toContainText("Everyone is Settled Up");
+  await signOut(page);
+  await signIn(page, bEmail);
+  await expect(page.getByRole("heading", { name: "No Groups yet" })).toBeVisible();
 });
 
 test("a Pending Member is claimed when that User verifies their email", async ({ page }) => {

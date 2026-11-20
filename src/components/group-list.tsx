@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Check, ChevronRight } from "lucide-react";
+import { Check, ChevronRight, Eye } from "lucide-react";
 import {
   computeLedger,
   formatMoney,
@@ -15,7 +15,8 @@ import { describeYourBalance, pluralize } from "@/lib/format";
  * Groups as rows of one ledger panel, each leading with where the Group
  * stands on settling up (the Settle up hero's state), then its Expense count
  * and total spent. With a `viewerUserId`, each row also shows that User's own
- * Balance in the Group.
+ * Balance in the Group, and is marked Read-only where they are a Former
+ * Member whose Balance has reopened (ADR 0006).
  */
 export function GroupList({
   groups,
@@ -48,7 +49,14 @@ export function GroupList({
             >
               <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-6 gap-y-3">
                 <div className="min-w-0 flex-1 basis-60">
-                  <h2 className="text-lg font-bold break-words">{group.name}</h2>
+                  <h2 className="text-lg font-bold break-words">
+                    {group.name}
+                    {viewer?.former && (
+                      <span className="ml-2 inline-flex items-center gap-1 rounded-md border border-border px-2 py-0.5 align-middle text-sm font-semibold text-text-secondary">
+                        <Eye aria-hidden className="size-3.5" /> Read-only
+                      </span>
+                    )}
+                  </h2>
                   <StatusLine status={settleUpStatus(ledger)} currency={group.currency} />
                   <p className="mt-1 flex flex-wrap gap-x-3 text-sm text-text-secondary">
                     <span>{pluralize(ledger.expenseCount, "expense")}</span>

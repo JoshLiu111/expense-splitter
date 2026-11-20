@@ -1,4 +1,4 @@
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { Suspense } from "react";
 import { requireUser } from "@/auth/session";
 import { GroupSettingsView } from "@/components/group-settings-view";
@@ -34,6 +34,8 @@ async function UserGroupSettings({ params }: Pick<PageProps<"/groups/[groupId]/s
   // Groups the User isn't a Linked Member of look the same as missing ones.
   const group = await userGroupRepository(user).getGroup(groupId);
   if (!group) notFound();
+  // A Former Member reading a reopened Balance can't change anything (ADR 0006).
+  if (group.members.find((m) => m.userId === user.id)?.former) redirect(`/groups/${groupId}`);
   return (
     <GroupSettingsView
       group={group}
