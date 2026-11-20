@@ -37,10 +37,9 @@ describe("MemberAvatar", () => {
     expect(html).not.toContain("<img");
   });
 
-  it("shows a Member's avatar image, named for the Member, over their initials until it loads", () => {
+  it("shows a Member's avatar image over their initials until it loads", () => {
     const html = render({ ...maya, avatarUrl: "https://blob.example/maya.webp" });
 
-    expect(html).toMatch(/<img [^>]*alt="Maya Chen"/);
     expect(html).toMatch(/<img [^>]*src="https:\/\/blob.example\/maya.webp"/);
     // The initials stay underneath, shown while the image loads or if it fails.
     expect(html).toContain(">MC<");

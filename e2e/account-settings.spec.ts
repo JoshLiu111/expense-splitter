@@ -74,13 +74,24 @@ test("a User uploads an avatar that shows on their Group, then removes it for th
   await page.getByRole("button", { name: "Create Group" }).click();
   await expect(page.getByRole("heading", { level: 1, name: "Flat 3B" })).toBeVisible();
   const groupUrl = page.url();
-  // Avatars are decorative beside the names they stand for, so find them by their alt text.
-  const mayasAvatar = page.locator('img[alt="Maya Chen"]').filter({ visible: true });
-  await expect(page.getByText("MC", { exact: true }).filter({ visible: true }).first()).toBeVisible();
-  await expect(mayasAvatar).toHaveCount(0);
+  // An Expense, so Maya also shows beside her name in the ledger and Activity.
+  await page.getByRole("button", { name: "Add the first Expense" }).click();
+  await field(page, "Amount (USD)").fill("24.50");
+  await field(page, "Description").fill("Ramen");
+  await page.getByRole("button", { name: "Add Expense", exact: true }).click();
+  await expect(page.getByText("Expense added.")).toBeVisible();
+  // Where her name isn't beside it, as in the Group's and Settle up's avatar stacks,
+  // Maya's avatar is named for her; beside her name, as in the ledger, it is decorative.
+  const mayasAvatar = page.getByRole("img", { name: "Maya Chen", exact: true }).filter({ visible: true });
+  const mayasImage = mayasAvatar.locator("img");
+  await expect(mayasAvatar).toHaveCount(2);
+  await expect(mayasAvatar).toHaveText(["MC", "MC"]);
+  await expect(mayasImage).toHaveCount(0);
 
   await userMenu(page).getByRole("link", { name: "Account Settings" }).click();
   await expect(page.getByRole("heading", { level: 1, name: "Account Settings" })).toBeVisible();
+  // The preview stands alone too, so it is named for her.
+  await expect(mayasAvatar).toHaveCount(1);
 
   // A file that isn't an image is refused, with the error on the field.
   await field(page, "Avatar image").setInputFiles({ name: "notes.txt", mimeType: "text/plain", buffer: Buffer.from("hi") });
@@ -93,14 +104,21 @@ test("a User uploads an avatar that shows on their Group, then removes it for th
   await field(page, "Avatar image").setInputFiles({ name: "maya.png", mimeType: "image/png", buffer: PIXEL_PNG });
   await page.getByRole("button", { name: "Upload avatar" }).click();
   await expect(page.getByRole("status")).toHaveText("Avatar saved.");
-  await expect(mayasAvatar).toHaveCount(1);
+  await expect(mayasImage).toHaveCount(1);
   await expect(page.getByRole("button", { name: "Replace avatar" })).toBeVisible();
 
   await page.goto(groupUrl);
-  await expect(mayasAvatar.first()).toBeVisible();
+  // Still two avatars named for her: the image adds no name of its own.
+  await expect(mayasAvatar).toHaveCount(2);
   // Cropped and downsized in the browser, and shown over the initials once loaded.
-  await expect(mayasAvatar.first()).toHaveJSProperty("naturalWidth", 256);
-  await expect(mayasAvatar.first()).toHaveCSS("opacity", "1");
+  await expect(mayasImage.first()).toHaveJSProperty("naturalWidth", 256);
+  await expect(mayasImage.first()).toHaveCSS("opacity", "1");
+
+  // Activity shows it beside her name, as the actor of each change.
+  await page.getByRole("link", { name: "Activity" }).click();
+  const entry = page.getByRole("main").getByRole("listitem", { name: /^Maya Chen added the Expense Ramen/ });
+  await expect(entry.locator("img")).toHaveJSProperty("naturalWidth", 256);
+  await expect(mayasAvatar).toHaveCount(0);
 
   await page.goto("/account");
   await page.getByRole("button", { name: "Remove avatar" }).click();
@@ -109,8 +127,8 @@ test("a User uploads an avatar that shows on their Group, then removes it for th
 
   await page.goto(groupUrl);
   await expect(page.getByRole("heading", { level: 1, name: "Flat 3B" })).toBeVisible();
-  await expect(page.getByText("MC", { exact: true }).filter({ visible: true }).first()).toBeVisible();
-  await expect(mayasAvatar).toHaveCount(0);
+  await expect(mayasAvatar).toHaveText(["MC", "MC"]);
+  await expect(mayasImage).toHaveCount(0);
 });
 
 test("a Guest is offered no Account Settings, and the page sends them to sign in", async ({ page }) => {

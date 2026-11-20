@@ -75,7 +75,7 @@ export function AvatarSection({
         Avatar
       </h2>
       <div className="mt-3 flex items-center gap-4">
-        <MemberAvatar member={{ name, avatarColor: PREVIEW_COLOUR, avatarUrl: image }} size="lg" />
+        <MemberAvatar member={{ name, avatarColor: PREVIEW_COLOUR, avatarUrl: image }} size="lg" named />
         <p className="text-sm text-text-secondary">
           {image ? "Your avatar shows in every Group you're in." : "Your initials show until you add an avatar."}
         </p>
