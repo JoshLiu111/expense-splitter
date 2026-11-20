@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRef, useState } from "react";
-import { ArrowLeft, Plus, Settings } from "lucide-react";
+import { ArrowLeft, History, Plus, Settings } from "lucide-react";
 import {
   computeLedger,
   formatMoney,
@@ -27,7 +27,7 @@ import { describeBalance, pluralize } from "@/lib/format";
  * then Expenses | Insights (the dated ledger of Expenses and Settlements, and
  * where the money went, over one shared filter), with Expense entry.
  * Details, Categories, Members and deletion live in Group settings, linked
- * from the header. Balances are recomputed from the Group on every render
+ * from the header beside Activity. Balances are recomputed from the Group on every render
  * (ADR 0004).
  */
 export function GroupDetail({
@@ -35,6 +35,7 @@ export function GroupDetail({
   backHref,
   backLabel,
   settingsHref,
+  activityHref,
   currentMemberId,
   onSaveExpense,
   onDeleteExpense,
@@ -45,6 +46,8 @@ export function GroupDetail({
   backLabel: string;
   /** The Group's settings page. */
   settingsHref: string;
+  /** The Group's Activity page. */
+  activityHref: string;
   /** The visitor's own Member: the default Payer. */
   currentMemberId: string | undefined;
   onSaveExpense: SaveExpense;
@@ -62,7 +65,7 @@ export function GroupDetail({
   const [actionNews, setActionNews] = useState("");
   const opener = useRef<HTMLElement | null>(null);
   const addButton = useRef<HTMLButtonElement>(null);
-  const activityHeading = useRef<HTMLHeadingElement>(null);
+  const ledgerHeading = useRef<HTMLHeadingElement>(null);
 
   // Announce Balance changes once they arrive (Guest writes are instant;
   // a User's arrive with the refreshed Group).
@@ -97,7 +100,7 @@ export function GroupDetail({
     setActionNews(
       result.ok ? `Deleted “${expense.description}”.` : (result.errors.form ?? "Couldn't delete the Expense."),
     );
-    activityHeading.current?.focus();
+    ledgerHeading.current?.focus();
   }
 
   async function removeSettlement(settlement: Settlement) {
@@ -107,7 +110,7 @@ export function GroupDetail({
         ? `Deleted the Settlement from ${nameOf(settlement.fromId)} to ${nameOf(settlement.toId)}.`
         : (result?.errors.form ?? "Couldn't delete the Settlement."),
     );
-    activityHeading.current?.focus();
+    ledgerHeading.current?.focus();
   }
 
   return (
@@ -121,11 +124,18 @@ export function GroupDetail({
         </Link>
         <div className="flex items-start justify-between gap-3">
           <h1 className="min-w-0 text-3xl font-extrabold tracking-tight break-words">{group.name}</h1>
-          <Button asChild variant="ghost" size="icon" className="-mr-2.5 text-text-secondary hover:text-text-primary">
-            <Link href={settingsHref} aria-label="Group settings">
-              <Settings aria-hidden />
-            </Link>
-          </Button>
+          <div className="-mr-2.5 flex shrink-0">
+            <Button asChild variant="ghost" size="icon" className="text-text-secondary hover:text-text-primary">
+              <Link href={activityHref} aria-label="Activity" title="Activity">
+                <History aria-hidden />
+              </Link>
+            </Button>
+            <Button asChild variant="ghost" size="icon" className="text-text-secondary hover:text-text-primary">
+              <Link href={settingsHref} aria-label="Group settings" title="Group settings">
+                <Settings aria-hidden />
+              </Link>
+            </Button>
+          </div>
         </div>
         <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2">
           <AvatarStack members={activeMembers} ring="ring-bg-primary" />
@@ -156,6 +166,7 @@ export function GroupDetail({
           expense={editing.expense}
           rates={rates}
           currentMemberId={currentMemberId}
+          changesHref={(expense) => `${activityHref}?expense=${encodeURIComponent(expense.id)}`}
           onSave={(fields) => onSaveExpense(editing.expense?.id ?? null, fields)}
           onClose={close}
           onSaved={() => {
@@ -187,7 +198,7 @@ export function GroupDetail({
         <ExpensesAndInsights
           group={group}
           ledger={ledger}
-          headingRef={activityHeading}
+          headingRef={ledgerHeading}
           renderLedger={(timeline) => (
             <DatedLedger
               group={group}

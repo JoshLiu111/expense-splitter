@@ -2,7 +2,7 @@ import { eq, sql } from "drizzle-orm";
 import { migrate } from "drizzle-orm/node-postgres/migrator";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createDatabase, type Database } from "@/db/client";
-import { members, user } from "@/db/schema";
+import { groups, members, user } from "@/db/schema";
 import { groupRepositoryContract } from "./group-repository.contract";
 import {
   claimPendingMembers,
@@ -42,7 +42,11 @@ describe.skipIf(!url)("Postgres GroupRepository", () => {
     await db.update(user).set({ emailVerified: true }).where(eq(user.id, u.id));
   }
 
-  groupRepositoryContract(async () => createPostgresGroupRepository(db, await aUser()));
+  // A User's changes are recorded under their Linked Member: the creator, here.
+  groupRepositoryContract(
+    async () => createPostgresGroupRepository(db, await aUser()),
+    (group) => group.members[0].id,
+  );
 
   it("records the creating User as Group Creator and as a Linked Member", async () => {
     const maya = await aUser();
@@ -243,6 +247,37 @@ describe.skipIf(!url)("Postgres GroupRepository", () => {
 
     const linked = (await mayasRepo.getGroup(group.id))?.members.filter((m) => m.userId === theo.id);
     expect(linked).toHaveLength(1);
+  });
+
+  it("shows every Linked Member all of a Group's Activity, each change under the Member who made it", async () => {
+    const maya = await aUser();
+    const theo = await aUser({ verified: true });
+    const mayasRepo = createPostgresGroupRepository(db, maya);
+    const theosRepo = createPostgresGroupRepository(db, theo);
+    const group = await mayasRepo.createGroup({ name: "Shared", description: "", currency: "USD" });
+    const mayaMember = group.members[0].id;
+    const chloe = await mayasRepo.addMember(group.id, { name: "Chloe" });
+    const settlement = { fromId: chloe!.id, toId: mayaMember, amount: 100, date: "2026-03-02" };
+    await mayasRepo.addSettlement(group.id, settlement);
+
+    // Theo joins after Maya's change, makes one of his own, then leaves.
+    const theoMember = await mayasRepo.addMember(group.id, { name: "Theo", email: theo.email });
+    await theosRepo.addSettlement(group.id, settlement);
+    expect((await theosRepo.listActivity(group.id))?.map((a) => a.actorMemberId)).toEqual([theoMember!.id, mayaMember]);
+    await mayasRepo.removeMember(group.id, theoMember!.id);
+
+    expect((await mayasRepo.listActivity(group.id))?.map((a) => a.actorMemberId)).toEqual([theoMember!.id, mayaMember]);
+    // A Former Member no longer sees the Group, so nor its Activity.
+    expect(await theosRepo.listActivity(group.id)).toBeNull();
+  });
+
+  it("marks Groups that existed before Activity launched with the day it started", async () => {
+    const repo = createPostgresGroupRepository(db, await aUser());
+    const group = await repo.createGroup({ name: "New", description: "", currency: "USD" });
+    expect(group.activityStartedOn).toBeUndefined();
+
+    await db.update(groups).set({ activityStartedOn: "2026-11-19" }).where(eq(groups.id, group.id));
+    expect((await repo.getGroup(group.id))?.activityStartedOn).toBe("2026-11-19");
   });
 
   it("lists a User's Groups oldest first", async () => {

@@ -17,7 +17,11 @@ const seed = (): GroupSnapshot[] => [
 ];
 
 describe("Guest GroupRepository", () => {
-  groupRepositoryContract(async () => createSessionStorageRepository(memoryStorage(), seed));
+  // The Guest's own changes are recorded with no acting Member.
+  groupRepositoryContract(
+    async () => createSessionStorageRepository(memoryStorage(), seed),
+    () => undefined,
+  );
 
   it("records the Guest as a Name-only Member called You", async () => {
     const repo = createSessionStorageRepository(memoryStorage(), seed);

@@ -1,17 +1,18 @@
 "use client";
 
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useSearchParams } from "next/navigation";
 import type { ReactNode } from "react";
 import type { GroupSnapshot } from "@/domain";
 import { addCategory, deleteCategory, renameCategory } from "@/categories/manage-categories";
+import { GroupActivity } from "@/components/group-activity";
 import { GroupDetail } from "@/components/group-detail";
 import { GroupSettingsView } from "@/components/group-settings-view";
 import { deleteExpense, saveExpense } from "@/expenses/save-expense";
 import { addMember, deleteGroup, removeMember, updateGroupDetails } from "@/groups/manage-group";
 import { clearSmallChange, deleteSettlement, recordSettlement } from "@/settlements/settle-up";
 import { GUEST_MEMBER_NAME } from "@/guest/guest-repository";
-import { guestRepository, useGuestGroups } from "@/guest/use-guest-groups";
+import { guestRepository, useGuestActivity, useGuestGroups } from "@/guest/use-guest-groups";
 import { fetchTodaysRates } from "@/rates/use-todays-rates";
 
 /** Renders the session's Group named in the URL, or says it's missing. */
@@ -54,6 +55,7 @@ export function GuestGroupView() {
           backHref="/guest"
           backLabel="All Groups"
           settingsHref={`/guest/groups/${group.id}/settings`}
+          activityHref={`/guest/groups/${group.id}/activity`}
           // A Guest's own Groups have a Name-only Member "You"; the sample
           // Groups don't, so their first Member pays by default.
           currentMemberId={group.members.find((m) => m.name === GUEST_MEMBER_NAME)?.id}
@@ -97,5 +99,23 @@ export function GuestGroupSettingsView() {
         />
       )}
     </GuestGroup>
+  );
+}
+
+export function GuestGroupActivityView() {
+  return <GuestGroup>{(group) => <GuestActivity group={group} />}</GuestGroup>;
+}
+
+function GuestActivity({ group }: { group: GroupSnapshot }) {
+  const entries = useGuestActivity(group.id);
+  const expense = useSearchParams().get("expense");
+  if (entries === null) return null;
+  return (
+    <GroupActivity
+      group={group}
+      entries={entries}
+      groupHref={`/guest/groups/${group.id}`}
+      focusExpenseId={expense ?? undefined}
+    />
   );
 }

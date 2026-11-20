@@ -98,4 +98,9 @@ export interface GroupSnapshot {
   customCategories?: CustomCategory[];
   expenses: Expense[];
   settlements: Settlement[];
+  /**
+   * Set when the Group's Activity started after the Group did: the day it
+   * started. Expenses and Settlements from before then have no entries.
+   */
+  activityStartedOn?: CalendarDate;
 }
