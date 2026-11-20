@@ -7,7 +7,9 @@ import {
   parseNewMember,
   type NewGroupFields,
 } from "@/domain";
+import type { Member } from "@/domain";
 import type { GroupRepository } from "./group-repository";
+import type { MemberNotifier } from "./member-notifier";
 
 /** What a Group management control shows after it acts. */
 export type ManageResult =
@@ -44,6 +46,24 @@ const text = (record: unknown, key: string): string => {
 // Each operation re-checks its domain rule against the Group as stored now,
 // so a stale or hand-crafted request can't get round what the UI hides.
 
+/**
+ * Tells the person behind a Member just given an email that they were added:
+ * a Linked Member's User gets the "added" notification. Sending can fail
+ * without undoing the add, so a failure is only reported.
+ */
+async function notifyAdded(
+  notify: MemberNotifier | undefined,
+  group: { id: string; name: string },
+  member: Member,
+): Promise<void> {
+  if (!notify?.added || !member.email || !member.userId) return;
+  try {
+    await notify.added({ groupId: group.id, groupName: group.name, email: member.email, inviterName: notify.inviterName });
+  } catch (error) {
+    console.error(`Couldn't tell ${member.email} they were added to Group ${group.id}`, error);
+  }
+}
+
 /** Edits name, description and (while nothing is recorded) Group Currency. */
 export async function updateGroupDetails(
   repo: GroupRepository,
@@ -66,9 +86,15 @@ export type AddMemberResult = { ok: true; name: string } | Extract<ManageResult,
 
 /**
  * Adds a Member: Name-only, or by email, which links a User who has verified
- * it and otherwise makes a Pending Member.
+ * it and otherwise makes a Pending Member. `notify` tells a linked User they
+ * were added.
  */
-export async function addMember(repo: GroupRepository, groupId: string, input: unknown): Promise<AddMemberResult> {
+export async function addMember(
+  repo: GroupRepository,
+  groupId: string,
+  input: unknown,
+  notify?: MemberNotifier,
+): Promise<AddMemberResult> {
   const group = await repo.getGroup(groupId);
   if (!group) return formError(GROUP_GONE);
   const name = parseNewMember(text(input, "name"), group);
@@ -82,18 +108,21 @@ export async function addMember(repo: GroupRepository, groupId: string, input: u
     name: name.value.name,
     ...(email.value ? { email: email.value } : {}),
   });
-  return added ? { ok: true, name: added.name } : formError(GROUP_GONE);
+  if (!added) return formError(GROUP_GONE);
+  await notifyAdded(notify, group, added);
+  return { ok: true, name: added.name };
 }
 
 /**
  * Gives a Name-only or Pending Member an email, keeping their history; a
- * User who has verified it is linked straight away.
+ * User who has verified it is linked straight away, and `notify` tells them.
  */
 export async function setMemberEmail(
   repo: GroupRepository,
   groupId: string,
   memberId: string,
   rawEmail: unknown,
+  notify?: MemberNotifier,
 ): Promise<ManageResult> {
   const group = await repo.getGroup(groupId);
   if (!group) return formError(GROUP_GONE);
@@ -102,7 +131,10 @@ export async function setMemberEmail(
   const email = parseMemberEmail(typeof rawEmail === "string" ? rawEmail : "", group, memberId);
   if (!email.ok) return { ok: false, errors: { email: email.error } };
   if (!email.value) return { ok: false, errors: { email: "Enter the Member's email address." } };
-  return (await repo.setMemberEmail(groupId, memberId, email.value)) ? { ok: true } : formError(GROUP_GONE);
+  const updated = await repo.setMemberEmail(groupId, memberId, email.value);
+  if (!updated) return formError(GROUP_GONE);
+  await notifyAdded(notify, group, updated);
+  return { ok: true };
 }
 
 /** Makes a Member with a zero Balance a Former Member. */

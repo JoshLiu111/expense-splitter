@@ -3,7 +3,7 @@ import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { Resend } from "resend";
 
-/** An email the app sends: verification and password-reset links. */
+/** An email the app sends: verification and password-reset links, and Group notifications. */
 export interface Email {
   to: string;
   subject: string;
@@ -76,6 +76,23 @@ export function resetPasswordEmail(user: { name: string; email: string }, url: s
       "If it wasn't you, you can ignore this email; your password won't change.",
     ],
     "Choose a new password",
+    url,
+  );
+}
+
+/** Tells an existing User they were linked as a Member of a Group, with a link to it. */
+export function addedToGroupEmail(
+  added: { to: string; groupName: string; inviterName: string },
+  url: string,
+): Email {
+  return linkEmail(
+    added.to,
+    `${added.inviterName} added you to ${added.groupName} on Expense Splitter`,
+    [
+      "Hi,",
+      `${added.inviterName} added you to the Group ${added.groupName}. It's already in Your Groups, so you can start sharing Expenses there straight away.`,
+    ],
+    `Open ${added.groupName}`,
     url,
   );
 }
