@@ -2,21 +2,18 @@
 
 import { useId, useRef, useState, useTransition, type FormEvent } from "react";
 import type { AccountResult } from "@/account/account";
-import { AVATAR_TYPES, avatarFileError, NOT_AN_IMAGE } from "@/account/avatar-rules";
+import { AVATAR_SIZE_LIMIT, AVATAR_TYPE_NAMES, AVATAR_TYPES, avatarFileError, NOT_AN_IMAGE } from "@/account/avatar-rules";
 import { cropAvatar } from "@/account/crop-avatar";
+import { attempt } from "@/components/attempt";
 import { ErrorSummary, Field } from "@/components/form";
 import { MemberAvatar } from "@/components/member-avatar";
 import { Button } from "@/components/ui/button";
+import { AVATAR_COLORS } from "@/groups/group-repository";
 
 type Failure = Extract<AccountResult, { ok: false }>;
 
-const OFFLINE: Failure = {
-  ok: false,
-  errors: { form: "Couldn't save the change. Check your connection and try again." },
-};
-
 /** The colour behind the preview's initials; each Group picks its own. */
-const PREVIEW_COLOUR = "#3B82F6";
+const PREVIEW_COLOUR = AVATAR_COLORS[0];
 
 /**
  * The User's avatar, which every Group they are Linked in shows in place of
@@ -28,13 +25,14 @@ export function AvatarSection({
   image,
   onSet,
   onRemove,
-  onDone,
+  onSaved,
 }: {
   name: string;
   image?: string;
   onSet: (form: FormData) => Promise<AccountResult>;
   onRemove: () => Promise<AccountResult>;
-  onDone: (news: string) => void;
+  /** Called once an avatar is set or removed; the page says so. */
+  onSaved: (change: "set" | "removed") => void;
 }) {
   const [failure, setFailure] = useState<Failure>();
   const [pending, startTransition] = useTransition();
@@ -43,18 +41,13 @@ export function AvatarSection({
   const ids = { avatar: `${formId}-avatar` };
   const errors = failure?.errors;
 
-  function run(call: () => Promise<AccountResult>, news: string) {
+  function run(call: () => Promise<AccountResult>, change: "set" | "removed") {
     startTransition(async () => {
-      let result: AccountResult;
-      try {
-        result = await call();
-      } catch {
-        result = OFFLINE;
-      }
+      const result = await attempt(call);
       if (result.ok) {
         setFailure(undefined);
         if (input.current) input.current.value = "";
-        onDone(news);
+        onSaved(change);
       } else setFailure(result);
     });
   }
@@ -73,7 +66,7 @@ export function AvatarSection({
       const form = new FormData();
       form.set("avatar", square, "avatar");
       return onSet(form);
-    }, "Avatar saved.");
+    }, "set");
   }
 
   return (
@@ -84,15 +77,15 @@ export function AvatarSection({
       <div className="mt-3 flex items-center gap-4">
         <MemberAvatar member={{ name, avatarColor: PREVIEW_COLOUR, avatarUrl: image }} size="lg" />
         <p className="text-sm text-text-secondary">
-          {image ? "Your photo shows in every Group you're in." : "Your initials show until you add a photo."}
+          {image ? "Your avatar shows in every Group you're in." : "Your initials show until you add an avatar."}
         </p>
       </div>
       <form onSubmit={upload} noValidate className="mt-4 flex flex-col gap-5">
         <ErrorSummary errors={errors} fieldIds={ids} />
         <Field
           id={ids.avatar}
-          label="Photo"
-          hint="A JPEG, PNG or WebP of up to 2 MB. It's cropped to a square."
+          label="Avatar image"
+          hint={`A ${AVATAR_TYPE_NAMES} of up to ${AVATAR_SIZE_LIMIT}. It's cropped to a square.`}
           error={errors?.avatar}
         >
           {(describedBy) => (
@@ -116,7 +109,7 @@ export function AvatarSection({
               type="button"
               variant="outline"
               disabled={pending}
-              onClick={() => run(onRemove, "Avatar removed.")}
+              onClick={() => run(onRemove, "removed")}
             >
               Remove avatar
             </Button>

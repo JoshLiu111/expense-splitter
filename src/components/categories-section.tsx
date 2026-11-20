@@ -10,21 +10,9 @@ import {
   type GroupSnapshot,
 } from "@/domain";
 import type { CategoryFields, CategoryManagement, CategoryResult } from "@/categories/manage-categories";
+import { attempt } from "@/components/attempt";
 import { Field } from "@/components/form";
 import { Button } from "@/components/ui/button";
-
-const OFFLINE: CategoryResult = {
-  ok: false,
-  errors: { form: "Couldn't save the change. Check your connection and try again." },
-};
-
-async function attempt(call: () => Promise<CategoryResult>): Promise<CategoryResult> {
-  try {
-    return await call();
-  } catch {
-    return OFFLINE;
-  }
-}
 
 const dialogClass =
   "fixed top-1/2 left-1/2 z-50 max-h-[92dvh] w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-lg border border-border bg-surface p-6 shadow-lg outline-none";

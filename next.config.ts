@@ -6,7 +6,8 @@ const nextConfig: NextConfig = {
   partialPrefetching: true,
   experimental: {
     // Avatars are cropped to 256×256 in the browser, but the server checks
-    // an upload's own 2 MB limit itself, so it must be let through to do so.
+    // an upload against MAX_AVATAR_BYTES (2 MB, src/account/avatar-rules.ts)
+    // itself, so this limit must stay above that one to let it through.
     serverActions: { bodySizeLimit: "3mb" },
   },
   turbopack: {

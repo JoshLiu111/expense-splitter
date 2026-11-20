@@ -5,7 +5,7 @@ import { passwordRuleError } from "@/auth/password";
 import type { Database } from "@/db/client";
 import { user } from "@/db/schema";
 import { MAX_MEMBER_NAME_LENGTH } from "@/domain";
-import { avatarFileError, NOT_AN_IMAGE, sniffAvatarType } from "./avatar-rules";
+import { avatarExtension, avatarFileError, NOT_AN_IMAGE, sniffAvatarType } from "./avatar-rules";
 import type { AvatarStore } from "./avatar-store";
 
 /**
@@ -61,12 +61,11 @@ export async function updateDisplayName(db: Database, signedIn: SignedInUser, in
   return rows.length > 0 ? { ok: true } : { ok: false, errors: { form: ACCOUNT_GONE } };
 }
 
-const EXTENSIONS = { "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp" } as const;
-
 /**
- * Sets the User's avatar, replacing any they had. The image must be a JPEG,
- * PNG or WebP of at most 2 MB, judged by its bytes, not by what the upload
- * says it is. The old image is deleted once the new one is on the User.
+ * Sets the User's avatar, replacing any they had. The image must keep to the
+ * avatar rules (avatar-rules.ts), its type judged by its bytes, not by what
+ * the upload says it is. The old image is deleted once the new one is on the
+ * User.
  */
 export async function setAvatar(
   db: Database,
@@ -81,7 +80,7 @@ export async function setAvatar(
   const type = sniffAvatarType(bytes);
   if (!type) return { ok: false, errors: { avatar: NOT_AN_IMAGE } };
 
-  const url = await store.put(`avatars/${signedIn.id}.${EXTENSIONS[type]}`, new Blob([bytes], { type }));
+  const url = await store.put(`avatars/${signedIn.id}.${avatarExtension(type)}`, new Blob([bytes], { type }));
   const old = await swapImage(db, signedIn, url);
   if (old === undefined) {
     await store.delete(url);

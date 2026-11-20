@@ -83,14 +83,14 @@ test("a User uploads an avatar that shows on their Group, then removes it for th
   await expect(page.getByRole("heading", { level: 1, name: "Account Settings" })).toBeVisible();
 
   // A file that isn't an image is refused, with the error on the field.
-  await field(page, "Photo").setInputFiles({ name: "notes.txt", mimeType: "text/plain", buffer: Buffer.from("hi") });
+  await field(page, "Avatar image").setInputFiles({ name: "notes.txt", mimeType: "text/plain", buffer: Buffer.from("hi") });
   await page.getByRole("button", { name: "Upload avatar" }).click();
   await expect(page.getByRole("alert", { name: "There is a problem" })).toContainText(
     "Choose a JPEG, PNG or WebP image.",
   );
-  await expect(field(page, "Photo")).toHaveAccessibleDescription(/^Choose a JPEG, PNG or WebP image\./);
+  await expect(field(page, "Avatar image")).toHaveAccessibleDescription(/^Choose a JPEG, PNG or WebP image\./);
 
-  await field(page, "Photo").setInputFiles({ name: "maya.png", mimeType: "image/png", buffer: PIXEL_PNG });
+  await field(page, "Avatar image").setInputFiles({ name: "maya.png", mimeType: "image/png", buffer: PIXEL_PNG });
   await page.getByRole("button", { name: "Upload avatar" }).click();
   await expect(page.getByRole("status")).toHaveText("Avatar saved.");
   await expect(mayasAvatar).toHaveCount(1);

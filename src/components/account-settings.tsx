@@ -5,24 +5,11 @@ import { MAX_MEMBER_NAME_LENGTH } from "@/domain";
 import type { AccountFields, AccountManagement, AccountResult, PasswordFields } from "@/account/account";
 import { MIN_PASSWORD_LENGTH } from "@/auth/password";
 import { AvatarSection } from "@/components/account-avatar-section";
+import { attempt } from "@/components/attempt";
 import { ErrorSummary, Field } from "@/components/form";
 import { Button } from "@/components/ui/button";
 
 type Failure = Extract<AccountResult, { ok: false }>;
-
-const OFFLINE: Failure = {
-  ok: false,
-  errors: { form: "Couldn't save the change. Check your connection and try again." },
-};
-
-/** Runs an account call, turning a thrown network error into a Failure. */
-async function attempt(call: () => Promise<AccountResult>): Promise<AccountResult> {
-  try {
-    return await call();
-  } catch {
-    return OFFLINE;
-  }
-}
 
 /**
  * Account Settings: what a signed-in User changes about their own account,
@@ -59,7 +46,7 @@ export function AccountSettingsView({
         image={user.image}
         onSet={account.setAvatar}
         onRemove={account.removeAvatar}
-        onDone={setNews}
+        onSaved={(change) => setNews(change === "set" ? "Avatar saved." : "Avatar removed.")}
       />
 
       <PasswordSection
