@@ -36,6 +36,12 @@ export interface Member {
    * new Expenses but still shown on past ones.
    */
   former?: boolean;
+  /**
+   * A User's Pending Member only: whether its latest Invitation was sent.
+   * `false` while none was, e.g. because sending failed, so it can be resent.
+   * A Guest's Pending Members are never sent one and have no value.
+   */
+  invitationSent?: boolean;
 }
 
 export interface Share {

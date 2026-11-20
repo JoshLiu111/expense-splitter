@@ -14,6 +14,7 @@ import {
   addMember,
   deleteGroup,
   removeMember,
+  resendInvitation,
   setMemberEmail,
   updateGroupDetails,
   type AddMemberResult,
@@ -79,6 +80,15 @@ export async function setUserMemberEmail(groupId: string, memberId: string, emai
   if (typeof groupId !== "string" || typeof memberId !== "string") return INVALID;
   const result = await setMemberEmail(userGroupRepository(user), groupId, memberId, email, emailMemberNotifier(user));
   if (result.ok) refresh();
+  return result;
+}
+
+export async function resendUserInvitation(groupId: string, memberId: string): Promise<ManageResult> {
+  const user = await requireUser(`/groups/${groupId}`);
+  if (typeof groupId !== "string" || typeof memberId !== "string") return INVALID;
+  const result = await resendInvitation(userGroupRepository(user), groupId, memberId, emailMemberNotifier(user));
+  // Refreshed either way: a failed send shows on the Member as not sent.
+  refresh();
   return result;
 }
 

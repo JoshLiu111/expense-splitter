@@ -9,6 +9,7 @@ import {
   deleteUserCategory,
   deleteUserGroup,
   removeUserMember,
+  resendUserInvitation,
   renameUserCategory,
   setUserMemberEmail,
   updateUserGroup,
@@ -45,6 +46,7 @@ async function UserGroupSettings({ params }: Pick<PageProps<"/groups/[groupId]/s
         updateDetails: updateUserGroup.bind(null, groupId),
         addMember: addUserMember.bind(null, groupId),
         setMemberEmail: setUserMemberEmail.bind(null, groupId),
+        resendInvitation: resendUserInvitation.bind(null, groupId),
         removeMember: removeUserMember.bind(null, groupId),
         deleteGroup: deleteUserGroup.bind(null, groupId),
       }}

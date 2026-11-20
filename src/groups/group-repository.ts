@@ -57,11 +57,18 @@ export interface GroupRepository {
   setMemberEmail(groupId: string, memberId: string, email: string): Promise<Member | null>;
   /**
    * Issues a new Invitation for a Pending Member, so only it works from now
-   * on, and answers its token for the emailed link; `null` if the Member
+   * on (this is how an Invitation is resent), and answers its token for the
+   * emailed link; `null` if the Member
    * isn't a Pending Member of that visible Group. A Guest's Pending Members
    * are never sent anything, so a Guest always gets `null`.
    */
   issueInvitation(groupId: string, memberId: string): Promise<string | null>;
+  /**
+   * Records that the Invitation with this token was emailed, so its Pending
+   * Member shows `invitationSent` while it is their latest; `false` if no
+   * such Invitation was issued in that visible Group.
+   */
+  recordInvitationSent(groupId: string, token: string): Promise<boolean>;
   /** Makes a Member a Former Member; `false` if they aren't in that visible Group. */
   removeMember(groupId: string, memberId: string): Promise<boolean>;
   /** Adds a Custom Category at the end of the Group's; `null` if the Group isn't visible here. */

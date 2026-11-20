@@ -70,6 +70,7 @@ export function GroupSettingsView({
         headingRef={membersHeading}
         onAdd={manage.addMember}
         onSetEmail={manage.setMemberEmail}
+        onResendInvitation={manage.resendInvitation}
         onRemove={manage.removeMember}
         onNews={setNews}
       />

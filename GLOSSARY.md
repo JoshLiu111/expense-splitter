@@ -30,7 +30,7 @@ A Member added by an email that no User has yet (or a Name-only Member given one
 _Avoid_: Invitee, invited user
 
 **Invitation**:
-A one-time link emailed to a Pending Member that lets its holder sign up (or sign in) as that email, which counts as verifying it, and claim every Pending Member with that email (ADR 0007). It names the Group and who sent it, and works for 7 days; only a Pending Member's latest Invitation works, and it stops working once used or once the Pending Member is removed or claimed.
+A one-time link emailed to a Pending Member that lets its holder sign up (or sign in) as that email, which counts as verifying it, and claim every Pending Member with that email (ADR 0007). It names the Group and who sent it, and works for 7 days; only a Pending Member's latest Invitation works, and it stops working once used or once the Pending Member is removed or claimed. A Member can resend it, which sends a new Invitation and stops the older link working; Group settings show whether a Pending Member's latest Invitation was sent. A link that no longer works explains why, except that a used one takes the User who used it back into the Group.
 _Avoid_: Invite code, share link
 
 **Former Member**:

@@ -1,7 +1,11 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createDatabase, type Database } from "@/db/client";
 import { user } from "@/db/schema";
-import { createPostgresGroupRepository, type GroupUser } from "@/groups/postgres-group-repository";
+import {
+  claimPendingMembers,
+  createPostgresGroupRepository,
+  type GroupUser,
+} from "@/groups/postgres-group-repository";
 import { createInvitations } from "./invitations";
 
 const url = process.env.TEST_DATABASE_URL;
@@ -96,6 +100,37 @@ describe.skipIf(!url)("Invitations", () => {
       await repo.removeMember(group.id, pending.id);
 
       expect(await createInvitations(db, now).lookUp(token)).toMatchObject({ status: "revoked" });
+    });
+
+    it("works again once resent after it expired, while the expired link still doesn't", async () => {
+      const issued = clock;
+      const { repo, group, pending, token } = await anInvitation();
+      const invitations = createInvitations(db, now);
+      clock = new Date(issued.getTime() + 10 * DAY);
+
+      const resent = (await repo.issueInvitation(group.id, pending.id))!;
+
+      expect(await invitations.lookUp(resent)).toMatchObject({ status: "valid" });
+      expect(await invitations.lookUp(token)).toMatchObject({ status: "superseded" });
+      clock = issued;
+    });
+
+    it("names who claimed the Pending Member once used, whether by this link or by verifying the email", async () => {
+      const { token, email, group } = await anInvitation();
+      const byVerifying = await anInvitation();
+      const dev = await aUser({ email });
+      const ana = await aUser({ email: byVerifying.email, verified: true });
+      const invitations = createInvitations(db, now);
+
+      await invitations.accept(token, dev);
+      await claimPendingMembers(db, ana);
+
+      expect(await invitations.lookUp(token)).toEqual({ status: "used", groupId: group.id, claimedBy: dev.id });
+      expect(await invitations.lookUp(byVerifying.token)).toEqual({
+        status: "used",
+        groupId: byVerifying.group.id,
+        claimedBy: ana.id,
+      });
     });
 
     it("doesn't know a token that was never issued", async () => {

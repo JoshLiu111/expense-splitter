@@ -5,6 +5,7 @@ import { createMemoryAvatarStore } from "@/account/avatar-store";
 import { anImage } from "@/test/images";
 import { createDatabase, type Database } from "@/db/client";
 import { groups, members, user } from "@/db/schema";
+import { createInvitations } from "@/invitations/invitations";
 import { groupRepositoryContract } from "./group-repository.contract";
 import {
   claimPendingMembers,
@@ -59,6 +60,9 @@ describe.skipIf(!url)("Postgres GroupRepository", () => {
       },
       async removeAvatar(userId) {
         expect(await removeAvatar(db, createMemoryAvatarStore(), { id: userId })).toEqual({ ok: true });
+      },
+      async invitationStatus(token) {
+        return (await createInvitations(db).lookUp(token)).status;
       },
     },
   );
@@ -332,7 +336,10 @@ describe.skipIf(!url)("Postgres GroupRepository", () => {
     await claimPendingMembers(db, theo);
 
     const theosView = await createPostgresGroupRepository(db, theo).getGroup(group.id);
-    expect(theosView?.members).toContainEqual({ ...pending, name: theo.name, userId: theo.id });
+    // Linked now, so no longer waiting on an Invitation.
+    const { invitationSent, ...member } = pending!;
+    expect(invitationSent).toBe(false);
+    expect(theosView?.members).toContainEqual({ ...member, name: theo.name, userId: theo.id });
   });
 
   it("claims nothing in a Group where the User is already a Linked Member", async () => {

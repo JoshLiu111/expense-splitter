@@ -250,6 +250,8 @@ export const invitations = pgTable(
     issuedAt: timestamp("issued_at", { withTimezone: true }).notNull(),
     expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
     usedAt: timestamp("used_at", { withTimezone: true }),
+    /** When its email was sent; unset if sending failed or hasn't finished. */
+    sentAt: timestamp("sent_at", { withTimezone: true }),
     /** Issue order: a Pending Member's highest is their latest Invitation. */
     seq: integer("seq").notNull().generatedAlwaysAsIdentity(),
   },

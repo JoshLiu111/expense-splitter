@@ -7,7 +7,7 @@ import { getCurrentUser } from "@/auth/session";
 import { FormCard } from "@/components/form";
 import { Button } from "@/components/ui/button";
 import { db } from "@/db";
-import { createInvitations, invitationProblem } from "@/invitations/invitations";
+import { createInvitations, invitationExplanation, type InvitationProblem } from "@/invitations/invitations";
 import { AuthForm } from "../../auth-form";
 
 export const metadata: Metadata = { title: "Join a Group · Expense Splitter" };
@@ -35,16 +35,23 @@ async function Invitation({ params }: Pick<PageProps<"/invite/[token]">, "params
   const { token } = await params;
   const invitations = createInvitations(db());
   const found = await invitations.lookUp(token);
-  if (found.status !== "valid") return <Problem message={invitationProblem(found.status)} />;
-
   const user = await getCurrentUser();
+  // Signing in comes back here, to use the Invitation as that User.
+  const signInHere = signInPath(`/invite/${encodeURIComponent(token)}`);
+
+  if (found.status === "used") {
+    // Its User goes back into the Group; anyone else is told it was used.
+    if (user && found.claimedBy === user.id) redirect(`/groups/${encodeURIComponent(found.groupId)}`);
+    return <Problem status="used" signIn={user ? undefined : signInHere} />;
+  }
+  if (found.status !== "valid") return <Problem status={found.status} />;
+
   if (user) {
     const accepted = await invitations.accept(token, user);
     if (accepted.ok) redirect(`/groups/${encodeURIComponent(accepted.groupId)}`);
-    return <Problem message={invitationProblem(accepted.status)} />;
+    return <Problem status={accepted.status} />;
   }
-  // Signing in comes back here, to use the Invitation as that User.
-  if (found.hasAccount) redirect(signInPath(`/invite/${encodeURIComponent(token)}`));
+  if (found.hasAccount) redirect(signInHere);
   return (
     <AuthForm
       mode="sign-up"
@@ -53,17 +60,30 @@ async function Invitation({ params }: Pick<PageProps<"/invite/[token]">, "params
   );
 }
 
-function Problem({ message }: { message: string }) {
+/**
+ * Why an Invitation link doesn't work. With `signIn`, offers the User who
+ * used it a way back into the Group.
+ */
+function Problem({ status, signIn }: { status: InvitationProblem; signIn?: string }) {
+  const { title, message } = invitationExplanation(status);
   return (
     <section aria-labelledby="invite-heading" className="mx-auto flex max-w-md flex-col gap-6">
       <h1 id="invite-heading" className="text-2xl font-extrabold">
-        This Invitation doesn&apos;t work
+        {title}
       </h1>
       <FormCard>
-        <p role="alert">{message}</p>
-        <Button asChild className="mt-4">
-          <Link href="/">Go to Expense Splitter</Link>
-        </Button>
+        <p>{message}</p>
+        {signIn && <p className="mt-2">If it was you, sign in to open the Group.</p>}
+        <div className="mt-4 flex flex-wrap gap-3">
+          {signIn && (
+            <Button asChild>
+              <Link href={signIn}>Sign in</Link>
+            </Button>
+          )}
+          <Button asChild variant={signIn ? "outline" : "default"}>
+            <Link href="/">Go to Expense Splitter</Link>
+          </Button>
+        </div>
       </FormCard>
     </section>
   );

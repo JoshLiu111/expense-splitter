@@ -44,20 +44,21 @@ const text = (record: unknown, key: string): string => {
 };
 
 /**
- * Sends a Member just given an email that no User has verified (a Pending
- * Member) an Invitation. Sending can fail without undoing the add, so a
- * failure is only reported.
+ * Sends a Member with an email that no User has verified (a Pending Member)
+ * a new Invitation, recording it as sent once it is. Sending can fail
+ * without undoing whatever came before, so a failure is only reported, and
+ * the Pending Member shows its Invitation wasn't sent. Answers whether it was.
  */
 async function invite(
   repo: GroupRepository,
   notify: MemberNotifier | undefined,
   group: { id: string; name: string },
   member: Member,
-): Promise<void> {
-  if (!notify?.invited || !member.email || member.userId) return;
+): Promise<boolean> {
+  if (!notify?.invited || !member.email || member.userId) return false;
   try {
     const token = await repo.issueInvitation(group.id, member.id);
-    if (!token) return;
+    if (!token) return false;
     await notify.invited({
       groupId: group.id,
       groupName: group.name,
@@ -66,8 +67,11 @@ async function invite(
       inviterName: notify.inviterName,
       token,
     });
+    await repo.recordInvitationSent(group.id, token);
+    return true;
   } catch (error) {
     console.error(`Couldn't send an Invitation to Member ${member.id} of Group ${group.id}`, error);
+    return false;
   }
 }
 
@@ -147,6 +151,25 @@ export async function setMemberEmail(
   return { ok: true };
 }
 
+/**
+ * Sends a Pending Member a new Invitation, so the link in any earlier one
+ * stops working.
+ */
+export async function resendInvitation(
+  repo: GroupRepository,
+  groupId: string,
+  memberId: string,
+  notify: MemberNotifier,
+): Promise<ManageResult> {
+  const group = await repo.getGroup(groupId);
+  if (!group) return formError(GROUP_GONE);
+  const member = group.members.find((m) => m.id === memberId);
+  if (!member?.email || member.userId || member.former) return formError("Only a Pending Member is sent an Invitation.");
+  return (await invite(repo, notify, group, member))
+    ? { ok: true }
+    : formError("The Invitation couldn't be sent. Try again in a moment.");
+}
+
 /** Makes a Member with a zero Balance a Former Member. */
 export async function removeMember(
   repo: GroupRepository,
@@ -179,6 +202,8 @@ export interface GroupManagement {
   addMember(fields: NewMemberFields): Promise<AddMemberResult>;
   /** Absent for Guests, who have no Users to link Members to by email. */
   setMemberEmail?: (memberId: string, email: string) => Promise<ManageResult>;
+  /** Absent for Guests, whose Pending Members are never sent an Invitation. */
+  resendInvitation?: (memberId: string) => Promise<ManageResult>;
   removeMember(memberId: string): Promise<ManageResult>;
   deleteGroup(): Promise<ManageResult>;
 }

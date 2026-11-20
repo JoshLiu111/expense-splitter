@@ -23,7 +23,13 @@ export type InvitationLookup =
       /** Whether a User already has that email, so should sign in rather than up. */
       hasAccount: boolean;
     }
-  | { status: Exclude<InvitationStatus, "valid" | "unknown">; groupId: string }
+  | {
+      status: "used";
+      groupId: string;
+      /** The User whose Linked Member it became, who is taken into the Group. */
+      claimedBy?: string;
+    }
+  | { status: Exclude<InvitationStatus, "valid" | "used" | "unknown">; groupId: string }
   | { status: "unknown" };
 
 /** What following an Invitation as a signed-in User does. */
@@ -81,6 +87,12 @@ export function createInvitations(db: Database, now: () => Date = () => new Date
     async lookUp(token: string): Promise<InvitationLookup> {
       const found = await find(token);
       if (!found) return { status: "unknown" };
+      if (found.status === "used")
+        return {
+          status: "used",
+          groupId: found.groupId,
+          ...(found.memberUserId ? { claimedBy: found.memberUserId } : {}),
+        };
       if (found.status !== "valid") return { status: found.status, groupId: found.groupId };
       const [account] = await db
         .select({ id: user.id })
@@ -125,21 +137,47 @@ export function createInvitations(db: Database, now: () => Date = () => new Date
 
 export type Invitations = ReturnType<typeof createInvitations>;
 
+/** Why an Invitation link didn't take someone into its Group. */
+export type InvitationProblem = Exclude<InvitationStatus, "valid"> | "wrong-email";
 
-/** What to tell someone whose Invitation link doesn't work. */
-export function invitationProblem(status: Exclude<InvitationStatus, "valid"> | "wrong-email"): string {
+/** The page shown for an Invitation link that doesn't work: its heading and why. */
+export function invitationExplanation(status: InvitationProblem): { title: string; message: string } {
   switch (status) {
     case "expired":
-      return "This Invitation has expired. Ask the person who invited you to send a new one.";
+      return {
+        title: "This Invitation has expired",
+        message: "Invitations work for 7 days. Ask the person who invited you to send a new one.",
+      };
     case "superseded":
-      return "A newer Invitation was sent to this email. Use the link in the latest one.";
+      return {
+        title: "There's a newer Invitation",
+        message: "A newer Invitation to this Group was sent to your email. Use the link in the latest one.",
+      };
     case "revoked":
-      return "This Invitation is no longer valid.";
+      return {
+        title: "This Invitation was withdrawn",
+        message: "The Group no longer has a Member waiting for this email, so the link doesn't work any more.",
+      };
     case "used":
-      return "This Invitation has already been used.";
+      return {
+        title: "This Invitation was already used",
+        message: "Each Invitation works once, and this one has already been used to join the Group.",
+      };
     case "wrong-email":
-      return "This Invitation was sent to a different email. Sign out, then open the link again.";
+      return {
+        title: "This Invitation is for someone else",
+        message: "It was sent to a different email. Sign out, then open the link again.",
+      };
     case "unknown":
-      return "This Invitation link isn't valid. Check you copied all of it.";
+      return {
+        title: "This Invitation link isn't valid",
+        message: "Check you copied all of it, or ask the person who invited you to send a new one.",
+      };
   }
+}
+
+/** What to tell someone whose Invitation link doesn't work, in a sentence or two. */
+export function invitationProblem(status: InvitationProblem): string {
+  const { title, message } = invitationExplanation(status);
+  return `${title}. ${message}`;
 }

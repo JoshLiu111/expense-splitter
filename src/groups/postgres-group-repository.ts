@@ -206,7 +206,7 @@ export function createPostgresGroupRepository(
     if (groupRows.length === 0) return [];
 
     const ids = groupRows.map((g) => g.id);
-    const [memberRows, expenseRows, shareRows, settlementRows, categoryRows] = await Promise.all([
+    const [memberRows, expenseRows, shareRows, settlementRows, categoryRows, invitationRows] = await Promise.all([
       // A Linked Member is shown under their User's current name and avatar,
       // so a change in Account Settings reaches every Group at once.
       db
@@ -228,7 +228,14 @@ export function createPostgresGroupRepository(
         .from(customCategories)
         .where(inArray(customCategories.groupId, ids))
         .orderBy(asc(customCategories.createdAt), asc(customCategories.id)),
+      // Each Member's latest Invitation: whether it was sent is shown.
+      db
+        .selectDistinctOn([invitations.memberId], { memberId: invitations.memberId, sentAt: invitations.sentAt })
+        .from(invitations)
+        .where(inArray(invitations.groupId, ids))
+        .orderBy(invitations.memberId, desc(invitations.seq)),
     ]);
+    const sentInvitation = new Map(invitationRows.map((r) => [r.memberId, r.sentAt !== null]));
 
     return groupRows.map((g) => ({
       id: g.id,
@@ -246,6 +253,7 @@ export function createPostgresGroupRepository(
           ...(m.userId ? { userId: m.userId } : {}),
           ...(m.former ? { former: true } : {}),
           ...(userImage ? { avatarUrl: userImage } : {}),
+          ...(m.email && !m.userId && !m.former ? { invitationSent: sentInvitation.get(m.id) ?? false } : {}),
         })),
       customCategories: categoryRows
         .filter((c) => c.groupId === g.id)
@@ -484,6 +492,15 @@ export function createPostgresGroupRepository(
         expiresAt: new Date(issuedAt.getTime() + INVITATION_LIFETIME_MS),
       });
       return token;
+    },
+    async recordInvitationSent(groupId, token) {
+      if (!(await canChange(groupId))) return false;
+      const rows = await db
+        .update(invitations)
+        .set({ sentAt: now() })
+        .where(and(eq(invitations.tokenHash, hashInvitationToken(token)), eq(invitations.groupId, groupId)))
+        .returning({ id: invitations.id });
+      return rows.length > 0;
     },
     async removeMember(groupId, memberId) {
       if (!(await canChange(groupId))) return false;

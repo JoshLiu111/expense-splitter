@@ -237,6 +237,9 @@ export function createSessionStorageRepository(
     async issueInvitation() {
       return null;
     },
+    async recordInvitationSent() {
+      return false;
+    },
     async removeMember(groupId, memberId) {
       const group = read().find((g) => g.id === groupId);
       if (!group?.members.some((m) => m.id === memberId)) return false;

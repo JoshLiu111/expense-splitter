@@ -2,7 +2,14 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { createSessionStorageRepository } from "@/guest/guest-repository";
 import { memoryStorage } from "@/test/memory-storage";
 import type { GroupRepository } from "./group-repository";
-import { addMember, deleteGroup, removeMember, setMemberEmail, updateGroupDetails } from "./manage-group";
+import {
+  addMember,
+  deleteGroup,
+  removeMember,
+  resendInvitation,
+  setMemberEmail,
+  updateGroupDetails,
+} from "./manage-group";
 import type { MemberNotifier } from "./member-notifier";
 
 afterEach(() => vi.restoreAllMocks());
@@ -29,9 +36,10 @@ async function flatWithDebt() {
 
 /**
  * A repository that issues Invitations to Pending Members as Postgres does
- * (a Guest's issues none), numbering the tokens `tok_1`, `tok_2`, ...
+ * (a Guest's issues none), numbering the tokens `tok_1`, `tok_2`, ..., and
+ * pushing the token of each one recorded as sent onto `sent`.
  */
-function issuingInvitations(repo: GroupRepository): GroupRepository {
+function issuingInvitations(repo: GroupRepository, sent: string[] = []): GroupRepository {
   let issued = 0;
   return {
     ...repo,
@@ -40,6 +48,10 @@ function issuingInvitations(repo: GroupRepository): GroupRepository {
       if (!member?.email || member.userId || member.former) return null;
       issued += 1;
       return `tok_${issued}`;
+    },
+    async recordInvitationSent(_groupId, token) {
+      sent.push(token);
+      return true;
     },
   };
 }
@@ -171,6 +183,23 @@ describe("addMember", () => {
     ]);
   });
 
+  it("records the Invitation as sent once it is emailed, and not when sending fails", async () => {
+    const { repo, group } = await flatWithDebt();
+    const sent: string[] = [];
+    const failing: MemberNotifier = { inviterName: "Ana", invited: () => Promise.reject(new Error("Resend is down")) };
+    vi.spyOn(console, "error").mockImplementation(() => {});
+
+    await addMember(issuingInvitations(repo, sent), group.id, { name: "Dev", email: "dev@example.com" }, failing);
+    expect(sent).toEqual([]);
+    await addMember(
+      issuingInvitations(repo, sent),
+      group.id,
+      { name: "Eve", email: "eve@example.com" },
+      recordingInvitations().notifier,
+    );
+    expect(sent).toEqual(["tok_1"]);
+  });
+
   it("sends no Invitation for a Name-only Member, nor where no Invitation is issued, as for a Guest", async () => {
     const { repo, group } = await flatWithDebt();
     const { notifier, invited } = recordingInvitations();
@@ -258,6 +287,64 @@ describe("setMemberEmail", () => {
       ok: false,
       errors: { form: "Dev has been removed from this Group." },
     });
+  });
+});
+
+describe("resendInvitation", () => {
+  /** Flat with Dev, a Pending Member whose first Invitation (`tok_1`) was never sent. */
+  async function withPendingDev() {
+    const { repo, group, chloe } = await flatWithDebt();
+    const sent: string[] = [];
+    const issuing = issuingInvitations(repo, sent);
+    const dev = (await repo.addMember(group.id, { name: "Dev", email: "dev@example.com" }))!;
+    await issuing.issueInvitation(group.id, dev.id);
+    return { repo: issuing, group, chloe, dev, sent };
+  }
+
+  it("emails a Pending Member a new Invitation and records it as sent", async () => {
+    const { repo, group, dev, sent } = await withPendingDev();
+    const { notifier, invited } = recordingInvitations("Ana");
+
+    expect(await resendInvitation(repo, group.id, dev.id, notifier)).toEqual({ ok: true });
+
+    expect(invited).toEqual([
+      {
+        groupId: group.id,
+        groupName: "Flat",
+        memberId: dev.id,
+        email: "dev@example.com",
+        inviterName: "Ana",
+        token: "tok_2",
+      },
+    ]);
+    expect(sent).toEqual(["tok_2"]);
+  });
+
+  it("says so when the Invitation couldn't be sent, so it can be tried again", async () => {
+    const { repo, group, dev, sent } = await withPendingDev();
+    const failing: MemberNotifier = { inviterName: "Ana", invited: () => Promise.reject(new Error("Resend is down")) };
+    vi.spyOn(console, "error").mockImplementation(() => {});
+
+    expect(await resendInvitation(repo, group.id, dev.id, failing)).toEqual({
+      ok: false,
+      errors: { form: "The Invitation couldn't be sent. Try again in a moment." },
+    });
+    expect(sent).toEqual([]);
+  });
+
+  it("refuses a Member who isn't a Pending Member", async () => {
+    const { repo, group, chloe } = await withPendingDev();
+    const { notifier, invited } = recordingInvitations();
+
+    expect(await resendInvitation(repo, group.id, chloe.id, notifier)).toEqual({
+      ok: false,
+      errors: { form: "Only a Pending Member is sent an Invitation." },
+    });
+    expect(await resendInvitation(repo, "grp_missing", chloe.id, notifier)).toEqual({
+      ok: false,
+      errors: { form: "This Group is no longer available." },
+    });
+    expect(invited).toEqual([]);
   });
 });
 
