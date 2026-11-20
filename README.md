@@ -240,13 +240,14 @@ npm run db:migrate
 npm run dev
 ```
 
-Checks: `npm run typecheck`, `npm run lint`, `npm test` (needs `TEST_DATABASE_URL`, see `.env.test.example`), and `npm run build && npm run test:e2e`.
+Checks: `npm run typecheck`, `npm run lint`, `npm test` (needs `TEST_DATABASE_URL`, see `.env.test.example`), and `npm run build && npm run test:e2e` (needs `E2E_DATABASE_URL`).
 
 ### Environment variables
 
 | Variable | Description |
 |----------|------------|
 | `DATABASE_URL` | Postgres connection string (Neon pooled connection in production) |
+| `E2E_DATABASE_URL` | A separate Postgres database for end-to-end tests; Playwright migrates it and runs the app against it |
 | `BETTER_AUTH_SECRET` | Random 32+ byte secret for sessions (`openssl rand -base64 32`) |
 | `BETTER_AUTH_URL` | The app's public origin, e.g. `http://localhost:3000` |
 | `RESEND_API_KEY` | Resend key for verification and password-reset emails; without it, emails are logged to the console in development |
