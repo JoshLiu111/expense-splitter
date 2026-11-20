@@ -198,7 +198,7 @@ function RenameCategory({
       }}
     >
       <Dialog.Trigger asChild>
-        <Button variant="ghost" aria-label={`Rename ${category.name}`}>
+        <Button variant="quiet" aria-label={`Rename ${category.name}`}>
           <Pencil aria-hidden /> Rename
         </Button>
       </Dialog.Trigger>
@@ -252,7 +252,7 @@ function ConfirmDeleteCategory({ category, onConfirm }: { category: CustomCatego
   return (
     <AlertDialog.Root>
       <AlertDialog.Trigger asChild>
-        <Button variant="ghost" aria-label={`Delete ${category.name}`}>
+        <Button variant="quiet" aria-label={`Delete ${category.name}`}>
           <Trash2 aria-hidden /> Delete
         </Button>
       </AlertDialog.Trigger>

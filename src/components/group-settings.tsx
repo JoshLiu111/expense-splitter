@@ -291,7 +291,7 @@ function ConfirmRemoveMember({ member, onConfirm }: { member: Member; onConfirm:
   return (
     <AlertDialog.Root>
       <AlertDialog.Trigger asChild>
-        <Button variant="ghost" aria-label={`Remove ${member.name}`}>
+        <Button variant="quiet" aria-label={`Remove ${member.name}`}>
           <Trash2 aria-hidden /> Remove
         </Button>
       </AlertDialog.Trigger>
@@ -448,7 +448,7 @@ function MemberEmailDialog({
       }}
     >
       <Dialog.Trigger asChild>
-        <Button variant="ghost" aria-label={`${action} for ${member.name}`}>
+        <Button variant="quiet" aria-label={`${action} for ${member.name}`}>
           <Mail aria-hidden /> {action}
         </Button>
       </Dialog.Trigger>
