@@ -12,14 +12,17 @@ import { CURRENCY_CODES, type CalendarDate, type CurrencyCode, type RateSnapshot
  *
  * `FIXED_EXCHANGE_RATES` (JSON units per US dollar, e.g. `{"JPY":150}`)
  * replaces the API and cache with fixed rates, for end-to-end tests only:
- * it is ignored, with a logged error, unless `E2E=1` is also set.
+ * it is ignored unless `E2E=1` is also set, and the first call that ignores
+ * it logs an error.
  */
 export async function todaysRates(): Promise<RateSnapshot | null> {
   const today: CalendarDate = new Date().toISOString().slice(0, 10);
   const fixed = process.env.FIXED_EXCHANGE_RATES;
-  if (fixed && process.env.E2E !== "1")
-    console.error("FIXED_EXCHANGE_RATES is ignored without E2E=1; using real exchange rates");
-  else if (fixed) return { perUsd: { USD: 1, ...parsePerUsd(JSON.parse(fixed)) }, fetchedOn: today, stale: false };
+  if (fixed && process.env.E2E !== "1") {
+    if (!reportedIgnoredFixedRates)
+      console.error("FIXED_EXCHANGE_RATES is ignored without E2E=1; using real exchange rates");
+    reportedIgnoredFixedRates = true;
+  } else if (fixed) return { perUsd: { USD: 1, ...parsePerUsd(JSON.parse(fixed)) }, fetchedOn: today, stale: false };
 
   const cached = await readCache().catch((error: unknown) => {
     console.error("Couldn't read the exchange rate cache", error);
@@ -42,6 +45,8 @@ const RETRY_AFTER_MS = 10 * 60 * 1000;
 /** One refresh at a time per server instance. */
 let refreshing: Promise<RateSnapshot | null> | undefined;
 let lastFailure = 0;
+/** An ignored `FIXED_EXCHANGE_RATES` is reported once per process. */
+let reportedIgnoredFixedRates = false;
 
 /** Fetches today's rates and caches them; `null` if that fails. */
 async function refresh(today: CalendarDate): Promise<RateSnapshot | null> {
