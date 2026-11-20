@@ -16,9 +16,11 @@ let repository: GuestGroupRepository | undefined;
 /** The browser session's Guest repository (client only). */
 export function guestRepository(): GuestGroupRepository {
   if (!repository) {
-    const seeded = () => seedGuestSession(importSampleGroups(sampleData));
-    const inner = createSessionStorageRepository(window.sessionStorage, () => seeded().groups, {
-      seedActivity: () => seeded().activity,
+    // Seeds once, then splits: both halves are asked for together.
+    let seeded: ReturnType<typeof seedGuestSession> | undefined;
+    const seed = () => (seeded ??= seedGuestSession(importSampleGroups(sampleData)));
+    const inner = createSessionStorageRepository(window.sessionStorage, () => seed().groups, {
+      seedActivity: () => seed().activity,
     });
     /** Runs a write, then tells subscribed views to re-read. */
     const notifying =

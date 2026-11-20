@@ -23,7 +23,7 @@ describe("activityItems", () => {
 
     const [item] = activityItems([edited(before, electricity, "mem_casey")], apartment);
 
-    expect(item).toMatchObject({ actor: "Casey Brooks", action: "edited", title: "January electricity" });
+    expect(item).toMatchObject({ actor: "Casey Brooks", kind: "expense-edited", title: "January electricity" });
     expect(item.changes).toEqual([
       { label: "Description", before: "Jan electricity", after: "January electricity" },
       { label: "Date", before: "Jan 4, 2024", after: "Jan 5, 2024" },
@@ -72,6 +72,41 @@ describe("activityItems", () => {
     ]);
   });
 
+  it("lists the ratios an edit changed, even when no Share moved", () => {
+    // 2:2:1:1 to 4:4:2:2 splits ¥42,600 exactly the same way.
+    const izakaya = japan.expenses.find((e) => e.id === "exp_012")!;
+    const doubled: Expense = {
+      ...izakaya,
+      shares: izakaya.shares.map((s) => ({ ...s, ratio: String(Number(s.ratio) * 2) })),
+    };
+
+    const [item] = activityItems([edited(izakaya, doubled, "mem_alex")], japan);
+
+    expect(item.changes).toEqual([
+      { label: "Alex Chen’s Ratio", before: "2", after: "4" },
+      { label: "Jordan Park’s Ratio", before: "2", after: "4" },
+      { label: "Sam Rivera’s Ratio", before: "1", after: "2" },
+      { label: "Taylor Kim’s Ratio", before: "1", after: "2" },
+    ]);
+  });
+
+  it("lists percentages an edit changed, and a Locked Rate typed by hand", () => {
+    const group = importSampleGroups(sampleData).find((g) => g.expenses.some((e) => e.id === "exp_207"))!;
+    const sushi = group.expenses.find((e) => e.id === "exp_207")!;
+    const typed: Expense = {
+      ...sushi,
+      manualRate: true,
+      shares: sushi.shares.map((s) => (s.memberId === "mem_mia" ? { ...s, percentage: "30.00" } : s)),
+    };
+
+    const [item] = activityItems([edited(sushi, typed)], group);
+
+    expect(item.changes).toEqual([
+      { label: "Locked Rate", before: "1", after: "1 (manual)" },
+      { label: "Mia Torres’s Percentage", before: "30%", after: "30.00%" },
+    ]);
+  });
+
   it("names the acting Member, labelled once they're a Former Member, and the Guest as You", () => {
     const before: Expense = { ...electricity, description: "Power" };
     const group = {
@@ -99,7 +134,7 @@ describe("activityItems", () => {
         id: "act_2",
         at: "2024-02-02T10:00:00.000Z",
         actor: "Riley Morgan",
-        action: "deleted",
+        kind: "expense-deleted",
         subject: { kind: "expense", id: "exp_102" },
         title: "January electricity",
         details: [
@@ -113,7 +148,7 @@ describe("activityItems", () => {
         id: "act_1",
         at: "2024-02-01T10:00:00.000Z",
         actor: "Drew Patel",
-        action: "deleted",
+        kind: "settlement-deleted",
         subject: { kind: "settlement", id: "stl_101" },
         title: "Casey Brooks paid Riley Morgan",
         details: [

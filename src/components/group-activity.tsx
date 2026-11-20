@@ -3,14 +3,18 @@
 import Link from "next/link";
 import { useEffect, useId, useRef, useSyncExternalStore } from "react";
 import { ArrowLeft } from "lucide-react";
-import type { ActivityEntry, GroupSnapshot } from "@/domain";
+import type { ActivityChange, ActivityEntry, GroupSnapshot } from "@/domain";
 import { activityItems, type ActivityItem } from "@/components/activity-view";
 import { formatCalendarDate } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
-const ACTIONS: Record<ActivityItem["subject"]["kind"], Record<ActivityItem["action"], string>> = {
-  expense: { added: "added the Expense", edited: "edited the Expense", deleted: "deleted the Expense" },
-  settlement: { added: "recorded a Settlement:", edited: "edited a Settlement:", deleted: "deleted a Settlement:" },
+/** What each kind of change reads as, between the actor and the title. */
+const ACTIONS: Record<ActivityChange["kind"], string> = {
+  "expense-added": "added the Expense",
+  "expense-edited": "edited the Expense",
+  "expense-deleted": "deleted the Expense",
+  "settlement-added": "recorded a Settlement:",
+  "settlement-deleted": "deleted a Settlement:",
 };
 
 /**
@@ -117,7 +121,7 @@ function ActivityRow({
       )}
     >
       <p id={`${id}-summary`} className="break-words">
-        <span className="font-semibold">{item.actor}</span> {ACTIONS[item.subject.kind][item.action]}{" "}
+        <span className="font-semibold">{item.actor}</span> {ACTIONS[item.kind]}{" "}
         <span className="font-semibold">{item.title}</span>
         {focused && <span className="sr-only"> (the Expense you opened)</span>}
       </p>

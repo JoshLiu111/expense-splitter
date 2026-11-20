@@ -4,9 +4,13 @@ import {
   memberLabel,
   formatMoney,
   SPLIT_TYPE_LABELS,
+  changedExpenseFields,
+  type ActivityChange,
   type ActivityEntry,
   type Expense,
+  type ExpenseField,
   type GroupSnapshot,
+  type Share,
 } from "@/domain";
 import { formatCalendarDate } from "@/lib/format";
 
@@ -25,7 +29,8 @@ export interface ActivityItem {
   /** ISO timestamp of the change. */
   at: string;
   actor: string;
-  action: "added" | "edited" | "deleted";
+  /** What kind of change it was. */
+  kind: ActivityChange["kind"];
   /** The Expense or Settlement changed. */
   subject: { kind: "expense" | "settlement"; id: string };
   /** The Expense's description, or who paid whom for a Settlement. */
@@ -48,13 +53,12 @@ export function activityItems(entries: readonly ActivityEntry[], group: GroupSna
   };
   return entries.map((entry): ActivityItem => {
     const { change } = entry;
-    const shown = { id: entry.id, at: entry.at, actor: actorOf(entry.actorMemberId) };
+    const shown = { id: entry.id, at: entry.at, actor: actorOf(entry.actorMemberId), kind: change.kind };
     switch (change.kind) {
       case "expense-added":
       case "expense-deleted":
         return {
           ...shown,
-          action: change.kind === "expense-added" ? "added" : "deleted",
           subject: { kind: "expense", id: change.expense.id },
           title: change.expense.description,
           details: [
@@ -67,7 +71,6 @@ export function activityItems(entries: readonly ActivityEntry[], group: GroupSna
       case "expense-edited":
         return {
           ...shown,
-          action: "edited",
           subject: { kind: "expense", id: change.after.id },
           title: change.after.description,
           details: [],
@@ -77,7 +80,6 @@ export function activityItems(entries: readonly ActivityEntry[], group: GroupSna
       case "settlement-deleted":
         return {
           ...shown,
-          action: change.kind === "settlement-added" ? "added" : "deleted",
           subject: { kind: "settlement", id: change.settlement.id },
           title: `${nameOf(group, change.settlement.fromId)} paid ${nameOf(group, change.settlement.toId)}`,
           details: [
@@ -92,37 +94,70 @@ export function activityItems(entries: readonly ActivityEntry[], group: GroupSna
 }
 
 /**
- * The fields an edit changed, in the Expense form's order, then each Member
- * whose Share changed, in Group order: Shares are in Group Currency at each
- * version's Locked Rate, so a new rate shows as the Shares it moved.
+ * The fields an edit changed (`changedExpenseFields`), in the Expense form's
+ * order, then each Member whose Share changed, in Group order. Shares are in
+ * Group Currency at each version's Locked Rate, so a new rate shows as the
+ * Shares it moved. Beside a Member's Share go the percentage or ratio typed
+ * for it, so a Split retyped to the same Shares still shows.
  */
 function expenseChanges(before: Expense, after: Expense, group: GroupSnapshot): FieldChange[] {
-  type Field = [label: string, show: (e: Expense) => string, money?: true];
-  const fields: Field[] = [
-    ["Description", (e) => e.description],
-    ["Amount", (e) => formatMoney(e.amount, e.currency), true],
-    ["Locked Rate", (e) => e.lockedRate],
-    ["Payer", (e) => nameOf(group, e.payerId)],
-    ["Split Type", (e) => SPLIT_TYPE_LABELS[e.splitType]],
-    ["Date", (e) => formatCalendarDate(e.date)],
-    ["Category", (e) => categoryName(group, e.category)],
-    ["Notes", (e) => e.notes || "None"],
-  ];
-  const shareOf = (expense: Expense, memberId: string) =>
-    inGroupCurrency(expense, group.currency).lines.find((l) => l.memberId === memberId)?.groupAmount ?? 0;
-  const shares: Field[] = group.members.map((m) => [
-    `${m.name}’s Share`,
-    (e) => formatMoney(shareOf(e, m.id), group.currency),
-    true,
-  ]);
-  return [...fields, ...shares]
-    .map(([label, show, money]): FieldChange => ({
-      label,
-      before: show(before),
-      after: show(after),
-      ...(money ? { money } : {}),
-    }))
-    .filter((c) => c.before !== c.after);
+  const changed = changedExpenseFields(before, after);
+  const fields = changed.flatMap((field): FieldChange[] => {
+    if (field === "shares") return [];
+    const [label, show, money] = FIELDS[field];
+    return [{ label, before: show(before, group), after: show(after, group), ...(money ? { money } : {}) }];
+  });
+  return [...fields, ...shareChanges(before, after, group, changed.includes("shares"))];
+}
+
+type Show = (e: Expense, group: GroupSnapshot) => string;
+
+/** How each changed field shows, keyed by the domain's list. */
+const FIELDS: Record<Exclude<ExpenseField, "shares">, [label: string, show: Show, money?: true]> = {
+  description: ["Description", (e) => e.description],
+  amount: ["Amount", (e) => formatMoney(e.amount, e.currency), true],
+  lockedRate: ["Locked Rate", (e) => (e.manualRate ? `${e.lockedRate} (manual)` : e.lockedRate)],
+  payer: ["Payer", (e, group) => nameOf(group, e.payerId)],
+  splitType: ["Split Type", (e) => SPLIT_TYPE_LABELS[e.splitType]],
+  date: ["Date", (e) => formatCalendarDate(e.date)],
+  category: ["Category", (e, group) => categoryName(group, e.category)],
+  notes: ["Notes", (e) => e.notes || "None"],
+};
+
+function shareChanges(before: Expense, after: Expense, group: GroupSnapshot, sharesChanged: boolean): FieldChange[] {
+  const inGroup = (e: Expense) => inGroupCurrency(e, group.currency).lines;
+  const [beforeLines, afterLines] = [inGroup(before), inGroup(after)];
+  const shareOf = (e: Expense, memberId: string) => e.shares.find((s) => s.memberId === memberId);
+  return group.members.flatMap((m): FieldChange[] => {
+    const rows: FieldChange[] = [];
+    const groupAmount = (lines: typeof beforeLines) => lines.find((l) => l.memberId === m.id)?.groupAmount ?? 0;
+    const share = { before: shareOf(before, m.id), after: shareOf(after, m.id) };
+    const [was, now] = [groupAmount(beforeLines), groupAmount(afterLines)];
+    if (was !== now) {
+      rows.push(money(`${m.name}’s Share`, formatMoney(was, group.currency), formatMoney(now, group.currency)));
+    } else if (sharesChanged && (share.before?.amount ?? 0) !== (share.after?.amount ?? 0)) {
+      // Moved in the Expense Currency by less than rounds to a Group minor unit.
+      rows.push(
+        money(
+          `${m.name}’s Share`,
+          formatMoney(share.before?.amount ?? 0, before.currency),
+          formatMoney(share.after?.amount ?? 0, after.currency),
+        ),
+      );
+    }
+    if (!sharesChanged) return rows;
+    const typed = (label: string, read: (s: Share | undefined) => string | undefined, suffix = "") => {
+      const [b, a] = [read(share.before), read(share.after)];
+      if (b !== a) rows.push({ label: `${m.name}’s ${label}`, before: b ? b + suffix : "None", after: a ? a + suffix : "None" });
+    };
+    typed("Percentage", (s) => s?.percentage, "%");
+    typed("Ratio", (s) => s?.ratio);
+    return rows;
+  });
+}
+
+function money(label: string, before: string, after: string): FieldChange {
+  return { label, before, after, money: true };
 }
 
 // Former Members stay in the Group, so every id resolves.

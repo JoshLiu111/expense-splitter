@@ -23,12 +23,12 @@ import { useTodaysRates } from "@/rates/use-todays-rates";
 import { describeBalance, pluralize } from "@/lib/format";
 
 /**
- * A Group's header (name, Members, total spent), the settle-up hero (Settle up, then Balances),
- * then Expenses | Insights (the dated ledger of Expenses and Settlements, and
- * where the money went, over one shared filter), with Expense entry.
- * Details, Categories, Members and deletion live in Group settings, linked
- * from the header beside Activity. Balances are recomputed from the Group on every render
- * (ADR 0004).
+ * A Group's header (name, Members, total spent), the settle-up hero (Settle
+ * up, then Balances), then Expenses | Insights (the dated ledger of Expenses
+ * and Settlements, and where the money went, over one shared filter), with
+ * Expense entry. Details, Categories, Members and deletion live in Group
+ * settings, linked from the header beside Activity. Balances are recomputed
+ * from the Group on every render (ADR 0004).
  */
 export function GroupDetail({
   group,
