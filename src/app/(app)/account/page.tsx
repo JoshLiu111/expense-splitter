@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { Suspense } from "react";
 import { requireUser } from "@/auth/session";
 import { AccountSettingsView } from "@/components/account-settings";
-import { updateUserDisplayName } from "./actions";
+import { changeUserPassword, updateUserDisplayName } from "./actions";
 
 export const metadata: Metadata = { title: "Account Settings · Expense Splitter" };
 
@@ -25,7 +25,7 @@ async function UserAccountSettings() {
   return (
     <AccountSettingsView
       user={{ name: user.name, email: user.email }}
-      account={{ updateDisplayName: updateUserDisplayName }}
+      account={{ updateDisplayName: updateUserDisplayName, changePassword: changeUserPassword }}
     />
   );
 }

@@ -1,13 +1,18 @@
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { createDatabase, type Database } from "@/db/client";
 import { user } from "@/db/schema";
 import { createPostgresGroupRepository, type GroupUser } from "@/groups/postgres-group-repository";
-import { updateDisplayName } from "./account";
+import { changePassword, updateDisplayName } from "./account";
+
+// The real Better Auth server, kept in the test database.
+vi.mock("server-only", () => ({}));
+const { createAuth } = await import("@/auth/auth");
 
 const url = process.env.TEST_DATABASE_URL;
 
 describe.skipIf(!url)("Account Settings", () => {
   let db: Database;
+  let auth: ReturnType<typeof createAuth>;
   let close: () => Promise<void>;
   let userCount = 0;
 
@@ -15,6 +20,7 @@ describe.skipIf(!url)("Account Settings", () => {
   beforeAll(() => {
     const created = createDatabase(url!);
     db = created.db;
+    auth = createAuth(db);
     close = () => created.pool.end();
   });
 
@@ -73,6 +79,81 @@ describe.skipIf(!url)("Account Settings", () => {
       expect(await updateDisplayName(db, { id: "usr_missing" }, { name: "Maya" })).toEqual({
         ok: false,
         errors: { form: "Your account is no longer available." },
+      });
+    });
+  });
+  describe("password", () => {
+    const OLD = "correct-horse-battery";
+    let signUps = 0;
+
+    /** A User who signed up with OLD as their password. */
+    async function aSignedUpUser(): Promise<string> {
+      signUps += 1;
+      const email = `pw${signUps}@example.test`;
+      await auth.api.signUpEmail({ body: { name: `Pat ${signUps}`, email, password: OLD } });
+      return email;
+    }
+
+    /** Signs in, answering with the request headers of the new session. */
+    async function signIn(email: string, password: string): Promise<Headers> {
+      const { headers } = await auth.api.signInEmail({ body: { email, password }, returnHeaders: true });
+      const cookie = headers.getSetCookie().map((c) => c.split(";")[0]).join("; ");
+      return new Headers({ cookie });
+    }
+
+    const canSignIn = (email: string, password: string) =>
+      signIn(email, password).then(
+        () => true,
+        () => false,
+      );
+
+    it("refuses a wrong current password, keeping the old one", async () => {
+      const email = await aSignedUpUser();
+      const session = await signIn(email, OLD);
+
+      expect(
+        await changePassword(auth, session, { currentPassword: "not-my-password", newPassword: "a-brand-new-one" }),
+      ).toEqual({ ok: false, errors: { currentPassword: "That isn't your current password." } });
+      expect(await canSignIn(email, OLD)).toBe(true);
+      expect(await canSignIn(email, "a-brand-new-one")).toBe(false);
+    });
+
+    it("holds the new password to the sign-up rules, keeping the old one", async () => {
+      const email = await aSignedUpUser();
+      const session = await signIn(email, OLD);
+
+      expect(await changePassword(auth, session, { currentPassword: OLD, newPassword: "short12" })).toEqual({
+        ok: false,
+        errors: { newPassword: "Use a password of at least 8 characters." },
+      });
+      expect(await changePassword(auth, session, { currentPassword: OLD, newPassword: "p".repeat(129) })).toEqual({
+        ok: false,
+        errors: { newPassword: "Use a password of 128 characters or fewer." },
+      });
+      expect(await canSignIn(email, OLD)).toBe(true);
+    });
+
+    it("changes the password and signs out every other session", async () => {
+      const email = await aSignedUpUser();
+      const here = await signIn(email, OLD);
+      const elsewhere = await signIn(email, OLD);
+
+      expect(await changePassword(auth, here, { currentPassword: OLD, newPassword: "a-brand-new-one" })).toEqual({
+        ok: true,
+      });
+
+      expect(await auth.api.getSession({ headers: elsewhere })).toBeNull();
+      expect(await canSignIn(email, "a-brand-new-one")).toBe(true);
+      expect(await canSignIn(email, OLD)).toBe(false);
+    });
+
+    it("asks for the current password when it is left blank", async () => {
+      const email = await aSignedUpUser();
+      const session = await signIn(email, OLD);
+
+      expect(await changePassword(auth, session, { newPassword: "a-brand-new-one" })).toEqual({
+        ok: false,
+        errors: { currentPassword: "Enter your current password." },
       });
     });
   });

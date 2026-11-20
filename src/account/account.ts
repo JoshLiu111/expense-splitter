@@ -1,4 +1,7 @@
+import { isAPIError } from "better-auth/api";
 import { eq } from "drizzle-orm";
+import type { Auth } from "@/auth/auth";
+import { passwordRuleError } from "@/auth/password";
 import type { Database } from "@/db/client";
 import { user } from "@/db/schema";
 import { MAX_MEMBER_NAME_LENGTH } from "@/domain";
@@ -15,10 +18,16 @@ export interface AccountFields {
   name: string;
 }
 
+/** The fields the change-password form sends. */
+export interface PasswordFields {
+  currentPassword: string;
+  newPassword: string;
+}
+
 /** What an Account Settings form shows after it acts. */
 export type AccountResult =
   | { ok: true }
-  | { ok: false; errors: Partial<Record<keyof AccountFields | "form", string>> };
+  | { ok: false; errors: Partial<Record<keyof AccountFields | keyof PasswordFields | "form", string>> };
 
 /** The signed-in User an Account Settings operation acts for. */
 export interface SignedInUser {
@@ -50,7 +59,36 @@ export async function updateDisplayName(db: Database, signedIn: SignedInUser, in
   return rows.length > 0 ? { ok: true } : { ok: false, errors: { form: ACCOUNT_GONE } };
 }
 
+/**
+ * Changes the password of the User signed in by `session` (the request's
+ * headers) from their current one. Every other session is signed out; the
+ * current one gets a fresh session cookie and stays signed in.
+ */
+export async function changePassword(
+  auth: Pick<Auth, "api">,
+  session: Headers,
+  input: unknown,
+): Promise<AccountResult> {
+  const currentPassword = text(input, "currentPassword");
+  const newPassword = text(input, "newPassword");
+  if (!currentPassword) return { ok: false, errors: { currentPassword: "Enter your current password." } };
+  const ruleError = passwordRuleError(newPassword);
+  if (ruleError) return { ok: false, errors: { newPassword: ruleError } };
+  try {
+    await auth.api.changePassword({
+      body: { currentPassword, newPassword, revokeOtherSessions: true },
+      headers: session,
+    });
+  } catch (error) {
+    if (isAPIError(error) && (error.body as { code?: unknown } | undefined)?.code === "INVALID_PASSWORD")
+      return { ok: false, errors: { currentPassword: "That isn't your current password." } };
+    throw error;
+  }
+  return { ok: true };
+}
+
 /** The Account Settings operations the page can call, bound to the signed-in User. */
 export interface AccountManagement {
   updateDisplayName(fields: AccountFields): Promise<AccountResult>;
+  changePassword(fields: PasswordFields): Promise<AccountResult>;
 }
