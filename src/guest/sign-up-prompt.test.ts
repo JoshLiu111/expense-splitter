@@ -22,8 +22,8 @@ describe("Guest sign-up prompt", () => {
 
   it("doesn't touch the Guest's Groups when dismissed", () => {
     const storage = memoryStorage();
-    storage.setItem("expense-splitter:guest:v2", "groups");
+    storage.setItem("expense-splitter:guest:v3", "groups");
     dismissSignUpPrompt(storage);
-    expect(storage.getItem("expense-splitter:guest:v2")).toBe("groups");
+    expect(storage.getItem("expense-splitter:guest:v3")).toBe("groups");
   });
 });

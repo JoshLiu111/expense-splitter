@@ -43,7 +43,7 @@ test("Guest edits survive a reload but not a new browser session", async ({ page
 
   // Stand-in for an edit made through the UI: rename a Group in session storage.
   await page.evaluate(() => {
-    const key = "expense-splitter:guest:v2";
+    const key = "expense-splitter:guest:v3";
     const state = JSON.parse(sessionStorage.getItem(key)!);
     state.groups[0].name = "Renamed in this session";
     sessionStorage.setItem(key, JSON.stringify(state));
