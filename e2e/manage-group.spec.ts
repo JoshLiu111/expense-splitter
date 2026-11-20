@@ -35,7 +35,7 @@ test("the Group page links to Group settings and no longer manages the Group its
   await expect(page.getByRole("button", { name: "Edit Group" })).toHaveCount(0);
 
   await openSettings(page);
-  for (const name of ["Details", "Categories", "Members", "Delete Group"]) {
+  for (const name of ["Details", "Categories", "Members", "Export", "Delete Group"]) {
     await expect(page.getByRole("region", { name })).toBeVisible();
   }
   await backToGroup(page, "Sarah's Birthday Present");

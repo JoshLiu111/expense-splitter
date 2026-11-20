@@ -79,3 +79,4 @@ export {
 export type { ParseEmailResult, ParseMemberResult } from "./manage-group";
 export { memberStatement } from "./member-statement";
 export type { MemberStatement, StatementLine } from "./member-statement";
+export { groupCsv, groupCsvFileName } from "./group-csv";
