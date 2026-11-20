@@ -46,8 +46,8 @@ describe("activityItems", () => {
 
     expect(item.changes).toEqual([
       { label: "Split Type", before: "Exact", after: "Equal" },
-      { label: "Alex Chen’s Share", before: "$281.40", after: "$140.70", money: true },
-      { label: "Taylor Kim’s Share", before: "$0.00", after: "$140.70", money: true },
+      { label: "Alex Chen’s Share", before: "$281.40", after: "$140.70", money: true, memberId: "mem_alex" },
+      { label: "Taylor Kim’s Share", before: "$0.00", after: "$140.70", money: true, memberId: "mem_taylor" },
     ]);
   });
 
@@ -65,10 +65,10 @@ describe("activityItems", () => {
       { label: "Category", before: "Onsen", after: "Accommodation" },
       { label: "Notes", before: "Deposit", after: "None" },
       // ¥21,000 each at the new rate, against 21,000 cents each before.
-      { label: "Alex Chen’s Share", before: "$210.00", after: "$140.70", money: true },
-      { label: "Jordan Park’s Share", before: "$210.00", after: "$140.70", money: true },
-      { label: "Sam Rivera’s Share", before: "$210.00", after: "$140.70", money: true },
-      { label: "Taylor Kim’s Share", before: "$210.00", after: "$140.70", money: true },
+      { label: "Alex Chen’s Share", before: "$210.00", after: "$140.70", money: true, memberId: "mem_alex" },
+      { label: "Jordan Park’s Share", before: "$210.00", after: "$140.70", money: true, memberId: "mem_jordan" },
+      { label: "Sam Rivera’s Share", before: "$210.00", after: "$140.70", money: true, memberId: "mem_sam" },
+      { label: "Taylor Kim’s Share", before: "$210.00", after: "$140.70", money: true, memberId: "mem_taylor" },
     ]);
   });
 
@@ -83,10 +83,10 @@ describe("activityItems", () => {
     const [item] = activityItems([edited(izakaya, doubled, "mem_alex")], japan);
 
     expect(item.changes).toEqual([
-      { label: "Alex Chen’s Ratio", before: "2", after: "4" },
-      { label: "Jordan Park’s Ratio", before: "2", after: "4" },
-      { label: "Sam Rivera’s Ratio", before: "1", after: "2" },
-      { label: "Taylor Kim’s Ratio", before: "1", after: "2" },
+      { label: "Alex Chen’s Ratio", before: "2", after: "4", memberId: "mem_alex" },
+      { label: "Jordan Park’s Ratio", before: "2", after: "4", memberId: "mem_jordan" },
+      { label: "Sam Rivera’s Ratio", before: "1", after: "2", memberId: "mem_sam" },
+      { label: "Taylor Kim’s Ratio", before: "1", after: "2", memberId: "mem_taylor" },
     ]);
   });
 
@@ -103,7 +103,19 @@ describe("activityItems", () => {
 
     expect(item.changes).toEqual([
       { label: "Locked Rate", before: "1", after: "1 (manual)" },
-      { label: "Mia Torres’s Percentage", before: "30%", after: "30.00%" },
+      { label: "Mia Torres’s Percentage", before: "30%", after: "30.00%", memberId: "mem_mia" },
+    ]);
+  });
+
+  it("tells apart the Share changes of Members with the same name by their Member", () => {
+    const group = { ...japan, members: japan.members.map((m) => (m.id === "mem_jordan" ? { ...m, name: "Alex Chen" } : m)) };
+    const before: Expense = { ...hotel, splitType: "exact", shares: [{ memberId: "mem_sam", amount: 84000 }] };
+
+    const [item] = activityItems([edited(before, hotel)], group);
+
+    expect(item.changes.filter((c) => c.label === "Alex Chen’s Share").map((c) => c.memberId)).toEqual([
+      "mem_alex",
+      "mem_jordan",
     ]);
   });
 

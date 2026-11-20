@@ -132,7 +132,7 @@ function ActivityRow({
       {item.changes.length > 0 && (
         <dl className="mt-3 grid gap-x-4 gap-y-1.5 text-sm sm:grid-cols-[minmax(0,12rem)_minmax(0,1fr)]">
           {item.changes.map((change) => (
-            <div key={change.label} className="contents">
+            <div key={`${change.memberId ?? ""} ${change.label}`} className="contents">
               <dt className="font-semibold break-words text-text-secondary">{change.label}</dt>
               <dd className="mb-1.5 break-words sm:mb-0">
                 <span className="sr-only">changed from </span>

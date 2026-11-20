@@ -21,6 +21,8 @@ export interface FieldChange {
   after: string;
   /** A monetary figure, shown in the Amount style. */
   money?: true;
+  /** Whose Share, percentage or ratio it is: names alone can repeat. */
+  memberId?: string;
 }
 
 /** An Activity entry as shown. */
@@ -145,14 +147,15 @@ function shareChanges(before: Expense, after: Expense, group: GroupSnapshot, sha
         ),
       );
     }
-    if (!sharesChanged) return rows;
-    const typed = (label: string, read: (s: Share | undefined) => string | undefined, suffix = "") => {
-      const [b, a] = [read(share.before), read(share.after)];
-      if (b !== a) rows.push({ label: `${m.name}’s ${label}`, before: b ? b + suffix : "None", after: a ? a + suffix : "None" });
-    };
-    typed("Percentage", (s) => s?.percentage, "%");
-    typed("Ratio", (s) => s?.ratio);
-    return rows;
+    if (sharesChanged) {
+      const typed = (label: string, read: (s: Share | undefined) => string | undefined, suffix = "") => {
+        const [b, a] = [read(share.before), read(share.after)];
+        if (b !== a) rows.push({ label: `${m.name}’s ${label}`, before: b ? b + suffix : "None", after: a ? a + suffix : "None" });
+      };
+      typed("Percentage", (s) => s?.percentage, "%");
+      typed("Ratio", (s) => s?.ratio);
+    }
+    return rows.map((row) => ({ ...row, memberId: m.id }));
   });
 }
 
