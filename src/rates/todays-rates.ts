@@ -19,9 +19,10 @@ export async function todaysRates(): Promise<RateSnapshot | null> {
   const today: CalendarDate = new Date().toISOString().slice(0, 10);
   const fixed = process.env.FIXED_EXCHANGE_RATES;
   if (fixed && process.env.E2E !== "1") {
-    if (!reportedIgnoredFixedRates)
+    if (!reportedIgnoredFixedRates) {
+      reportedIgnoredFixedRates = true;
       console.error("FIXED_EXCHANGE_RATES is ignored without E2E=1; using real exchange rates");
-    reportedIgnoredFixedRates = true;
+    }
   } else if (fixed) return { perUsd: { USD: 1, ...parsePerUsd(JSON.parse(fixed)) }, fetchedOn: today, stale: false };
 
   const cached = await readCache().catch((error: unknown) => {

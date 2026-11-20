@@ -1,4 +1,5 @@
 import type { FullConfig } from "@playwright/test";
+import type { RateSnapshot } from "../src/domain";
 import { FIXED_EXCHANGE_RATES, servesFixedRates } from "./fixed-rates";
 
 /**
@@ -9,7 +10,7 @@ import { FIXED_EXCHANGE_RATES, servesFixedRates } from "./fixed-rates";
 export default async function globalSetup(config: FullConfig) {
   const baseURL = config.projects[0].use.baseURL;
   const response = await fetch(`${baseURL}/api/rates`);
-  const body: unknown = response.ok ? await response.json() : null;
+  const body = response.ok ? ((await response.json()) as RateSnapshot | null) : null;
   if (servesFixedRates(body)) return;
   throw new Error(
     `The server at ${baseURL} doesn't serve FIXED_EXCHANGE_RATES ${JSON.stringify(FIXED_EXCHANGE_RATES)}; ` +
