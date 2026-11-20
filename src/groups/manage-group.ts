@@ -78,6 +78,24 @@ async function invite(
 // Each operation re-checks its domain rule against the Group as stored now,
 // so a stale or hand-crafted request can't get round what the UI hides.
 
+/**
+ * Tells the person behind a Member just given an email that they were added:
+ * a Linked Member's User gets the "added" notification. Sending can fail
+ * without undoing the add, so a failure is only reported.
+ */
+async function notifyAdded(
+  notify: MemberNotifier | undefined,
+  group: { id: string; name: string },
+  member: Member,
+): Promise<void> {
+  if (!notify?.added || !member.email || !member.userId) return;
+  try {
+    await notify.added({ groupId: group.id, groupName: group.name, email: member.email, inviterName: notify.inviterName });
+  } catch (error) {
+    console.error(`Couldn't tell ${member.email} they were added to Group ${group.id}`, error);
+  }
+}
+
 /** Edits name, description and (while nothing is recorded) Group Currency. */
 export async function updateGroupDetails(
   repo: GroupRepository,
@@ -100,7 +118,8 @@ export type AddMemberResult = { ok: true; name: string } | Extract<ManageResult,
 
 /**
  * Adds a Member: Name-only, or by email, which links a User who has verified
- * it and otherwise makes a Pending Member, whom `notify` sends an Invitation.
+ * it and otherwise makes a Pending Member. `notify` sends a Pending Member an
+ * Invitation and tells a linked User they were added.
  */
 export async function addMember(
   repo: GroupRepository,
@@ -123,13 +142,14 @@ export async function addMember(
   });
   if (!added) return formError(GROUP_GONE);
   await invite(repo, notify, group, added);
+  await notifyAdded(notify, group, added);
   return { ok: true, name: added.name };
 }
 
 /**
  * Gives a Name-only or Pending Member an email, keeping their history; a
- * User who has verified it is linked straight away, and otherwise `notify`
- * sends the Pending Member an Invitation.
+ * User who has verified it is linked straight away and `notify` tells them;
+ * otherwise `notify` sends the Pending Member an Invitation.
  */
 export async function setMemberEmail(
   repo: GroupRepository,
@@ -148,6 +168,7 @@ export async function setMemberEmail(
   const updated = await repo.setMemberEmail(groupId, memberId, email.value);
   if (!updated) return formError(GROUP_GONE);
   await invite(repo, notify, group, updated);
+  await notifyAdded(notify, group, updated);
   return { ok: true };
 }
 

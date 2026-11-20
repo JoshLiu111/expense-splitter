@@ -1,5 +1,5 @@
 import "server-only";
-import { invitationEmail, sendEmail } from "@/auth/email";
+import { addedToGroupEmail, invitationEmail, sendEmail } from "@/auth/email";
 import type { MemberNotifier } from "./member-notifier";
 
 /** The app's public origin, for links in emails. */
@@ -14,6 +14,11 @@ export function emailMemberNotifier(inviter: { name: string }): MemberNotifier {
     async invited({ groupName, email, inviterName, token }) {
       const url = new URL(`/invite/${encodeURIComponent(token)}`, appOrigin()).toString();
       await sendEmail(invitationEmail({ to: email, groupName, inviterName }, url));
+    },
+    async added({ groupId, groupName, email, inviterName }) {
+      // Signed out, the Group's page sends them through sign-in and back (return-to).
+      const url = new URL(`/groups/${encodeURIComponent(groupId)}`, appOrigin()).toString();
+      await sendEmail(addedToGroupEmail({ to: email, groupName, inviterName }, url));
     },
   };
 }

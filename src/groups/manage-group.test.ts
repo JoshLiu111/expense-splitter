@@ -34,6 +34,29 @@ async function flatWithDebt() {
   return { repo, group, you, chloe };
 }
 
+/** A repository that Links any email to a User called Theo Park, as Postgres does for a verified email. */
+function linkingAll(repo: GroupRepository): GroupRepository {
+  const link = <T extends { email?: string } | null>(member: T) =>
+    member && member.email ? { ...member, name: "Theo Park", userId: "usr_theo" } : member;
+  return {
+    ...repo,
+    addMember: async (groupId, member) => link(await repo.addMember(groupId, member)),
+    setMemberEmail: async (groupId, memberId, email) => link(await repo.setMemberEmail(groupId, memberId, email)),
+  };
+}
+
+/** A notifier that records whom it told they were added. */
+function recordingNotifier(inviterName = "Ana") {
+  const added: Parameters<NonNullable<MemberNotifier["added"]>>[0][] = [];
+  const notifier: MemberNotifier = {
+    inviterName,
+    async added(args) {
+      added.push(args);
+    },
+  };
+  return { notifier, added };
+}
+
 /**
  * A repository that issues Invitations to Pending Members as Postgres does
  * (a Guest's issues none), numbering the tokens `tok_1`, `tok_2`, ..., and
@@ -162,6 +185,44 @@ describe("addMember", () => {
     });
   });
 
+  it("tells an existing User they were added, naming the Group and who added them", async () => {
+    const { repo, group } = await flatWithDebt();
+    const { notifier, added } = recordingNotifier("Ana");
+
+    expect(await addMember(linkingAll(repo), group.id, { name: "Theo", email: "Theo@example.com" }, notifier)).toEqual({
+      ok: true,
+      name: "Theo Park",
+    });
+    expect(added).toEqual([
+      { groupId: group.id, groupName: "Flat", email: "theo@example.com", inviterName: "Ana" },
+    ]);
+  });
+
+  it("tells nobody they were added when the Member is Pending or Name-only", async () => {
+    const { repo, group } = await flatWithDebt();
+    const { notifier, added } = recordingNotifier();
+
+    await addMember(repo, group.id, { name: "Dev", email: "dev@example.com" }, notifier);
+    await addMember(repo, group.id, { name: "Eve", email: "" }, notifier);
+
+    expect(added).toEqual([]);
+  });
+
+  it("keeps the added Member when telling them fails", async () => {
+    const { repo, group } = await flatWithDebt();
+    const failing: MemberNotifier = {
+      inviterName: "Ana",
+      added: () => Promise.reject(new Error("Resend is down")),
+    };
+    vi.spyOn(console, "error").mockImplementation(() => {});
+
+    expect(await addMember(linkingAll(repo), group.id, { name: "Theo", email: "theo@example.com" }, failing)).toEqual({
+      ok: true,
+      name: "Theo Park",
+    });
+    expect((await repo.getGroup(group.id))?.members.at(-1)).toMatchObject({ email: "theo@example.com" });
+  });
+
   it("sends a Pending Member an Invitation, naming the Group and who invited them", async () => {
     const { repo, group } = await flatWithDebt();
     const { notifier, invited } = recordingInvitations("Ana");
@@ -257,6 +318,27 @@ describe("setMemberEmail", () => {
       ok: false,
       errors: { email: "Enter an email address like name@example.com." },
     });
+  });
+
+  it("tells an existing User they were added when a Name-only Member is given their email", async () => {
+    const { repo, group, chloe } = await flatWithDebt();
+    const { notifier, added } = recordingNotifier("Ana");
+
+    expect(await setMemberEmail(linkingAll(repo), group.id, chloe.id, "chloe@example.com", notifier)).toEqual({
+      ok: true,
+    });
+    expect(added).toEqual([
+      { groupId: group.id, groupName: "Flat", email: "chloe@example.com", inviterName: "Ana" },
+    ]);
+  });
+
+  it("tells nobody they were added when the Member stays Pending", async () => {
+    const { repo, group, chloe } = await flatWithDebt();
+    const { notifier, added } = recordingNotifier();
+
+    await setMemberEmail(repo, group.id, chloe.id, "chloe@example.com", notifier);
+
+    expect(added).toEqual([]);
   });
 
   it("sends an Invitation when a Name-only Member is given an email no User has", async () => {

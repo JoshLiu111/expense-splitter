@@ -17,4 +17,6 @@ export interface MemberNotifier {
     inviterName: string;
     token: string;
   }): Promise<void>;
+  /** An existing User was linked as a Member: tell them, with a link to the Group. */
+  added?(args: { groupId: string; groupName: string; email: string; inviterName: string }): Promise<void>;
 }
