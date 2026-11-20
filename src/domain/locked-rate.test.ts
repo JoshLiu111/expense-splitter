@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  computeInsights,
   computeLedger,
   parseNewExpense,
   type Expense,
@@ -184,7 +185,7 @@ describe("Group Currency Expenses", () => {
   });
 });
 
-describe("Compute Ledger: spending per Expense Currency", () => {
+describe("Compute Insights: subtotals at Locked Rates", () => {
   it("subtotals each currency in its own and the Group Currency, Group Currency first", () => {
     const ryokan = recorded(parseNewExpense(fields(), group, undefined, april));
     const snacks = {
@@ -202,12 +203,12 @@ describe("Compute Ledger: spending per Expense Currency", () => {
       ...recorded(parseNewExpense(fields({ currency: "USD", amount: "20" }), group, undefined, april)),
       id: "exp_3",
     };
-    const ledger = computeLedger({ ...group, expenses: [ryokan, snacks, taxi] });
-    expect(ledger.currencySubtotals).toEqual([
+    const insights = computeInsights({ ...group, expenses: [ryokan, snacks, taxi] }, {});
+    expect(insights.byCurrency).toEqual([
       { currency: "USD", amount: 2000, groupAmount: 2000 },
       // $562.80 + 2 × ¥500 at 0.0067 ($3.35 each)
       { currency: "JPY", amount: 85000, groupAmount: 56950 },
     ]);
-    expect(ledger.totalSpent).toBe(58950);
+    expect(insights.total).toBe(58950);
   });
 });
