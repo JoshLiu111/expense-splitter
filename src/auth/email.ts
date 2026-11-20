@@ -3,7 +3,7 @@ import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { Resend } from "resend";
 
-/** An email the app sends: verification and password-reset links, and Group notifications. */
+/** An email the app sends: verification and password-reset links, Invitations, and Group notifications. */
 export interface Email {
   to: string;
   subject: string;
@@ -76,6 +76,25 @@ export function resetPasswordEmail(user: { name: string; email: string }, url: s
       "If it wasn't you, you can ignore this email; your password won't change.",
     ],
     "Choose a new password",
+    url,
+  );
+}
+
+/** Invites a Pending Member to the Group, with their one-time Invitation link. */
+export function invitationEmail(
+  invitation: { to: string; groupName: string; inviterName: string },
+  url: string,
+): Email {
+  return linkEmail(
+    invitation.to,
+    `${invitation.inviterName} invited you to ${invitation.groupName} on Expense Splitter`,
+    [
+      "Hi,",
+      `${invitation.inviterName} added you to the Group ${invitation.groupName} on Expense Splitter, to share Expenses there.`,
+      "Sign up with this email to join it. The link works once, for 7 days.",
+      "If you weren't expecting this, you can ignore this email.",
+    ],
+    `Join ${invitation.groupName}`,
     url,
   );
 }

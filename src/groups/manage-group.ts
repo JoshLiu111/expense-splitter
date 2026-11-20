@@ -43,6 +43,34 @@ const text = (record: unknown, key: string): string => {
   return typeof value === "string" ? value : "";
 };
 
+/**
+ * Sends a Member just given an email that no User has verified (a Pending
+ * Member) an Invitation. Sending can fail without undoing the add, so a
+ * failure is only reported.
+ */
+async function invite(
+  repo: GroupRepository,
+  notify: MemberNotifier | undefined,
+  group: { id: string; name: string },
+  member: Member,
+): Promise<void> {
+  if (!notify?.invited || !member.email || member.userId) return;
+  try {
+    const token = await repo.issueInvitation(group.id, member.id);
+    if (!token) return;
+    await notify.invited({
+      groupId: group.id,
+      groupName: group.name,
+      memberId: member.id,
+      email: member.email,
+      inviterName: notify.inviterName,
+      token,
+    });
+  } catch (error) {
+    console.error(`Couldn't send an Invitation to Member ${member.id} of Group ${group.id}`, error);
+  }
+}
+
 // Each operation re-checks its domain rule against the Group as stored now,
 // so a stale or hand-crafted request can't get round what the UI hides.
 
@@ -86,8 +114,8 @@ export type AddMemberResult = { ok: true; name: string } | Extract<ManageResult,
 
 /**
  * Adds a Member: Name-only, or by email, which links a User who has verified
- * it and otherwise makes a Pending Member. `notify` tells a linked User they
- * were added.
+ * it and otherwise makes a Pending Member. `notify` sends a Pending Member an
+ * Invitation and tells a linked User they were added.
  */
 export async function addMember(
   repo: GroupRepository,
@@ -109,13 +137,15 @@ export async function addMember(
     ...(email.value ? { email: email.value } : {}),
   });
   if (!added) return formError(GROUP_GONE);
+  await invite(repo, notify, group, added);
   await notifyAdded(notify, group, added);
   return { ok: true, name: added.name };
 }
 
 /**
  * Gives a Name-only or Pending Member an email, keeping their history; a
- * User who has verified it is linked straight away, and `notify` tells them.
+ * User who has verified it is linked straight away and `notify` tells them;
+ * otherwise `notify` sends the Pending Member an Invitation.
  */
 export async function setMemberEmail(
   repo: GroupRepository,
@@ -133,6 +163,7 @@ export async function setMemberEmail(
   if (!email.value) return { ok: false, errors: { email: "Enter the Member's email address." } };
   const updated = await repo.setMemberEmail(groupId, memberId, email.value);
   if (!updated) return formError(GROUP_GONE);
+  await invite(repo, notify, group, updated);
   await notifyAdded(notify, group, updated);
   return { ok: true };
 }

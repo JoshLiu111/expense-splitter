@@ -1,11 +1,11 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-
-afterEach(() => vi.restoreAllMocks());
 import { createSessionStorageRepository } from "@/guest/guest-repository";
 import { memoryStorage } from "@/test/memory-storage";
 import type { GroupRepository } from "./group-repository";
 import { addMember, deleteGroup, removeMember, setMemberEmail, updateGroupDetails } from "./manage-group";
 import type { MemberNotifier } from "./member-notifier";
+
+afterEach(() => vi.restoreAllMocks());
 
 /** A Group with "You" and Chloe, where Chloe owes You $10.00. */
 async function flatWithDebt() {
@@ -48,6 +48,35 @@ function recordingNotifier(inviterName = "Ana") {
     },
   };
   return { notifier, added };
+}
+
+/**
+ * A repository that issues Invitations to Pending Members as Postgres does
+ * (a Guest's issues none), numbering the tokens `tok_1`, `tok_2`, ...
+ */
+function issuingInvitations(repo: GroupRepository): GroupRepository {
+  let issued = 0;
+  return {
+    ...repo,
+    async issueInvitation(groupId, memberId) {
+      const member = (await repo.getGroup(groupId))?.members.find((m) => m.id === memberId);
+      if (!member?.email || member.userId || member.former) return null;
+      issued += 1;
+      return `tok_${issued}`;
+    },
+  };
+}
+
+/** A notifier that records the Invitations it sent. */
+function recordingInvitations(inviterName = "Ana") {
+  const invited: Parameters<NonNullable<MemberNotifier["invited"]>>[0][] = [];
+  const notifier: MemberNotifier = {
+    inviterName,
+    async invited(args) {
+      invited.push(args);
+    },
+  };
+  return { notifier, invited };
 }
 
 describe("updateGroupDetails", () => {
@@ -180,6 +209,52 @@ describe("addMember", () => {
       name: "Theo Park",
     });
     expect((await repo.getGroup(group.id))?.members.at(-1)).toMatchObject({ email: "theo@example.com" });
+  });
+
+  it("sends a Pending Member an Invitation, naming the Group and who invited them", async () => {
+    const { repo, group } = await flatWithDebt();
+    const { notifier, invited } = recordingInvitations("Ana");
+
+    expect(
+      await addMember(issuingInvitations(repo), group.id, { name: "Dev", email: "Dev@example.com" }, notifier),
+    ).toEqual({ ok: true, name: "Dev" });
+
+    const dev = (await repo.getGroup(group.id))!.members.at(-1)!;
+    expect(invited).toEqual([
+      {
+        groupId: group.id,
+        groupName: "Flat",
+        memberId: dev.id,
+        email: "dev@example.com",
+        inviterName: "Ana",
+        token: "tok_1",
+      },
+    ]);
+  });
+
+  it("sends no Invitation for a Name-only Member, nor where no Invitation is issued, as for a Guest", async () => {
+    const { repo, group } = await flatWithDebt();
+    const { notifier, invited } = recordingInvitations();
+
+    await addMember(issuingInvitations(repo), group.id, { name: "Eve", email: "" }, notifier);
+    await addMember(repo, group.id, { name: "Dev", email: "dev@example.com" }, notifier);
+
+    expect(invited).toEqual([]);
+    expect((await repo.getGroup(group.id))!.members.at(-1)).toMatchObject({ email: "dev@example.com" });
+  });
+
+  it("keeps the Pending Member when sending the Invitation fails", async () => {
+    const { repo, group } = await flatWithDebt();
+    const failing: MemberNotifier = {
+      inviterName: "Ana",
+      invited: () => Promise.reject(new Error("Resend is down")),
+    };
+    vi.spyOn(console, "error").mockImplementation(() => {});
+
+    expect(
+      await addMember(issuingInvitations(repo), group.id, { name: "Dev", email: "dev@example.com" }, failing),
+    ).toEqual({ ok: true, name: "Dev" });
+    expect((await repo.getGroup(group.id))!.members.at(-1)).toMatchObject({ name: "Dev", email: "dev@example.com" });
     expect(console.error).toHaveBeenCalled();
   });
 
@@ -235,6 +310,25 @@ describe("setMemberEmail", () => {
     await setMemberEmail(repo, group.id, chloe.id, "chloe@example.com", notifier);
 
     expect(added).toEqual([]);
+  });
+
+  it("sends an Invitation when a Name-only Member is given an email no User has", async () => {
+    const { repo, group, chloe } = await flatWithDebt();
+    const { notifier, invited } = recordingInvitations("Ana");
+
+    expect(
+      await setMemberEmail(issuingInvitations(repo), group.id, chloe.id, "chloe@example.com", notifier),
+    ).toEqual({ ok: true });
+    expect(invited).toEqual([
+      {
+        groupId: group.id,
+        groupName: "Flat",
+        memberId: chloe.id,
+        email: "chloe@example.com",
+        inviterName: "Ana",
+        token: "tok_1",
+      },
+    ]);
   });
 
   it("refuses a Former Member", async () => {

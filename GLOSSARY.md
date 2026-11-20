@@ -26,8 +26,12 @@ A Member with no User behind it; still splits costs and carries a Balance.
 _Avoid_: Guest member, placeholder
 
 **Pending Member**:
-A Member added by an email that no User has yet; it becomes a Linked Member when a User verifies that email.
+A Member added by an email that no User has yet (or a Name-only Member given one); a signed-in User adding them sends them an Invitation. It becomes a Linked Member when a User verifies that email, by following the Invitation or the sign-up verification email. A Guest's Pending Members are sent nothing.
 _Avoid_: Invitee, invited user
+
+**Invitation**:
+A one-time link emailed to a Pending Member that lets its holder sign up (or sign in) as that email, which counts as verifying it, and claim every Pending Member with that email (ADR 0007). It names the Group and who sent it, and works for 7 days; only a Pending Member's latest Invitation works, and it stops working once used or once the Pending Member is removed or claimed.
+_Avoid_: Invite code, share link
 
 **Former Member**:
 A Member removed from a Group at zero Balance; no longer selectable for new Expenses but still shown on past ones. If an edit to a past Expense or Settlement later gives them a non-zero Balance, they are shown in Balances, labelled as a Former Member, and that Balance can be settled like any other; while it is non-zero, a Former Member who was a Linked Member can see the Group again, read-only (ADR 0006).

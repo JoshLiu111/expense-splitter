@@ -8,7 +8,10 @@ import { displayNameRuleError } from "@/auth/display-name";
 import { passwordRuleError } from "@/auth/password";
 import { safeReturnTo } from "@/auth/return-to";
 import { requireUser } from "@/auth/session";
+import { db } from "@/db";
 import { EMAIL_PATTERN } from "@/domain";
+import { createInvitations } from "@/invitations/invitations";
+import { signUpByInvitation } from "@/invitations/sign-up-by-invitation";
 
 export interface AuthFormState {
   errors?: { name?: string; email?: string; password?: string; form?: string };
@@ -66,6 +69,26 @@ export async function signUp(_: AuthFormState, formData: FormData): Promise<Auth
     throw error;
   }
   redirect(safeReturnTo(formData.get("next")));
+}
+
+/**
+ * Signs up through an Invitation as the email it was sent to, already
+ * verified (ADR 0007), then signs in and goes straight to the Group.
+ */
+export async function signUpThroughInvitation(_: AuthFormState, formData: FormData): Promise<AuthFormState> {
+  const name = text(formData, "name").trim();
+  const password = text(formData, "password");
+  const result = await signUpByInvitation(auth(), createInvitations(db()), {
+    token: text(formData, "token"),
+    name,
+    password,
+  });
+  if (!result.ok) return { errors: result.errors, values: { name } };
+  await auth().api.signInEmail({
+    body: { email: result.email, password, rememberMe: true },
+    headers: await headers(),
+  });
+  redirect(safeReturnTo(`/groups/${encodeURIComponent(result.groupId)}`));
 }
 
 export async function signIn(_: AuthFormState, formData: FormData): Promise<AuthFormState> {
