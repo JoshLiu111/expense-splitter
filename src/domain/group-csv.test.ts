@@ -101,8 +101,8 @@ describe("Group CSV: Expenses", () => {
       },
     ]);
     expect(rows(groupCsv(group))).toEqual([
-      "Type,Date,Description,Category,Paid by,Paid to,Expense Currency,Expense Amount,Locked Rate,Amount (USD),Split Type,Notes,Share: Alex (USD),Share: Blake (USD)",
-      "Expense,2024-03-01,Dinner,Food & Drink,Alex,,USD,60.01,1,60.01,Equal,,30.01,30.00",
+      "Type,Date,Description,Category,Payer,From,To,Expense Currency,Expense Amount,Locked Rate,Amount (USD),Split Type,Notes,Share: Alex (USD),Share: Blake (USD)",
+      "Expense,2024-03-01,Dinner,Food & Drink,Alex,,,USD,60.01,1,60.01,Equal,,30.01,30.00",
     ]);
   });
 });
@@ -116,7 +116,7 @@ describe("Group CSV: Expense Currency", () => {
     expect(cell("Expense Amount")).toBe("4850");
     expect(cell("Locked Rate")).toBe("0.0067");
     expect(cell("Amount (USD)")).toBe("32.50");
-    expect(cell("Paid by")).toBe("Jordan Park");
+    expect(cell("Payer")).toBe("Jordan Park");
     // ¥1,213 × 0.0067 = $8.1271 → $8.13; ¥1,212 × 0.0067 = $8.1204 → $8.12.
     expect(cell("Share: Alex Chen (USD)")).toBe("8.13");
     expect(cell("Share: Jordan Park (USD)")).toBe("8.13");
@@ -154,7 +154,7 @@ describe("Group CSV: spreadsheet safety", () => {
     const csv = groupCsv(group);
     expect(csv).toContain('"Share: Chen, Alex (USD)"');
     expect(csv).toContain(
-      'Expense,2024-03-01,"Pizza, ""large""",Other,"Chen, Alex",,USD,10.00,1,10.00,Exact,"Line one\nline two",10.00,\r\n',
+      'Expense,2024-03-01,"Pizza, ""large""",Other,"Chen, Alex",,,USD,10.00,1,10.00,Exact,"Line one\nline two",10.00,\r\n',
     );
     expect(parse(csv)[1].slice(2, 5)).toEqual(['Pizza, "large"', "Other", "Chen, Alex"]);
   });
@@ -173,12 +173,12 @@ describe("Group CSV: spreadsheet safety", () => {
     const [header, expense, settlement] = parse(groupCsv(group));
     expect(expense[header.indexOf("Description")]).toBe(`'=HYPERLINK("https://example.test","Click")`);
     expect(expense[header.indexOf("Notes")]).toBe("'+1 for later");
-    expect(settlement[header.indexOf("Paid by")]).toBe("'@Blake");
+    expect(settlement[header.indexOf("From")]).toBe("'@Blake");
   });
 });
 
 describe("Group CSV: Settlements", () => {
-  it("lists each Settlement with who paid whom, in date order among the Expenses, oldest first", () => {
+  it("lists each Settlement from one Member to another, in date order among the Expenses, oldest first", () => {
     const group = usdGroup(
       [
         { description: "Later", date: "2024-03-03", amount: 500, shares: [{ memberId: "b", amount: 500 }] },
@@ -187,9 +187,9 @@ describe("Group CSV: Settlements", () => {
       [{ fromId: "b", toId: "a", amount: 2500, date: "2024-03-02" }],
     );
     expect(rows(groupCsv(group)).slice(1)).toEqual([
-      "Expense,2024-03-01,Earlier,Other,Alex,,USD,5.00,1,5.00,Exact,,,5.00",
-      "Settlement,2024-03-02,,,Blake,Alex,,,,25.00,,,,",
-      "Expense,2024-03-03,Later,Other,Alex,,USD,5.00,1,5.00,Exact,,,5.00",
+      "Expense,2024-03-01,Earlier,Other,Alex,,,USD,5.00,1,5.00,Exact,,,5.00",
+      "Settlement,2024-03-02,,,,Blake,Alex,,,,25.00,,,,",
+      "Expense,2024-03-03,Later,Other,Alex,,,USD,5.00,1,5.00,Exact,,,5.00",
     ]);
   });
 });
@@ -203,8 +203,8 @@ describe("Group CSV: Former Members", () => {
     group.members[1].former = true;
     const [header, expense, settlement] = parse(groupCsv(group));
     expect(header.at(-1)).toBe("Share: Blake (Former Member) (USD)");
-    expect(expense[header.indexOf("Paid by")]).toBe("Blake (Former Member)");
-    expect(settlement[header.indexOf("Paid to")]).toBe("Blake (Former Member)");
+    expect(expense[header.indexOf("Payer")]).toBe("Blake (Former Member)");
+    expect(settlement[header.indexOf("To")]).toBe("Blake (Former Member)");
   });
 });
 

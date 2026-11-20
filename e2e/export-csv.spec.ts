@@ -27,13 +27,13 @@ test("a Guest exports a Group as a UTF-8 CSV named after it", async ({ page }) =
 
   const lines = bytes.subarray(3).toString("utf8").split("\r\n");
   expect(lines[0]).toBe(
-    "Type,Date,Description,Category,Paid by,Paid to,Expense Currency,Expense Amount,Locked Rate,Amount (USD),Split Type,Notes," +
+    "Type,Date,Description,Category,Payer,From,To,Expense Currency,Expense Amount,Locked Rate,Amount (USD),Split Type,Notes," +
       "Share: Alex Chen (USD),Share: Jordan Park (USD),Share: Sam Rivera (USD),Share: Taylor Kim (USD)",
   );
   // An Expense paid in yen: its yen amount and Locked Rate, then each Share in USD, totalling the USD amount.
-  expect(lines).toContainEqual(expect.stringMatching(/^Expense,2024-03-23,Fushimi Inari snacks & drinks,.*,Jordan Park,,JPY,4850,0\.0067,32\.50,Equal,.*,8\.13,8\.13,8\.12,8\.12$/));
+  expect(lines).toContainEqual(expect.stringMatching(/^Expense,2024-03-23,Fushimi Inari snacks & drinks,.*,Jordan Park,,,JPY,4850,0\.0067,32\.50,Equal,.*,8\.13,8\.13,8\.12,8\.12$/));
   // A Settlement Jordan made to Alex.
-  expect(lines).toContainEqual(expect.stringMatching(/^Settlement,\d{4}-\d{2}-\d{2},,,Jordan Park,Alex Chen,,,,150\.00,,,,,,$/));
+  expect(lines).toContainEqual(expect.stringMatching(/^Settlement,\d{4}-\d{2}-\d{2},,,,Jordan Park,Alex Chen,,,,150\.00,,,,,,$/));
 });
 
 test("a signed-in User exports their Group, with commas and quotes escaped", async ({ page }) => {
@@ -67,5 +67,5 @@ test("a signed-in User exports their Group, with commas and quotes escaped", asy
   expect(name).toBe("Flat 3B.csv");
   const lines = bytes.subarray(3).toString("utf8").split("\r\n");
   expect(lines[0]).toMatch(/,Share: Maya Chen \(USD\),"Share: Brown, Theo \(USD\)"$/);
-  expect(lines[1]).toMatch(/^Expense,\d{4}-\d{2}-\d{2},"Milk, ""oat""",.*,Maya Chen,,USD,10\.01,1,10\.01,Equal,,5\.01,5\.00$/);
+  expect(lines[1]).toMatch(/^Expense,\d{4}-\d{2}-\d{2},"Milk, ""oat""",.*,Maya Chen,,,USD,10\.01,1,10\.01,Equal,,5\.01,5\.00$/);
 });

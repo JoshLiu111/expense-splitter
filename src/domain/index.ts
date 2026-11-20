@@ -50,6 +50,7 @@ export {
   MAX_EXPENSE_DESCRIPTION_LENGTH,
   MAX_EXPENSE_NOTES_LENGTH,
   isSplitType,
+  SPLIT_TYPE_LABELS,
   lockRate,
   parseNewExpense,
 } from "./new-expense";

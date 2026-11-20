@@ -1,3 +1,4 @@
+import { oldestFirst, type Recorded } from "./chronology";
 import { inGroupCurrency } from "./ledger";
 import { leftoverCentMembers } from "./split";
 import type { CalendarDate, Expense, GroupSnapshot, MinorUnits, Settlement } from "./types";
@@ -55,7 +56,7 @@ export interface MemberStatement {
  * per-line rounding, so the lines total exactly the Balance.
  */
 export function memberStatement(group: GroupSnapshot, memberId: string): MemberStatement {
-  const lines: { line: StatementLine; createdAt: string }[] = [];
+  const lines: { line: StatementLine; recorded: Recorded }[] = [];
 
   for (const expense of group.expenses) {
     const converted = inGroupCurrency(expense, group.currency);
@@ -66,7 +67,7 @@ export function memberStatement(group: GroupSnapshot, memberId: string): MemberS
     const paid = isPayer ? converted.groupAmount : 0;
     const share = own?.groupAmount ?? 0;
     lines.push({
-      createdAt: expense.createdAt,
+      recorded: expense,
       line: {
         kind: "expense",
         id: expense.id,
@@ -85,7 +86,7 @@ export function memberStatement(group: GroupSnapshot, memberId: string): MemberS
     const made = settlement.fromId === memberId;
     if (!made && settlement.toId !== memberId) continue;
     lines.push({
-      createdAt: settlement.createdAt,
+      recorded: settlement,
       line: {
         kind: "settlement",
         id: settlement.id,
@@ -98,7 +99,7 @@ export function memberStatement(group: GroupSnapshot, memberId: string): MemberS
     });
   }
 
-  lines.sort((x, y) => compare(x.line.date, y.line.date) || compare(x.createdAt, y.createdAt));
+  lines.sort((x, y) => oldestFirst(x.recorded, y.recorded));
   const ordered = lines.map(({ line }) => line);
   const totals = { paid: 0, shares: 0, settlementsMade: 0, settlementsReceived: 0 };
   for (const line of ordered) {
@@ -112,8 +113,4 @@ export function memberStatement(group: GroupSnapshot, memberId: string): MemberS
     }
   }
   return { memberId, lines: ordered, totals, balance: ordered.reduce((sum, line) => sum + line.net, 0) };
-}
-
-function compare(a: string, b: string): number {
-  return a < b ? -1 : a > b ? 1 : 0;
 }

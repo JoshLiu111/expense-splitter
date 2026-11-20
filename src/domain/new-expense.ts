@@ -56,7 +56,15 @@ export type ParseExpenseResult =
       splitValueErrors?: Record<string, string>;
     };
 
-const SPLIT_TYPES: readonly SplitType[] = ["equal", "exact", "percentage", "shares"];
+/** Each Split Type's name as shown, in the order offered. */
+export const SPLIT_TYPE_LABELS: Readonly<Record<SplitType, string>> = {
+  equal: "Equal",
+  exact: "Exact",
+  percentage: "Percentage",
+  shares: "Shares",
+};
+
+const SPLIT_TYPES = Object.keys(SPLIT_TYPE_LABELS) as readonly SplitType[];
 
 export function isSplitType(value: string): value is SplitType {
   return (SPLIT_TYPES as readonly string[]).includes(value);

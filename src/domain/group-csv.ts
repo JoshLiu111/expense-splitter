@@ -1,24 +1,19 @@
 import { categoryName } from "./categories";
+import { oldestFirst, type Recorded } from "./chronology";
 import { amountText } from "./currency";
 import { inGroupCurrency } from "./ledger";
 import { memberLabel } from "./manage-group";
-import type { GroupSnapshot, SplitType } from "./types";
-
-const SPLIT_TYPE_LABELS: Record<SplitType, string> = {
-  equal: "Equal",
-  exact: "Exact",
-  percentage: "Percentage",
-  shares: "Shares",
-};
+import { SPLIT_TYPE_LABELS } from "./new-expense";
+import type { GroupSnapshot } from "./types";
 
 /**
- * Export a Group as CSV: one row per Expense and Settlement. Amounts are
- * exact decimal strings from integer minor units (ADR 0001); each Share is
- * in the Group Currency at the Expense's Locked Rate, rounded on its own
- * line, so an Expense's Shares sum to its Group Currency amount.
+ * Export a Group as CSV: one row per Expense and Settlement, oldest first.
+ * Amounts are exact decimal strings from integer minor units (ADR 0001);
+ * each Share is in the Group Currency at the Expense's Locked Rate, rounded
+ * on its own line, so an Expense's Shares sum to its Group Currency amount.
  */
 export function groupCsv(group: GroupSnapshot): string {
-  const g = group.currency;
+  const currency = group.currency;
   const nameOf = (memberId: string) => {
     const member = group.members.find((m) => m.id === memberId);
     return member ? memberLabel(member) : "";
@@ -28,47 +23,52 @@ export function groupCsv(group: GroupSnapshot): string {
     "Date",
     "Description",
     "Category",
-    "Paid by",
-    "Paid to",
+    "Payer",
+    "From",
+    "To",
     "Expense Currency",
     "Expense Amount",
     "Locked Rate",
-    `Amount (${g})`,
+    `Amount (${currency})`,
     "Split Type",
     "Notes",
-    ...group.members.map((m) => `Share: ${memberLabel(m)} (${g})`),
+    ...group.members.map((m) => `Share: ${memberLabel(m)} (${currency})`),
   ];
-  const rows: { cells: string[]; date: string; createdAt: string }[] = [];
+  const rows: { cells: string[]; recorded: Recorded }[] = [];
 
   for (const expense of group.expenses) {
-    const { lines, groupAmount } = inGroupCurrency(expense, g);
-    rows.push({ date: expense.date, createdAt: expense.createdAt, cells: [
-      "Expense",
-      expense.date,
-      expense.description,
-      categoryName(group, expense.category),
-      nameOf(expense.payerId),
-      "",
-      expense.currency,
-      amountText(expense.amount, expense.currency),
-      expense.lockedRate,
-      amountText(groupAmount, g),
-      SPLIT_TYPE_LABELS[expense.splitType],
-      expense.notes ?? "",
-      ...group.members.map((m) => {
-        const line = lines.find((l) => l.memberId === m.id);
-        return line ? amountText(line.groupAmount, g) : "";
-      }),
-    ] });
+    const { lines, groupAmount } = inGroupCurrency(expense, currency);
+    rows.push({
+      recorded: expense,
+      cells: [
+        "Expense",
+        expense.date,
+        expense.description,
+        categoryName(group, expense.category),
+        nameOf(expense.payerId),
+        "",
+        "",
+        expense.currency,
+        amountText(expense.amount, expense.currency),
+        expense.lockedRate,
+        amountText(groupAmount, currency),
+        SPLIT_TYPE_LABELS[expense.splitType],
+        expense.notes ?? "",
+        ...group.members.map((m) => {
+          const line = lines.find((l) => l.memberId === m.id);
+          return line ? amountText(line.groupAmount, currency) : "";
+        }),
+      ],
+    });
   }
 
   for (const settlement of group.settlements) {
     rows.push({
-      date: settlement.date,
-      createdAt: settlement.createdAt,
+      recorded: settlement,
       cells: [
         "Settlement",
         settlement.date,
+        "",
         "",
         "",
         nameOf(settlement.fromId),
@@ -76,7 +76,7 @@ export function groupCsv(group: GroupSnapshot): string {
         "",
         "",
         "",
-        amountText(settlement.amount, g),
+        amountText(settlement.amount, currency),
         "",
         "",
         ...group.members.map(() => ""),
@@ -84,11 +84,9 @@ export function groupCsv(group: GroupSnapshot): string {
     });
   }
 
-  // Oldest first, by date then creation time, as in a Member Statement.
-  rows.sort((x, y) => compare(x.date, y.date) || compare(x.createdAt, y.createdAt));
+  rows.sort((x, y) => oldestFirst(x.recorded, y.recorded));
   const table = [header, ...rows.map((row) => row.cells)];
-
-  return "\uFEFF" + table.map((row) => row.map(field).join(",") + "\r\n").join("");
+  return "\uFEFF" + table.map((row) => row.map(csvField).join(",") + "\r\n").join("");
 }
 
 /**
@@ -97,13 +95,9 @@ export function groupCsv(group: GroupSnapshot): string {
  * Member can name an Expense "=HYPERLINK(…)") is kept as text with a
  * leading apostrophe; amounts are never negative, so none is affected.
  */
-function field(value: string): string {
+function csvField(value: string): string {
   const text = /^[=+\-@\t\r]/.test(value) ? `'${value}` : value;
   return /[",\r\n]/.test(text) ? `"${text.replaceAll('"', '""')}"` : text;
-}
-
-function compare(a: string, b: string): number {
-  return a < b ? -1 : a > b ? 1 : 0;
 }
 
 /**
