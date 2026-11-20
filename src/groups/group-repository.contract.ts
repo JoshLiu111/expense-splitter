@@ -228,12 +228,15 @@ export function groupRepositoryContract(
     const repo = await makeRepository();
     const flat = await repo.createGroup({ name: "Flat", description: "", currency: "USD" });
     const trip = await repo.createGroup({ name: "Trip", description: "", currency: "EUR" });
+    const chloe = await repo.addMember(flat.id, { name: "Chloe Park" });
+    const pending = await repo.addMember(flat.id, { name: "Dev Shah", email: "dev@nowhere.test" });
     await repo.addExpense(flat.id, lunch(flat));
     const activity = await repo.listActivity(flat.id);
 
     await renameUser!(flat.members[0].userId!, "Maya R.");
 
-    expect((await repo.getGroup(flat.id))?.members[0]).toEqual({ ...flat.members[0], name: "Maya R." });
+    // Name-only and Pending Members keep the names they were added by.
+    expect((await repo.getGroup(flat.id))?.members).toEqual([{ ...flat.members[0], name: "Maya R." }, chloe, pending]);
     expect((await repo.getGroup(trip.id))?.members[0].name).toBe("Maya R.");
     expect((await repo.listGroups()).map((g) => g.members[0].name)).toEqual(["Maya R.", "Maya R."]);
     expect(await repo.listActivity(flat.id)).toEqual(activity);

@@ -21,7 +21,7 @@ export type AccountResult =
   | { ok: false; errors: Partial<Record<keyof AccountFields | "form", string>> };
 
 /** The signed-in User an Account Settings operation acts for. */
-export interface AccountUser {
+export interface SignedInUser {
   id: string;
 }
 
@@ -36,7 +36,7 @@ const text = (record: unknown, key: string): string => {
  * Changes the User's display name. It is also the name of every Member they
  * are Linked to, so the rename shows in each of their Groups at once.
  */
-export async function updateDisplayName(db: Database, account: AccountUser, input: unknown): Promise<AccountResult> {
+export async function updateDisplayName(db: Database, signedIn: SignedInUser, input: unknown): Promise<AccountResult> {
   const name = text(input, "name").trim();
   // A display name is shown as a Member name, so it keeps to the same limit.
   if (!name) return { ok: false, errors: { name: "Enter your name." } };
@@ -45,7 +45,7 @@ export async function updateDisplayName(db: Database, account: AccountUser, inpu
   const rows = await db
     .update(user)
     .set({ name, updatedAt: new Date() })
-    .where(eq(user.id, account.id))
+    .where(eq(user.id, signedIn.id))
     .returning({ id: user.id });
   return rows.length > 0 ? { ok: true } : { ok: false, errors: { form: ACCOUNT_GONE } };
 }
