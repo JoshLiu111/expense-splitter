@@ -24,18 +24,22 @@ import { formatCalendarDate } from "@/lib/format";
  * one control: it opens the Expense editor or the Settlement dialog. Without
  * `onOpenExpense` an Expense row is plain text, and without
  * `onDeleteSettlement` the Settlement dialog only states it (read-only access,
- * ADR 0006).
+ * ADR 0006). An `unconfirmed` entry is shown the same way, marked as saving,
+ * until the server has confirmed it.
  */
 export function DatedLedger({
   group,
   timeline,
   onOpenExpense,
   onDeleteSettlement,
+  unconfirmed,
 }: {
   group: GroupSnapshot;
   timeline: TimelineEntry[];
   onOpenExpense?: (expense: Expense) => void;
   onDeleteSettlement?: (settlement: Settlement) => void;
+  /** Ids of Expenses and Settlements shown before the server has confirmed them. */
+  unconfirmed?: ReadonlySet<string>;
 }) {
   const id = useId();
   const members = new Map(group.members.map((m) => [m.id, m]));
@@ -64,28 +68,35 @@ export function DatedLedger({
               </span>
             </time>
             <ul className="divide-y divide-border-subtle">
-              {day.entries.map((entry) => (
-                <li key={entry.id}>
-                  {entry.kind === "expense" ? (
-                    <ExpenseRow
-                      entry={entry}
-                      group={group}
-                      payer={memberOf(entry.expense.payerId)}
-                      dateId={dateId}
-                      onOpen={onOpenExpense && (() => onOpenExpense(entry.expense))}
-                    />
-                  ) : (
-                    <SettlementRow
-                      entry={entry}
-                      currency={group.currency}
-                      from={memberOf(entry.settlement.fromId)}
-                      to={memberOf(entry.settlement.toId)}
-                      dateId={dateId}
-                      onDelete={onDeleteSettlement && (() => onDeleteSettlement(entry.settlement))}
-                    />
-                  )}
-                </li>
-              ))}
+              {day.entries.map((entry) => {
+                const saving = unconfirmed?.has(entry.id) ?? false;
+                return (
+                  <li key={entry.id}>
+                    {entry.kind === "expense" ? (
+                      <ExpenseRow
+                        entry={entry}
+                        group={group}
+                        payer={memberOf(entry.expense.payerId)}
+                        dateId={dateId}
+                        saving={saving}
+                        onOpen={!saving && onOpenExpense ? () => onOpenExpense(entry.expense) : undefined}
+                      />
+                    ) : (
+                      <SettlementRow
+                        entry={entry}
+                        currency={group.currency}
+                        from={memberOf(entry.settlement.fromId)}
+                        to={memberOf(entry.settlement.toId)}
+                        dateId={dateId}
+                        saving={saving}
+                        onDelete={
+                          !saving && onDeleteSettlement ? () => onDeleteSettlement(entry.settlement) : undefined
+                        }
+                      />
+                    )}
+                  </li>
+                );
+              })}
             </ul>
           </li>
         );
@@ -111,12 +122,15 @@ function ExpenseRow({
   group,
   payer,
   dateId,
+  saving,
   onOpen,
 }: {
   entry: Extract<TimelineEntry, { kind: "expense" }>;
   group: GroupSnapshot;
   payer: Member;
   dateId: string;
+  /** Shown before the server has confirmed it. */
+  saving: boolean;
   /** Opens the Expense editor; without it the row is plain text. */
   onOpen?: () => void;
 }) {
@@ -143,6 +157,7 @@ function ExpenseRow({
         </h3>
         <p id={`${id}-details`} className="text-sm break-words text-text-secondary">
           {payer.name} paid in {categoryName(group, expense.category)}
+          {saving && " · Saving…"}
         </p>
       </div>
       <p id={`${id}-amount`} className="shrink-0 text-right">
@@ -169,6 +184,7 @@ function SettlementRow({
   from,
   to,
   dateId,
+  saving,
   onDelete,
 }: {
   entry: Extract<TimelineEntry, { kind: "settlement" }>;
@@ -176,6 +192,8 @@ function SettlementRow({
   from: Member;
   to: Member;
   dateId: string;
+  /** Shown before the server has confirmed it. */
+  saving: boolean;
   onDelete?: () => void;
 }) {
   const amount = formatMoney(entry.settlement.amount, currency);
@@ -205,9 +223,10 @@ function SettlementRow({
               <span className="font-semibold text-text-primary">{to.name}</span>
             </Dialog.Trigger>
           </h3>
-          {/* The button already says "Settlement" to screen readers. */}
-          <p aria-hidden className="text-sm text-text-secondary">
-            Settlement
+          <p className="text-sm text-text-secondary">
+            {/* The button already says "Settlement" to screen readers. */}
+            <span aria-hidden>Settlement</span>
+            {saving && " · Saving…"}
           </p>
         </div>
         <span id={`${id}-amount`} className="amount shrink-0 font-semibold text-text-secondary">

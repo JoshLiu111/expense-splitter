@@ -371,6 +371,7 @@ The Group's Expenses and Settlements, newest first: the Expenses view of the Exp
 - **Row:** at least 64px tall, 10px × 8px padding, 12px gaps, the avatar and amount vertically centred. The row bleeds 8px past the column on each side so its hover tint clears the avatar and figure. Long names and descriptions wrap at whole words (breaking a word only when it cannot fit); the amount never shrinks, so at 390px it stays inside the screen.
 - **Rows carry no buttons.** An Expense or Settlement row is one control: a click, tap or Enter anywhere on it opens it (the Expense editor, or a dialog stating the Settlement), hover tints it hover slate at 60%, and focus rings the whole row. Delete lives inside what the row opens: the Expense editor's quiet Delete Expense, the Settlement dialog's Delete Settlement, each confirmed first.
 - **Read-only** (a Former Member with a reopened Balance, ADR 0006): an Expense row is plain text with no hover tint or pointer, and the Settlement dialog states the Settlement with no Delete Settlement.
+- **Saving** (signed in): a row the User just added counts in Balances at once but waits for the server to give it its id. Until then its second line ends " · Saving…" in graphite, and it behaves as Read-only: an Expense row is plain text, and the Settlement dialog has no Delete Settlement.
 - **Filtering** hides Settlements; the tabs' count line says how many Expenses match, and no match reads "No Expenses match these filters." in a dashed empty-state outline.
 
 ### Groups List

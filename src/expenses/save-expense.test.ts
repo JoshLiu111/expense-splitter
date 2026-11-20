@@ -1,7 +1,7 @@
 import { expect, it } from "vitest";
 import type { NewExpenseFields, RateSnapshot } from "@/domain";
 import { createSessionStorageRepository } from "@/guest/guest-repository";
-import { memoryStorage } from "@/test/memory-storage";
+import { memoryStorage } from "@/lib/memory-storage";
 import { saveExpense } from "./save-expense";
 
 const noRates = async () => null;

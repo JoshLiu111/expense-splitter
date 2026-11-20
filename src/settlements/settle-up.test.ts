@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { computeLedger } from "@/domain";
 import { createSessionStorageRepository } from "@/guest/guest-repository";
-import { memoryStorage } from "@/test/memory-storage";
+import { memoryStorage } from "@/lib/memory-storage";
 import { clearSmallChange, deleteSettlement, recordSettlement } from "./settle-up";
 
 /** A Group with "You" and Chloe, where Chloe owes You `owed` cents. */

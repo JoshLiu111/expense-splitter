@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { GroupSnapshot } from "@/domain";
 import { groupRepositoryContract } from "@/groups/group-repository.contract";
-import { memoryStorage } from "@/test/memory-storage";
+import { memoryStorage } from "@/lib/memory-storage";
 import { createSessionStorageRepository } from "./guest-repository";
 
 const seed = (): GroupSnapshot[] => [
