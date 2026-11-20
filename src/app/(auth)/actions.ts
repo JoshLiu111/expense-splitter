@@ -3,7 +3,8 @@
 import { isAPIError } from "better-auth/api";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
-import { auth, MIN_PASSWORD_LENGTH } from "@/auth/auth";
+import { auth } from "@/auth/auth";
+import { passwordRuleError } from "@/auth/password";
 import { safeReturnTo } from "@/auth/return-to";
 import { requireUser } from "@/auth/session";
 import { EMAIL_PATTERN } from "@/domain";
@@ -42,8 +43,8 @@ export async function signUp(_: AuthFormState, formData: FormData): Promise<Auth
   if (!name) errors.name = "Enter your name.";
   if (!email) errors.email = "Enter your email address.";
   else if (!EMAIL_PATTERN.test(email)) errors.email = "Enter an email address like name@example.com.";
-  if (password.length < MIN_PASSWORD_LENGTH)
-    errors.password = `Use a password of at least ${MIN_PASSWORD_LENGTH} characters.`;
+  const passwordError = passwordRuleError(password);
+  if (passwordError) errors.password = passwordError;
   if (Object.keys(errors).length > 0) return { errors, values };
 
   try {
@@ -58,8 +59,6 @@ export async function signUp(_: AuthFormState, formData: FormData): Promise<Auth
         errors: { email: "This email is already registered. Sign in instead." },
         values,
       };
-    if (code === "PASSWORD_TOO_LONG")
-      return { errors: { password: "Use a password of 128 characters or fewer." }, values };
     if (code === "INVALID_EMAIL")
       return { errors: { email: "Enter an email address like name@example.com." }, values };
     throw error;
@@ -131,16 +130,14 @@ export async function requestPasswordReset(_: AuthFormState, formData: FormData)
 export async function resetPassword(_: AuthFormState, formData: FormData): Promise<AuthFormState> {
   const token = text(formData, "token");
   const password = text(formData, "password");
-  if (password.length < MIN_PASSWORD_LENGTH)
-    return { errors: { password: `Use a password of at least ${MIN_PASSWORD_LENGTH} characters.` } };
+  const passwordError = passwordRuleError(password);
+  if (passwordError) return { errors: { password: passwordError } };
   try {
     await auth().api.resetPassword({ body: { token, newPassword: password }, headers: await headers() });
   } catch (error) {
     const code = errorCode(error);
     if (code === "INVALID_TOKEN")
       return { errors: { form: "This reset link has expired or was already used. Ask for a new one." } };
-    if (code === "PASSWORD_TOO_LONG")
-      return { errors: { password: "Use a password of 128 characters or fewer." } };
     throw error;
   }
   redirect("/sign-in?reset=1");

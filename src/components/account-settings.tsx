@@ -2,7 +2,8 @@
 
 import { useId, useState, useTransition, type FormEvent } from "react";
 import { MAX_MEMBER_NAME_LENGTH } from "@/domain";
-import type { AccountFields, AccountManagement, AccountResult } from "@/account/account";
+import type { AccountFields, AccountManagement, AccountResult, PasswordFields } from "@/account/account";
+import { MIN_PASSWORD_LENGTH } from "@/auth/password";
 import { AvatarSection } from "@/components/account-avatar-section";
 import { ErrorSummary, Field } from "@/components/form";
 import { Button } from "@/components/ui/button";
@@ -59,6 +60,11 @@ export function AccountSettingsView({
         onSet={account.setAvatar}
         onRemove={account.removeAvatar}
         onDone={setNews}
+      />
+
+      <PasswordSection
+        onSave={account.changePassword}
+        onSaved={() => setNews("Password changed. Your other sessions are signed out.")}
       />
     </div>
   );
@@ -122,6 +128,87 @@ function DisplayNameSection({
         <div>
           <Button type="submit" disabled={pending}>
             {pending ? "Saving…" : "Save name"}
+          </Button>
+        </div>
+      </form>
+    </section>
+  );
+}
+
+const NO_PASSWORDS: PasswordFields = { currentPassword: "", newPassword: "" };
+
+/** Changes the User's password; their other sessions are signed out. */
+function PasswordSection({
+  onSave,
+  onSaved,
+}: {
+  onSave: (fields: PasswordFields) => Promise<AccountResult>;
+  onSaved: () => void;
+}) {
+  const [fields, setFields] = useState<PasswordFields>(NO_PASSWORDS);
+  const [failure, setFailure] = useState<Failure>();
+  const [pending, startTransition] = useTransition();
+  const formId = useId();
+  const ids = { currentPassword: `${formId}-current`, newPassword: `${formId}-new` };
+  const errors = failure?.errors;
+
+  function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    startTransition(async () => {
+      const result = await attempt(() => onSave(fields));
+      if (result.ok) {
+        setFailure(undefined);
+        setFields(NO_PASSWORDS);
+        onSaved();
+      } else setFailure(result);
+    });
+  }
+
+  return (
+    <section aria-labelledby={`${formId}-heading`}>
+      <h2 id={`${formId}-heading`} className="text-lg font-bold">
+        Password
+      </h2>
+      <form onSubmit={submit} noValidate className="mt-3 flex flex-col gap-5">
+        <ErrorSummary errors={errors} fieldIds={ids} />
+        <Field id={ids.currentPassword} label="Current password" error={errors?.currentPassword}>
+          {(describedBy, className) => (
+            <input
+              id={ids.currentPassword}
+              type="password"
+              required
+              autoComplete="current-password"
+              value={fields.currentPassword}
+              onChange={(e) => setFields({ ...fields, currentPassword: e.target.value })}
+              aria-invalid={errors?.currentPassword ? true : undefined}
+              aria-describedby={describedBy}
+              className={className}
+            />
+          )}
+        </Field>
+        <Field
+          id={ids.newPassword}
+          label="New password"
+          hint={`At least ${MIN_PASSWORD_LENGTH} characters. Your other sessions will be signed out.`}
+          error={errors?.newPassword}
+        >
+          {(describedBy, className) => (
+            <input
+              id={ids.newPassword}
+              type="password"
+              required
+              autoComplete="new-password"
+              value={fields.newPassword}
+              onChange={(e) => setFields({ ...fields, newPassword: e.target.value })}
+              aria-invalid={errors?.newPassword ? true : undefined}
+              aria-describedby={describedBy}
+              className={className}
+            />
+          )}
+        </Field>
+        <div>
+          <Button type="submit" disabled={pending}>
+            {pending ? "Changing…" : "Change password"}
           </Button>
         </div>
       </form>

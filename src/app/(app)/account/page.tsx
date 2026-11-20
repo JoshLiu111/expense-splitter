@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { Suspense } from "react";
 import { requireUser } from "@/auth/session";
 import { AccountSettingsView } from "@/components/account-settings";
-import { removeUserAvatar, setUserAvatar, updateUserDisplayName } from "./actions";
+import { changeUserPassword, removeUserAvatar, setUserAvatar, updateUserDisplayName } from "./actions";
 
 export const metadata: Metadata = { title: "Account Settings · Expense Splitter" };
 
@@ -29,6 +29,7 @@ async function UserAccountSettings() {
         updateDisplayName: updateUserDisplayName,
         setAvatar: setUserAvatar,
         removeAvatar: removeUserAvatar,
+        changePassword: changeUserPassword,
       }}
     />
   );

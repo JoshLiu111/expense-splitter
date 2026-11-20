@@ -1,5 +1,5 @@
 import "server-only";
-import { headers } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import type { GroupUser } from "@/groups/postgres-group-repository";
 import { auth } from "./auth";
@@ -14,7 +14,11 @@ export interface SessionUser extends GroupUser {
 
 /** The signed-in User, or `null`. Reads the request, so call it inside Suspense. */
 export async function getCurrentUser(): Promise<SessionUser | null> {
-  const result = await auth().api.getSession({ headers: await headers() });
+  // Cookies as they stand now, not as the request sent them: a Server Action
+  // that changes the password replaces the session cookie, then re-renders.
+  const current = new Headers(await headers());
+  current.set("cookie", (await cookies()).toString());
+  const result = await auth().api.getSession({ headers: current });
   if (!result) return null;
   const { id, name, email, emailVerified, image } = result.user;
   return { id, name, email, emailVerified, ...(image ? { image } : {}) };

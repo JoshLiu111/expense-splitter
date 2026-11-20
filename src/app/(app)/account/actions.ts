@@ -1,8 +1,10 @@
 "use server";
 
 import { refresh } from "next/cache";
-import { removeAvatar, setAvatar, updateDisplayName, type AccountResult } from "@/account/account";
+import { headers } from "next/headers";
+import { changePassword, removeAvatar, setAvatar, updateDisplayName, type AccountResult } from "@/account/account";
 import { avatarStore } from "@/account/avatars";
+import { auth } from "@/auth/auth";
 import { requireUser } from "@/auth/session";
 import { db } from "@/db";
 
@@ -29,4 +31,10 @@ export async function removeUserAvatar(): Promise<AccountResult> {
   const result = await removeAvatar(db(), avatarStore(), user);
   if (result.ok) refresh();
   return result;
+}
+
+export async function changeUserPassword(fields: unknown): Promise<AccountResult> {
+  await requireUser("/account");
+  // Better Auth sets this browser's fresh session cookie; other sessions end.
+  return changePassword(auth(), await headers(), fields);
 }
