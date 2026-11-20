@@ -132,5 +132,5 @@ A visitor exploring the sample Groups without an account; their changes last onl
 _Avoid_: Demo user, anonymous user
 
 **Account Settings**:
-The page where a signed-in User changes their own account, such as their display name or avatar image. These are account-level changes: never recorded in any Group's Activity. A Guest has no Account Settings.
+The page where a signed-in User changes what belongs to them as a User, such as their display name, avatar image or password. These changes belong to the User, not to any Group, so they are never recorded in any Group's Activity. A Guest has no Account Settings.
 _Avoid_: Profile, preferences, user settings

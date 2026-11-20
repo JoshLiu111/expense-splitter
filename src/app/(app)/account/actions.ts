@@ -9,7 +9,7 @@ import { requireUser } from "@/auth/session";
 import { db } from "@/db";
 
 // Server Actions are public endpoints: each one re-checks the session and
-// acts only on the signed-in User's own account.
+// acts only on the signed-in User themselves.
 
 export async function updateUserDisplayName(fields: unknown): Promise<AccountResult> {
   const user = await requireUser("/account");

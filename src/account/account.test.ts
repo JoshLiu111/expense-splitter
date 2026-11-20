@@ -87,7 +87,7 @@ describe.skipIf(!url)("Account Settings", () => {
     it("says so when the User no longer exists", async () => {
       expect(await updateDisplayName(db, { id: "usr_missing" }, { name: "Maya" })).toEqual({
         ok: false,
-        errors: { form: "Your account is no longer available." },
+        errors: { form: "You're no longer signed in. Sign in and try again." },
       });
     });
   });
@@ -165,7 +165,7 @@ describe.skipIf(!url)("Account Settings", () => {
 
     it("says so when the User no longer exists, storing nothing", async () => {
       const store = createMemoryAvatarStore();
-      const gone = { ok: false, errors: { form: "Your account is no longer available." } };
+      const gone = { ok: false, errors: { form: "You're no longer signed in. Sign in and try again." } };
 
       expect(await setAvatar(db, store, { id: "usr_missing" }, anImage("png"))).toEqual(gone);
       expect(await removeAvatar(db, store, { id: "usr_missing" })).toEqual(gone);

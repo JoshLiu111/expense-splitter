@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button";
 type Failure = Extract<AccountResult, { ok: false }>;
 
 /**
- * Account Settings: what a signed-in User changes about their own account,
+ * Account Settings: what a signed-in User changes about themselves,
  * one section per change. Reached from the user menu; Guests never see it.
  */
 export function AccountSettingsView({

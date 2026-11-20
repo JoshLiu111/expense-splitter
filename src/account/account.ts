@@ -9,10 +9,10 @@ import { avatarExtension, avatarFileError, NOT_AN_IMAGE, sniffAvatarType } from 
 import type { AvatarStore } from "./avatar-store";
 
 /**
- * Account Settings: what a signed-in User changes about their own account.
+ * Account Settings: what a signed-in User changes about themselves.
  * Every operation acts for the User it is given and answers in the shape
  * Group management does, so a form can show each error by its field.
- * Account changes are never recorded in any Group's Activity.
+ * These changes are never recorded in any Group's Activity.
  */
 
 /** The fields Account Settings forms send. */
@@ -36,7 +36,7 @@ export interface SignedInUser {
   id: string;
 }
 
-const ACCOUNT_GONE = "Your account is no longer available.";
+const USER_GONE = "You're no longer signed in. Sign in and try again.";
 
 const text = (record: unknown, key: string): string => {
   const value = typeof record === "object" && record !== null ? (record as Record<string, unknown>)[key] : "";
@@ -58,7 +58,7 @@ export async function updateDisplayName(db: Database, signedIn: SignedInUser, in
     .set({ name, updatedAt: new Date() })
     .where(eq(user.id, signedIn.id))
     .returning({ id: user.id });
-  return rows.length > 0 ? { ok: true } : { ok: false, errors: { form: ACCOUNT_GONE } };
+  return rows.length > 0 ? { ok: true } : { ok: false, errors: { form: USER_GONE } };
 }
 
 /**
@@ -84,7 +84,7 @@ export async function setAvatar(
   const old = await swapImage(db, signedIn, url);
   if (old === undefined) {
     await store.delete(url);
-    return { ok: false, errors: { form: ACCOUNT_GONE } };
+    return { ok: false, errors: { form: USER_GONE } };
   }
   if (old && old !== url) await store.delete(old);
   return { ok: true };
@@ -111,7 +111,7 @@ async function swapImage(db: Database, signedIn: SignedInUser, image: string | n
 /** Removes the User's avatar and deletes its image, so their initials show again. */
 export async function removeAvatar(db: Database, store: AvatarStore, signedIn: SignedInUser): Promise<AccountResult> {
   const old = await swapImage(db, signedIn, null);
-  if (old === undefined) return { ok: false, errors: { form: ACCOUNT_GONE } };
+  if (old === undefined) return { ok: false, errors: { form: USER_GONE } };
   if (old) await store.delete(old);
   return { ok: true };
 }
