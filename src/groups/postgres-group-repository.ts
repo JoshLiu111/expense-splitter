@@ -1,6 +1,7 @@
-import { and, asc, desc, eq, exists, inArray, isNull, max, notExists, sql } from "drizzle-orm";
+import { and, asc, desc, eq, exists, inArray, isNotNull, isNull, max, notExists, sql } from "drizzle-orm";
 import {
   computeLedger,
+  isPendingMember,
   isSameExpense,
   type ActivityChange,
   type CurrencyCode,
@@ -10,17 +11,23 @@ import {
   type Settlement,
   type SplitType,
 } from "@/domain";
-import type { Database } from "@/db/client";
+import type { Database, Transaction } from "@/db/client";
 import {
   activity,
   customCategories,
   expenseShares,
   expenses,
   groups,
+  invitations,
   members,
   settlements,
   user,
 } from "@/db/schema";
+import {
+  hashInvitationToken,
+  INVITATION_LIFETIME_MS,
+  newInvitationToken,
+} from "@/invitations/invitation-token";
 import { AVATAR_COLORS, nextAvatarColor, type GroupRepository } from "./group-repository";
 
 /** The signed-in User a repository acts for. */
@@ -30,7 +37,7 @@ export interface GroupUser {
   email: string;
 }
 
-type Tx = Parameters<Parameters<Database["transaction"]>[0]>[0];
+type Tx = Transaction;
 
 /**
  * The User a Member with this email should be linked to: the one who has
@@ -57,22 +64,23 @@ async function userToLink(tx: Tx, groupId: string, email: string): Promise<strin
 }
 
 /**
+ * The rows of Pending Members (`isPendingMember`): an email, no User yet,
+ * not removed.
+ */
+const pendingMembers = () => and(isNotNull(members.email), isNull(members.userId), eq(members.former, false));
+
+/**
  * Links a User who has just verified their email to every Pending Member
  * with that exact email, at most one per Group and never in a Group where
- * they are already linked. Former Members are left as they are.
+ * they are already linked. Former Members are left as they are. Pass a
+ * transaction to make claiming part of it.
  */
-export async function claimPendingMembers(db: Database, verified: { id: string; email: string }) {
+export async function claimPendingMembers(db: Database | Transaction, verified: { id: string; email: string }) {
   await db.transaction(async (tx) => {
     const pending = await tx
       .select({ id: members.id, groupId: members.groupId })
       .from(members)
-      .where(
-        and(
-          eq(sql`lower(${members.email})`, verified.email.toLowerCase()),
-          isNull(members.userId),
-          eq(members.former, false),
-        ),
-      )
+      .where(and(eq(sql`lower(${members.email})`, verified.email.toLowerCase()), pendingMembers()))
       .orderBy(asc(members.position));
     const linkedGroups = new Set(
       (
@@ -155,6 +163,7 @@ export function createPostgresGroupRepository(
   db: Database,
   currentUser: GroupUser,
   newId: () => string = () => crypto.randomUUID(),
+  now: () => Date = () => new Date(),
 ): GroupRepository {
   /** Groups where the User is a Linked Member now: the ones they may change. */
   const isLinkedMember = exists(
@@ -199,7 +208,7 @@ export function createPostgresGroupRepository(
     if (groupRows.length === 0) return [];
 
     const ids = groupRows.map((g) => g.id);
-    const [memberRows, expenseRows, shareRows, settlementRows, categoryRows] = await Promise.all([
+    const [memberRows, expenseRows, shareRows, settlementRows, categoryRows, invitationRows] = await Promise.all([
       // A Linked Member is shown under their User's current name and avatar,
       // so a change in Account Settings reaches every Group at once.
       db
@@ -221,7 +230,14 @@ export function createPostgresGroupRepository(
         .from(customCategories)
         .where(inArray(customCategories.groupId, ids))
         .orderBy(asc(customCategories.createdAt), asc(customCategories.id)),
+      // Each Member's latest Invitation: whether it was sent is shown.
+      db
+        .selectDistinctOn([invitations.memberId], { memberId: invitations.memberId, sentAt: invitations.sentAt })
+        .from(invitations)
+        .where(inArray(invitations.groupId, ids))
+        .orderBy(invitations.memberId, desc(invitations.seq)),
     ]);
+    const sentInvitation = new Map(invitationRows.map((r) => [r.memberId, r.sentAt !== null]));
 
     return groupRows.map((g) => ({
       id: g.id,
@@ -239,6 +255,7 @@ export function createPostgresGroupRepository(
           ...(m.userId ? { userId: m.userId } : {}),
           ...(m.former ? { former: true } : {}),
           ...(userImage ? { avatarUrl: userImage } : {}),
+          ...(isPendingMember(m) ? { invitationSent: sentInvitation.get(m.id) ?? false } : {}),
         })),
       customCategories: categoryRows
         .filter((c) => c.groupId === g.id)
@@ -449,6 +466,36 @@ export function createPostgresGroupRepository(
       if (!updated) return null;
       const [group] = await load(groupId);
       return group?.members.find((m) => m.id === memberId) ?? null;
+    },
+    async issueInvitation(groupId, memberId) {
+      if (!(await canChange(groupId))) return null;
+      const [pending] = await db
+        .select({ email: members.email })
+        .from(members)
+        .where(and(eq(members.id, memberId), eq(members.groupId, groupId), pendingMembers()));
+      if (!pending?.email) return null;
+      const token = newInvitationToken();
+      const issuedAt = now();
+      // Older Invitations stop working because this one is newer.
+      await db.insert(invitations).values({
+        id: `inv_${newId()}`,
+        tokenHash: hashInvitationToken(token),
+        memberId,
+        groupId,
+        email: pending.email.toLowerCase(),
+        issuedAt,
+        expiresAt: new Date(issuedAt.getTime() + INVITATION_LIFETIME_MS),
+      });
+      return token;
+    },
+    async recordInvitationSent(groupId, token) {
+      if (!(await canChange(groupId))) return false;
+      const rows = await db
+        .update(invitations)
+        .set({ sentAt: now() })
+        .where(and(eq(invitations.tokenHash, hashInvitationToken(token)), eq(invitations.groupId, groupId)))
+        .returning({ id: invitations.id });
+      return rows.length > 0;
     },
     async removeMember(groupId, memberId) {
       if (!(await canChange(groupId))) return false;

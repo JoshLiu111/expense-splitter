@@ -13,6 +13,7 @@ import {
   ExportSection,
   GroupDetailsSection,
   MembersSection,
+  type NewsTone,
 } from "@/components/group-settings";
 
 /**
@@ -38,7 +39,8 @@ export function GroupSettingsView({
   isGroupCreator: boolean;
 }) {
   const router = useRouter();
-  const [news, setNews] = useState("");
+  const [news, setNewsState] = useState<{ text: string; tone?: NewsTone }>({ text: "" });
+  const setNews = (text: string, tone?: NewsTone) => setNewsState({ text, tone });
   const membersHeading = useRef<HTMLHeadingElement>(null);
 
   return (
@@ -54,7 +56,11 @@ export function GroupSettingsView({
       </div>
 
       <p role="status" className="empty:hidden">
-        {news && <span className="font-semibold text-success">{news}</span>}
+        {news.text && (
+          <span className={`font-semibold ${news.tone === "warning" ? "text-warning" : "text-success"}`}>
+            {news.text}
+          </span>
+        )}
       </p>
 
       <GroupDetailsSection
@@ -70,6 +76,7 @@ export function GroupSettingsView({
         headingRef={membersHeading}
         onAdd={manage.addMember}
         onSetEmail={manage.setMemberEmail}
+        onResendInvitation={manage.resendInvitation}
         onRemove={manage.removeMember}
         onNews={setNews}
       />

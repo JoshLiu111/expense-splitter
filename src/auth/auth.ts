@@ -23,6 +23,10 @@ export function createAuth(database: Database) {
       maxPasswordLength: MAX_PASSWORD_LENGTH,
       autoSignIn: true,
       // Users can use the app before verifying; verifying links Pending Members.
+      // An Invitation to an email whose account was never verified also
+      // relies on this: its holder signs in unverified, then the link
+      // verifies the email (src/app/(auth)/invite/[token]/page.tsx).
+      // Covered by src/invitations/sign-up-by-invitation.test.ts.
       requireEmailVerification: false,
       sendResetPassword: ({ user, url }) => sendEmail(resetPasswordEmail(user, url)),
       resetPasswordTokenExpiresIn: 60 * 60,

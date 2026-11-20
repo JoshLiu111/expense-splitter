@@ -31,6 +31,18 @@ export function memberLabel(member: Member): string {
   return member.former ? member.name + FORMER_MEMBER_SUFFIX : member.name;
 }
 
+/**
+ * Whether a Member is a Pending Member: given an email no User has claimed
+ * yet, and not removed. Only Pending Members are sent Invitations.
+ */
+export function isPendingMember(member: {
+  email?: string | null;
+  userId?: string | null;
+  former?: boolean | null;
+}): boolean {
+  return Boolean(member.email) && !member.userId && !member.former;
+}
+
 /** The Members taking part in the Group now, in Group order: not Former Members. */
 export function currentMembers(group: GroupSnapshot): Member[] {
   return group.members.filter((m) => !m.former);

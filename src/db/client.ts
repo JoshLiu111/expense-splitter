@@ -4,6 +4,9 @@ import * as schema from "./schema";
 
 export type Database = NodePgDatabase<typeof schema>;
 
+/** A transaction on a `Database`, for work that must be all or nothing. */
+export type Transaction = Parameters<Parameters<Database["transaction"]>[0]>[0];
+
 /** A Drizzle client over a pg pool; works with Neon and plain Postgres alike. */
 export function createDatabase(connectionString: string): { db: Database; pool: Pool } {
   const pool = new Pool({ connectionString, max: 5 });

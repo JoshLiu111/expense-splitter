@@ -18,13 +18,21 @@ import {
   type Member,
   type NewGroupFields,
 } from "@/domain";
-import type { AddMemberResult, ManageResult, NewMemberFields } from "@/groups/manage-group";
+import type {
+  AddMemberResult,
+  ManageResult,
+  NewMemberFields,
+  SetMemberEmailResult,
+} from "@/groups/manage-group";
 import { attempt } from "@/components/attempt";
 import { ErrorSummary, Field } from "@/components/form";
 import { MemberAvatar } from "@/components/member-avatar";
 import { Button } from "@/components/ui/button";
 
 type Failure = Extract<ManageResult, { ok: false }>;
+
+/** How news after an action reads: a plain confirmation, or a `warning` that part of it didn't happen. */
+export type NewsTone = "warning";
 
 const dialogClass =
   "fixed top-1/2 left-1/2 z-50 max-h-[92dvh] w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-lg border border-border bg-surface p-6 shadow-lg outline-none";
@@ -160,7 +168,7 @@ function GroupDetailsForm({
 /** How a Member is tied to a User, for signed-in Users' Groups. */
 function linkStatus(member: Member): string | null {
   if (member.userId) return `${member.email ?? "Signed up"} · Linked`;
-  if (member.email) return `${member.email} · Pending until they sign up and verify this email`;
+  if (member.email) return `${member.email} · Pending until they join`;
   return null;
 }
 
@@ -169,34 +177,55 @@ function linkStatus(member: Member): string | null {
  * Remove for any Member whose Balance is zero. Former Members are listed
  * apart; they stay on past Expenses. With `onSetEmail` (signed-in Users),
  * Members can be added by email and Name-only Members given one, which
- * links them to the User who verified it.
+ * links them to the User who verified it. With `onResendInvitation`, a
+ * Pending Member shows whether their Invitation was sent and can be sent a
+ * new one.
  */
 export function MembersSection({
   group,
   headingRef,
   onAdd,
   onSetEmail,
+  onResendInvitation,
   onRemove,
   onNews,
 }: {
   group: GroupSnapshot;
   headingRef: RefObject<HTMLHeadingElement | null>;
   onAdd: (fields: NewMemberFields) => Promise<AddMemberResult>;
-  onSetEmail?: (memberId: string, email: string) => Promise<ManageResult>;
+  onSetEmail?: (memberId: string, email: string) => Promise<SetMemberEmailResult>;
+  onResendInvitation?: (memberId: string) => Promise<ManageResult>;
   onRemove: (memberId: string) => Promise<ManageResult>;
-  onNews: (news: string) => void;
+  onNews: (news: string, tone?: NewsTone) => void;
 }) {
   const current = currentMembers(group);
   const former = group.members.filter((m) => m.former);
-  const [removeError, setRemoveError] = useState("");
+  const [rowError, setRowError] = useState("");
+  const [resending, setResending] = useState<string | null>(null);
 
   async function remove(member: Member) {
-    setRemoveError("");
+    setRowError("");
     const result = await attempt(() => onRemove(member.id));
     if (result.ok) onNews(`Removed ${member.name}. They stay on past Expenses.`);
-    else setRemoveError(result.errors.form ?? `Couldn't remove ${member.name}.`);
+    else setRowError(result.errors.form ?? `Couldn't remove ${member.name}.`);
     // The Remove button that opened the dialog may be gone, so land here.
     headingRef.current?.focus();
+  }
+
+  /** Says what was done, and at once if the Invitation it was due wasn't sent. */
+  function told(done: string, invitationSent: boolean | undefined) {
+    if (invitationSent === false) onNews(`${done} Their Invitation wasn't sent; use Resend to try again.`, "warning");
+    else onNews(done);
+  }
+
+  async function resend(member: Member) {
+    if (!onResendInvitation) return;
+    setRowError("");
+    setResending(member.id);
+    const result = await attempt(() => onResendInvitation(member.id));
+    setResending(null);
+    if (result.ok) onNews(`Sent ${member.name} a new Invitation at ${member.email}.`);
+    else setRowError(result.errors.form ?? `Couldn't send ${member.name} an Invitation.`);
   }
 
   return (
@@ -209,9 +238,9 @@ export function MembersSection({
       >
         Members
       </h2>
-      {removeError && (
+      {rowError && (
         <p role="alert" className="mt-2 text-sm font-semibold text-error">
-          {removeError}
+          {rowError}
         </p>
       )}
       <ul className="mt-3 divide-y divide-border-subtle rounded-lg border border-border bg-surface">
@@ -229,6 +258,13 @@ export function MembersSection({
                 <span className="flex min-w-0 flex-col">
                   <span className="font-semibold break-words">{member.name}</span>
                   {status && <span className="text-sm break-words text-text-secondary">{status}</span>}
+                  {onResendInvitation && member.invitationSent !== undefined && (
+                    <InvitationState
+                      member={member}
+                      sending={resending === member.id}
+                      onResend={() => resend(member)}
+                    />
+                  )}
                 </span>
               </span>
               <span className="flex flex-wrap items-center gap-1">
@@ -236,7 +272,7 @@ export function MembersSection({
                   <MemberEmailDialog
                     member={member}
                     onSave={(email) => onSetEmail(member.id, email)}
-                    onSaved={(email) => onNews(`Saved ${email} for ${member.name}.`)}
+                    onSaved={(email, invitationSent) => told(`Saved ${email} for ${member.name}.`, invitationSent)}
                   />
                 )}
                 {block ? (
@@ -252,7 +288,7 @@ export function MembersSection({
       <AddMemberForm
         byEmail={onSetEmail !== undefined}
         onAdd={onAdd}
-        onAdded={(name) => onNews(`Added ${name}.`)}
+        onAdded={(name, invitationSent) => told(`Added ${name}.`, invitationSent)}
       />
       {former.length > 0 && (
         <div className="mt-4">
@@ -271,6 +307,43 @@ export function MembersSection({
         </div>
       )}
     </section>
+  );
+}
+
+/**
+ * Whether a Pending Member's latest Invitation was sent, with a way to send
+ * a new one (which stops the older link working).
+ */
+function InvitationState({
+  member,
+  sending,
+  onResend,
+}: {
+  member: Member;
+  sending: boolean;
+  onResend: () => void;
+}) {
+  const button = (label: string) => (
+    <Button
+      variant="quiet"
+      className="-ml-3 text-sm"
+      aria-label={`Resend Invitation to ${member.name}`}
+      disabled={sending}
+      onClick={onResend}
+    >
+      {sending ? "Sending…" : label}
+    </Button>
+  );
+  return member.invitationSent ? (
+    <span className="flex flex-wrap items-center gap-x-3 text-sm text-text-secondary">
+      <span>Invitation sent</span>
+      {button("Resend Invitation")}
+    </span>
+  ) : (
+    <span className="flex flex-wrap items-center gap-x-3 text-sm">
+      <span className="font-semibold text-error">Invitation not sent —</span>
+      {button("Resend")}
+    </span>
   );
 }
 
@@ -316,7 +389,8 @@ function AddMemberForm({
   /** Offer an email field, to add a Linked or Pending Member. */
   byEmail: boolean;
   onAdd: (fields: NewMemberFields) => Promise<AddMemberResult>;
-  onAdded: (name: string) => void;
+  /** With whether the Invitation the new Member was due was sent, if one was. */
+  onAdded: (name: string, invitationSent: boolean | undefined) => void;
 }) {
   const [fields, setFields] = useState<NewMemberFields>({ name: "", email: "" });
   const [errors, setErrors] = useState<Failure["errors"]>();
@@ -330,7 +404,7 @@ function AddMemberForm({
     startTransition(async () => {
       const result = await attempt(() => onAdd(fields));
       if (result.ok) {
-        onAdded(result.name);
+        onAdded(result.name, result.invitationSent);
         setFields({ name: "", email: "" });
         setErrors(undefined);
       } else {
@@ -388,7 +462,7 @@ function AddMemberForm({
       {byEmail && (
         <p className="basis-full text-sm text-text-secondary">
           With an email, someone who has signed up and verified it can see and edit this Group
-          straight away; anyone else is linked once they sign up and verify that email.
+          straight away; anyone else is emailed an Invitation and linked once they join.
         </p>
       )}
     </form>
@@ -402,8 +476,8 @@ function MemberEmailDialog({
   onSaved,
 }: {
   member: Member;
-  onSave: (email: string) => Promise<ManageResult>;
-  onSaved: (email: string) => void;
+  onSave: (email: string) => Promise<SetMemberEmailResult>;
+  onSaved: (email: string, invitationSent: boolean | undefined) => void;
 }) {
   const [open, setOpen] = useState(false);
   const [email, setEmail] = useState(member.email ?? "");
@@ -418,7 +492,7 @@ function MemberEmailDialog({
       const result = await attempt(() => onSave(email));
       if (result.ok) {
         setOpen(false);
-        onSaved(email.trim().toLowerCase());
+        onSaved(email.trim().toLowerCase(), result.invitationSent);
       } else setError(result.errors.email ?? result.errors.form ?? "Couldn't save the email.");
     });
   }

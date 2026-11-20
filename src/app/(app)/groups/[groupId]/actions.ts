@@ -14,11 +14,14 @@ import {
   addMember,
   deleteGroup,
   removeMember,
+  resendInvitation,
   setMemberEmail,
   updateGroupDetails,
   type AddMemberResult,
   type ManageResult,
+  type SetMemberEmailResult,
 } from "@/groups/manage-group";
+import { emailMemberNotifier } from "@/groups/email-member-notifier";
 import { userGroupRepository } from "@/groups/user-groups";
 import { todaysRates } from "@/rates/todays-rates";
 import {
@@ -68,16 +71,29 @@ export async function updateUserGroup(groupId: string, fields: unknown): Promise
 export async function addUserMember(groupId: string, fields: unknown): Promise<AddMemberResult> {
   const user = await requireUser(`/groups/${groupId}`);
   if (typeof groupId !== "string") return INVALID;
-  const result = await addMember(userGroupRepository(user), groupId, fields);
+  const result = await addMember(userGroupRepository(user), groupId, fields, emailMemberNotifier(user));
   if (result.ok) refresh();
   return result;
 }
 
-export async function setUserMemberEmail(groupId: string, memberId: string, email: unknown): Promise<ManageResult> {
+export async function setUserMemberEmail(
+  groupId: string,
+  memberId: string,
+  email: unknown,
+): Promise<SetMemberEmailResult> {
   const user = await requireUser(`/groups/${groupId}`);
   if (typeof groupId !== "string" || typeof memberId !== "string") return INVALID;
-  const result = await setMemberEmail(userGroupRepository(user), groupId, memberId, email);
+  const result = await setMemberEmail(userGroupRepository(user), groupId, memberId, email, emailMemberNotifier(user));
   if (result.ok) refresh();
+  return result;
+}
+
+export async function resendUserInvitation(groupId: string, memberId: string): Promise<ManageResult> {
+  const user = await requireUser(`/groups/${groupId}`);
+  if (typeof groupId !== "string" || typeof memberId !== "string") return INVALID;
+  const result = await resendInvitation(userGroupRepository(user), groupId, memberId, emailMemberNotifier(user));
+  // Refreshed either way: a failed send shows on the Member as not sent.
+  refresh();
   return result;
 }
 

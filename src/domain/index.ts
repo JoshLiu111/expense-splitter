@@ -65,6 +65,7 @@ export {
   currencyLock,
   currentMembers,
   groupDeletionBlock,
+  isPendingMember,
   EMAIL_PATTERN,
   memberEmailBlock,
   FORMER_MEMBER_SUFFIX,
