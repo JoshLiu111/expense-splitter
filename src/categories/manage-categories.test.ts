@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { createSessionStorageRepository } from "@/guest/guest-repository";
-import { memoryStorage } from "@/test/memory-storage";
+import { memoryStorage } from "@/lib/memory-storage";
 import { addCategory, deleteCategory, renameCategory } from "./manage-categories";
 
 async function flat() {

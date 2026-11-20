@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { createSessionStorageRepository } from "@/guest/guest-repository";
-import { memoryStorage } from "@/test/memory-storage";
+import { memoryStorage } from "@/lib/memory-storage";
 import { addMember, deleteGroup, removeMember, setMemberEmail, updateGroupDetails } from "./manage-group";
 
 /** A Group with "You" and Chloe, where Chloe owes You $10.00. */

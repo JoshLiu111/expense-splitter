@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { memoryStorage } from "@/test/memory-storage";
+import { memoryStorage } from "@/lib/memory-storage";
 import { dismissSignUpPrompt, isSignUpPromptDismissed } from "./sign-up-prompt";
 
 describe("Guest sign-up prompt", () => {
