@@ -1,7 +1,8 @@
 "use server";
 
 import { refresh } from "next/cache";
-import { updateDisplayName, type AccountResult } from "@/account/account";
+import { removeAvatar, setAvatar, updateDisplayName, type AccountResult } from "@/account/account";
+import { avatarStore } from "@/account/avatars";
 import { requireUser } from "@/auth/session";
 import { db } from "@/db";
 
@@ -12,6 +13,20 @@ export async function updateUserDisplayName(fields: unknown): Promise<AccountRes
   const user = await requireUser("/account");
   const result = await updateDisplayName(db(), user, fields);
   // The new name shows in the user menu and every Group at once.
+  if (result.ok) refresh();
+  return result;
+}
+
+export async function setUserAvatar(form: FormData): Promise<AccountResult> {
+  const user = await requireUser("/account");
+  const result = await setAvatar(db(), avatarStore(), user, form.get("avatar"));
+  if (result.ok) refresh();
+  return result;
+}
+
+export async function removeUserAvatar(): Promise<AccountResult> {
+  const user = await requireUser("/account");
+  const result = await removeAvatar(db(), avatarStore(), user);
   if (result.ok) refresh();
   return result;
 }

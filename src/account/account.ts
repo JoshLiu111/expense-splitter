@@ -2,6 +2,8 @@ import { eq } from "drizzle-orm";
 import type { Database } from "@/db/client";
 import { user } from "@/db/schema";
 import { MAX_MEMBER_NAME_LENGTH } from "@/domain";
+import { avatarFileError, NOT_AN_IMAGE, sniffAvatarType } from "./avatar-rules";
+import type { AvatarStore } from "./avatar-store";
 
 /**
  * Account Settings: what a signed-in User changes about their own account.
@@ -18,7 +20,7 @@ export interface AccountFields {
 /** What an Account Settings form shows after it acts. */
 export type AccountResult =
   | { ok: true }
-  | { ok: false; errors: Partial<Record<keyof AccountFields | "form", string>> };
+  | { ok: false; errors: Partial<Record<keyof AccountFields | "avatar" | "form", string>> };
 
 /** The signed-in User an Account Settings operation acts for. */
 export interface SignedInUser {
@@ -50,7 +52,66 @@ export async function updateDisplayName(db: Database, signedIn: SignedInUser, in
   return rows.length > 0 ? { ok: true } : { ok: false, errors: { form: ACCOUNT_GONE } };
 }
 
+const EXTENSIONS = { "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp" } as const;
+
+/**
+ * Sets the User's avatar, replacing any they had. The image must be a JPEG,
+ * PNG or WebP of at most 2 MB, judged by its bytes, not by what the upload
+ * says it is. The old image is deleted once the new one is on the User.
+ */
+export async function setAvatar(
+  db: Database,
+  store: AvatarStore,
+  signedIn: SignedInUser,
+  file: unknown,
+): Promise<AccountResult> {
+  if (!(file instanceof Blob)) return { ok: false, errors: { avatar: NOT_AN_IMAGE } };
+  const refused = avatarFileError({ type: file.type, size: file.size });
+  if (refused) return { ok: false, errors: { avatar: refused } };
+  const bytes = new Uint8Array(await file.arrayBuffer());
+  const type = sniffAvatarType(bytes);
+  if (!type) return { ok: false, errors: { avatar: NOT_AN_IMAGE } };
+
+  const url = await store.put(`avatars/${signedIn.id}.${EXTENSIONS[type]}`, new Blob([bytes], { type }));
+  const old = await swapImage(db, signedIn, url);
+  if (old === undefined) {
+    await store.delete(url);
+    return { ok: false, errors: { form: ACCOUNT_GONE } };
+  }
+  if (old && old !== url) await store.delete(old);
+  return { ok: true };
+}
+
+/**
+ * Puts `image` on the User and answers the one it replaced: `null` if they
+ * had none, `undefined` if the User is gone. Locks the row, so two changes at
+ * once each answer a different old image and none is left undeleted.
+ */
+async function swapImage(db: Database, signedIn: SignedInUser, image: string | null) {
+  return db.transaction(async (tx) => {
+    const [current] = await tx
+      .select({ image: user.image })
+      .from(user)
+      .where(eq(user.id, signedIn.id))
+      .for("update");
+    if (!current) return undefined;
+    if (current.image !== image) await tx.update(user).set({ image, updatedAt: new Date() }).where(eq(user.id, signedIn.id));
+    return current.image;
+  });
+}
+
+/** Removes the User's avatar and deletes its image, so their initials show again. */
+export async function removeAvatar(db: Database, store: AvatarStore, signedIn: SignedInUser): Promise<AccountResult> {
+  const old = await swapImage(db, signedIn, null);
+  if (old === undefined) return { ok: false, errors: { form: ACCOUNT_GONE } };
+  if (old) await store.delete(old);
+  return { ok: true };
+}
+
 /** The Account Settings operations the page can call, bound to the signed-in User. */
 export interface AccountManagement {
   updateDisplayName(fields: AccountFields): Promise<AccountResult>;
+  /** Takes the cropped image as the form data's `avatar` file. */
+  setAvatar(form: FormData): Promise<AccountResult>;
+  removeAvatar(): Promise<AccountResult>;
 }

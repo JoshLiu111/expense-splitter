@@ -1,6 +1,8 @@
 import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { updateDisplayName } from "@/account/account";
+import { removeAvatar, setAvatar, updateDisplayName } from "@/account/account";
+import { createMemoryAvatarStore } from "@/account/avatar-store";
+import { anImage } from "@/test/images";
 import { createDatabase, type Database } from "@/db/client";
 import { groups, members, user } from "@/db/schema";
 import { groupRepositoryContract } from "./group-repository.contract";
@@ -47,6 +49,16 @@ describe.skipIf(!url)("Postgres GroupRepository", () => {
     (group) => group.members[0].id,
     async (userId, name) => {
       expect(await updateDisplayName(db, { id: userId }, { name })).toEqual({ ok: true });
+    },
+    {
+      async set(userId) {
+        const store = createMemoryAvatarStore();
+        expect(await setAvatar(db, store, { id: userId }, anImage("png"))).toEqual({ ok: true });
+        return store.urls()[0];
+      },
+      async remove(userId) {
+        expect(await removeAvatar(db, createMemoryAvatarStore(), { id: userId })).toEqual({ ok: true });
+      },
     },
   );
 
@@ -300,6 +312,23 @@ describe.skipIf(!url)("Postgres GroupRepository", () => {
     const after = await mayasRepo.getGroup(group.id);
     expect(after?.members[1]).toEqual({ ...theoMember, name: "Theo Park", former: true });
     expect(after?.expenses).toEqual([coffee]);
+  });
+
+  it("shows a Former Member who was Linked with their User's avatar", async () => {
+    const mayasRepo = createPostgresGroupRepository(db, await aUser());
+    const theo = await aUser({ verified: true });
+    const group = await mayasRepo.createGroup({ name: "Shared", description: "", currency: "USD" });
+    const theoMember = (await mayasRepo.addMember(group.id, { name: "Theo", email: theo.email }))!;
+    await mayasRepo.removeMember(group.id, theoMember.id);
+    const store = createMemoryAvatarStore();
+
+    await setAvatar(db, store, theo, anImage("webp"));
+
+    expect((await mayasRepo.getGroup(group.id))?.members[1]).toEqual({
+      ...theoMember,
+      former: true,
+      avatarUrl: store.urls()[0],
+    });
   });
 
   it("makes a Member added by an unknown or unverified email a Pending Member", async () => {

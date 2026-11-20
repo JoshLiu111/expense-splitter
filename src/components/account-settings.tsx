@@ -3,6 +3,7 @@
 import { useId, useState, useTransition, type FormEvent } from "react";
 import { MAX_MEMBER_NAME_LENGTH } from "@/domain";
 import type { AccountFields, AccountManagement, AccountResult } from "@/account/account";
+import { AvatarSection } from "@/components/account-avatar-section";
 import { ErrorSummary, Field } from "@/components/form";
 import { Button } from "@/components/ui/button";
 
@@ -30,7 +31,7 @@ export function AccountSettingsView({
   user,
   account,
 }: {
-  user: { name: string; email: string };
+  user: { name: string; email: string; image?: string };
   account: AccountManagement;
 }) {
   const [news, setNews] = useState("");
@@ -50,6 +51,14 @@ export function AccountSettingsView({
         name={user.name}
         onSave={account.updateDisplayName}
         onSaved={() => setNews("Display name saved.")}
+      />
+
+      <AvatarSection
+        name={user.name}
+        image={user.image}
+        onSet={account.setAvatar}
+        onRemove={account.removeAvatar}
+        onDone={setNews}
       />
     </div>
   );

@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { Suspense } from "react";
 import { requireUser } from "@/auth/session";
 import { AccountSettingsView } from "@/components/account-settings";
-import { updateUserDisplayName } from "./actions";
+import { removeUserAvatar, setUserAvatar, updateUserDisplayName } from "./actions";
 
 export const metadata: Metadata = { title: "Account Settings · Expense Splitter" };
 
@@ -24,8 +24,12 @@ async function UserAccountSettings() {
   const user = await requireUser("/account");
   return (
     <AccountSettingsView
-      user={{ name: user.name, email: user.email }}
-      account={{ updateDisplayName: updateUserDisplayName }}
+      user={{ name: user.name, email: user.email, image: user.image }}
+      account={{
+        updateDisplayName: updateUserDisplayName,
+        setAvatar: setUserAvatar,
+        removeAvatar: removeUserAvatar,
+      }}
     />
   );
 }

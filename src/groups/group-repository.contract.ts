@@ -29,6 +29,11 @@ export function groupRepositoryContract(
    * Groups have no Linked Members.
    */
   renameUser?: (userId: string, name: string) => Promise<void>,
+  /**
+   * Sets and removes a User's avatar as Account Settings does; absent for a
+   * Guest. `set` answers the avatar's URL.
+   */
+  avatar?: { set(userId: string): Promise<string>; remove(userId: string): Promise<void> },
 ) {
   it("creates a Group with no Expenses whose only Member is its creator", async () => {
     const repo = await makeRepository();
@@ -240,6 +245,33 @@ export function groupRepositoryContract(
     expect((await repo.getGroup(trip.id))?.members[0].name).toBe("Maya R.");
     expect((await repo.listGroups()).map((g) => g.members[0].name)).toEqual(["Maya R.", "Maya R."]);
     expect(await repo.listActivity(flat.id)).toEqual(activity);
+  });
+
+  it.skipIf(avatar)("shows no avatar images in a Guest's Groups", async () => {
+    const repo = await makeRepository();
+    const group = await repo.createGroup({ name: "Flat", description: "", currency: "USD" });
+    await repo.addMember(group.id, { name: "Chloe Park" });
+
+    expect((await repo.getGroup(group.id))?.members.map((m) => m.avatarUrl)).toEqual([undefined, undefined]);
+  });
+
+  it.skipIf(!avatar)("shows a Linked Member's avatar, Former Members included, and nobody else's", async () => {
+    const repo = await makeRepository();
+    const flat = await repo.createGroup({ name: "Flat", description: "", currency: "USD" });
+    const me = flat.members[0];
+    const chloe = await repo.addMember(flat.id, { name: "Chloe Park" });
+    const pending = await repo.addMember(flat.id, { name: "Dev Shah", email: "dev@nowhere.test" });
+    const activity = await repo.listActivity(flat.id);
+
+    const url = await avatar!.set(me.userId!);
+
+    // Name-only and Pending Members have no avatar: they have no User.
+    expect((await repo.getGroup(flat.id))?.members).toEqual([{ ...me, avatarUrl: url }, chloe, pending]);
+    expect((await repo.listGroups())[0].members[0].avatarUrl).toBe(url);
+    expect(await repo.listActivity(flat.id)).toEqual(activity);
+
+    await avatar!.remove(me.userId!);
+    expect((await repo.getGroup(flat.id))?.members).toEqual([me, chloe, pending]);
   });
 
   it("deletes a Group with everything in it", async () => {

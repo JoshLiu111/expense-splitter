@@ -1,6 +1,7 @@
 import { ArrowRight } from "lucide-react";
 import type { Member } from "@/domain";
 import { cn } from "@/lib/utils";
+import { MemberAvatarImage } from "./member-avatar-image";
 
 export function initials(name: string): string {
   const parts = name.trim().split(/\s+/);
@@ -65,7 +66,7 @@ export function MemberAvatar({
   size = "md",
   className,
 }: {
-  member: Pick<Member, "name" | "avatarColor">;
+  member: Pick<Member, "name" | "avatarColor" | "avatarUrl">;
   size?: AvatarSize;
   className?: string;
 }) {
@@ -74,13 +75,14 @@ export function MemberAvatar({
     <span
       aria-hidden
       className={cn(
-        "inline-flex shrink-0 items-center justify-center rounded-full font-bold",
+        "relative inline-flex shrink-0 items-center justify-center rounded-full font-bold",
         AVATAR_SIZES[size],
         className,
       )}
       style={{ backgroundColor: fill, color: textColourOn(fill) }}
     >
       {initials(member.name)}
+      {member.avatarUrl && <MemberAvatarImage key={member.avatarUrl} src={member.avatarUrl} name={member.name} />}
     </span>
   );
 }
@@ -91,7 +93,7 @@ export function AvatarStack({
   size = "sm",
   ring = "ring-surface",
 }: {
-  members: Pick<Member, "id" | "name" | "avatarColor">[];
+  members: Pick<Member, "id" | "name" | "avatarColor" | "avatarUrl">[];
   size?: AvatarSize;
   /** The colour behind the stack: a white panel, or the page itself. */
   ring?: "ring-surface" | "ring-bg-primary";
@@ -116,8 +118,8 @@ export function TransferPair({
   to,
   size = "sm",
 }: {
-  from: Pick<Member, "name" | "avatarColor">;
-  to: Pick<Member, "name" | "avatarColor">;
+  from: Pick<Member, "name" | "avatarColor" | "avatarUrl">;
+  to: Pick<Member, "name" | "avatarColor" | "avatarUrl">;
   size?: AvatarSize;
 }) {
   return (

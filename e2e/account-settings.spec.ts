@@ -55,6 +55,64 @@ test("a User renames themselves in Account Settings and their Group shows the ne
   await expect(page.getByRole("main")).not.toContainText("Maya Chen");
 });
 
+/** A 1×1 PNG: small, but a real image the browser can decode and crop. */
+const PIXEL_PNG = Buffer.from(
+  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=",
+  "base64",
+);
+
+test("a User uploads an avatar that shows on their Group, then removes it for their initials", async ({ page }) => {
+  await page.goto("/sign-up");
+  await field(page, "Name").fill("Maya Chen");
+  await field(page, "Email").fill(uniqueEmail());
+  await field(page, "Password").fill("correct-horse-battery");
+  await page.getByRole("button", { name: "Sign up", exact: true }).click();
+  await expect(page).toHaveURL(/\/dashboard$/);
+
+  await page.getByRole("link", { name: "New Group" }).click();
+  await field(page, "Name").fill("Flat 3B");
+  await page.getByRole("button", { name: "Create Group" }).click();
+  await expect(page.getByRole("heading", { level: 1, name: "Flat 3B" })).toBeVisible();
+  const groupUrl = page.url();
+  // Avatars are decorative beside the names they stand for, so find them by their alt text.
+  const mayasAvatar = page.locator('img[alt="Maya Chen"]').filter({ visible: true });
+  await expect(page.getByText("MC", { exact: true }).filter({ visible: true }).first()).toBeVisible();
+  await expect(mayasAvatar).toHaveCount(0);
+
+  await userMenu(page).getByRole("link", { name: "Account Settings" }).click();
+  await expect(page.getByRole("heading", { level: 1, name: "Account Settings" })).toBeVisible();
+
+  // A file that isn't an image is refused, with the error on the field.
+  await field(page, "Photo").setInputFiles({ name: "notes.txt", mimeType: "text/plain", buffer: Buffer.from("hi") });
+  await page.getByRole("button", { name: "Upload avatar" }).click();
+  await expect(page.getByRole("alert", { name: "There is a problem" })).toContainText(
+    "Choose a JPEG, PNG or WebP image.",
+  );
+  await expect(field(page, "Photo")).toHaveAccessibleDescription(/^Choose a JPEG, PNG or WebP image\./);
+
+  await field(page, "Photo").setInputFiles({ name: "maya.png", mimeType: "image/png", buffer: PIXEL_PNG });
+  await page.getByRole("button", { name: "Upload avatar" }).click();
+  await expect(page.getByRole("status")).toHaveText("Avatar saved.");
+  await expect(mayasAvatar).toHaveCount(1);
+  await expect(page.getByRole("button", { name: "Replace avatar" })).toBeVisible();
+
+  await page.goto(groupUrl);
+  await expect(mayasAvatar.first()).toBeVisible();
+  // Cropped and downsized in the browser, and shown over the initials once loaded.
+  await expect(mayasAvatar.first()).toHaveJSProperty("naturalWidth", 256);
+  await expect(mayasAvatar.first()).toHaveCSS("opacity", "1");
+
+  await page.goto("/account");
+  await page.getByRole("button", { name: "Remove avatar" }).click();
+  await expect(page.getByRole("status")).toHaveText("Avatar removed.");
+  await expect(page.getByRole("button", { name: "Upload avatar" })).toBeVisible();
+
+  await page.goto(groupUrl);
+  await expect(page.getByRole("heading", { level: 1, name: "Flat 3B" })).toBeVisible();
+  await expect(page.getByText("MC", { exact: true }).filter({ visible: true }).first()).toBeVisible();
+  await expect(mayasAvatar).toHaveCount(0);
+});
+
 test("a Guest is offered no Account Settings, and the page sends them to sign in", async ({ page }) => {
   await page.goto("/guest");
   await expect(page.getByRole("link", { name: "Sign in" })).toBeVisible();

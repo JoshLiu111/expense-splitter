@@ -2,7 +2,9 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createDatabase, type Database } from "@/db/client";
 import { user } from "@/db/schema";
 import { createPostgresGroupRepository, type GroupUser } from "@/groups/postgres-group-repository";
-import { updateDisplayName } from "./account";
+import { anImage } from "@/test/images";
+import { removeAvatar, setAvatar, updateDisplayName } from "./account";
+import { createMemoryAvatarStore } from "./avatar-store";
 
 const url = process.env.TEST_DATABASE_URL;
 
@@ -29,6 +31,13 @@ describe.skipIf(!url)("Account Settings", () => {
     const u = { id: `usr_acct_${userCount}`, name: `User ${userCount}`, email: `acct${userCount}@example.test` };
     await db.insert(user).values(u);
     return u;
+  }
+
+  /** The User's avatar as their own Group shows it. */
+  async function shownAvatar(u: GroupUser): Promise<string | undefined> {
+    const repo = createPostgresGroupRepository(db, u);
+    const [group] = await repo.listGroups();
+    return (group ?? (await repo.createGroup({ name: "Mine", description: "", currency: "USD" }))).members[0].avatarUrl;
   }
 
   /** The User's name as their own Group shows it. */
@@ -74,6 +83,87 @@ describe.skipIf(!url)("Account Settings", () => {
         ok: false,
         errors: { form: "Your account is no longer available." },
       });
+    });
+  });
+
+  describe("avatar", () => {
+    it.each(["jpeg", "png", "webp"] as const)("sets a %s image as the User's avatar", async (kind) => {
+      const maya = await aUser();
+      const store = createMemoryAvatarStore();
+
+      expect(await setAvatar(db, store, maya, anImage(kind))).toEqual({ ok: true });
+
+      expect(store.urls()).toHaveLength(1);
+      expect(await shownAvatar(maya)).toBe(store.urls()[0]);
+    });
+
+    it("replaces an avatar, deleting the old image", async () => {
+      const maya = await aUser();
+      const store = createMemoryAvatarStore();
+      await setAvatar(db, store, maya, anImage("png"));
+      const [old] = store.urls();
+
+      expect(await setAvatar(db, store, maya, anImage("webp"))).toEqual({ ok: true });
+
+      const [current, ...rest] = store.urls();
+      expect(rest).toEqual([]);
+      expect(current).not.toBe(old);
+      expect(await shownAvatar(maya)).toBe(current);
+    });
+
+    it("removes an avatar, deleting its image, so the User's initials show again", async () => {
+      const maya = await aUser();
+      const store = createMemoryAvatarStore();
+      await setAvatar(db, store, maya, anImage("png"));
+
+      expect(await removeAvatar(db, store, maya)).toEqual({ ok: true });
+
+      expect(store.urls()).toEqual([]);
+      expect(await shownAvatar(maya)).toBeUndefined();
+      // Removing it again changes nothing.
+      expect(await removeAvatar(db, store, maya)).toEqual({ ok: true });
+    });
+
+    it("accepts an image of exactly 2 MB and refuses a larger one, keeping the old avatar", async () => {
+      const maya = await aUser();
+      const store = createMemoryAvatarStore();
+      await setAvatar(db, store, maya, anImage("png"));
+      const [old] = store.urls();
+
+      expect(await setAvatar(db, store, maya, anImage("png", { size: 2 * 1024 * 1024 + 1 }))).toEqual({
+        ok: false,
+        errors: { avatar: "Choose an image of 2 MB or less." },
+      });
+      expect(store.urls()).toEqual([old]);
+      expect(await shownAvatar(maya)).toBe(old);
+
+      expect(await setAvatar(db, store, maya, anImage("png", { size: 2 * 1024 * 1024 }))).toEqual({ ok: true });
+    });
+
+    it.each([
+      ["a GIF", anImage("gif")],
+      ["a GIF named as a PNG", anImage("gif", { type: "image/png" })],
+      ["an empty file", new File([], "avatar.png", { type: "image/png" })],
+      ["no file at all", "avatar.png"],
+    ])("refuses %s", async (_, file) => {
+      const maya = await aUser();
+      const store = createMemoryAvatarStore();
+
+      expect(await setAvatar(db, store, maya, file)).toEqual({
+        ok: false,
+        errors: { avatar: "Choose a JPEG, PNG or WebP image." },
+      });
+      expect(store.urls()).toEqual([]);
+      expect(await shownAvatar(maya)).toBeUndefined();
+    });
+
+    it("says so when the User no longer exists, storing nothing", async () => {
+      const store = createMemoryAvatarStore();
+      const gone = { ok: false, errors: { form: "Your account is no longer available." } };
+
+      expect(await setAvatar(db, store, { id: "usr_missing" }, anImage("png"))).toEqual(gone);
+      expect(await removeAvatar(db, store, { id: "usr_missing" })).toEqual(gone);
+      expect(store.urls()).toEqual([]);
     });
   });
 });
