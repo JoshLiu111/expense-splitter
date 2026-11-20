@@ -130,3 +130,7 @@ _Avoid_: History, change log, audit log, feed
 **Guest**:
 A visitor exploring the sample Groups without an account; their changes last only for the browser session and are never carried into a User.
 _Avoid_: Demo user, anonymous user
+
+**Account Settings**:
+The page where a signed-in User changes their own account, such as their display name. These are account-level changes: never recorded in any Group's Activity. A Guest has no Account Settings.
+_Avoid_: Profile, preferences, user settings
