@@ -83,7 +83,9 @@ export async function signIn(_: AuthFormState, formData: FormData): Promise<Auth
       headers: await headers(),
     });
   } catch (error) {
-    if (errorCode(error) === "INVALID_EMAIL_OR_PASSWORD" || errorCode(error) === "INVALID_EMAIL")
+    // An over-long password is a wrong password here: Sign-in doesn't reveal the length rule.
+    const code = errorCode(error);
+    if (code === "INVALID_EMAIL_OR_PASSWORD" || code === "INVALID_EMAIL" || code === "PASSWORD_TOO_LONG")
       return {
         errors: { form: "That email and password don't match. Check both and try again." },
         values,
