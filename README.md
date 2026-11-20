@@ -186,14 +186,14 @@ _To be written by the author._
 
 ### Lighthouse scores
 
-Targets: Performance > 85, Accessibility > 90, Best Practices > 90. Measured with Lighthouse (mobile) on the deployed landing page.
+Targets: Performance > 85, Accessibility > 90, Best Practices > 90. Measured with Lighthouse 13.6.0 (headless Chrome 157, median of 3 runs) against Production deployment `dpl_14e3SkcNyrR4LB3kCps3NdjCpsKj` at commit `d5f39c1`, on Nov 20, 2026. Mobile is Lighthouse's default throttled phone; desktop is `--preset=desktop`.
 
-| Category | Score |
-|----------|-------|
-| Performance | _pending_ |
-| Accessibility | _pending_ |
-| Best Practices | _pending_ |
-| SEO | _pending_ |
+| Page | Device | Performance | Accessibility | Best Practices | SEO |
+|------|--------|-------------|---------------|----------------|-----|
+| Landing page (`/`) | Mobile | 100 | 100 | 100 | 100 |
+| Landing page (`/`) | Desktop | 100 | 100 | 100 | 100 |
+| Sample "Trip to Japan" Group, as a Guest (`/guest/groups/grp_japan_2024`) | Mobile | 98 | 100 | 100 | 100 |
+| Sample "Trip to Japan" Group, as a Guest (`/guest/groups/grp_japan_2024`) | Desktop | 100 | 100 | 100 | 100 |
 
 Timings measured with Playwright on a local production build (desktop Chromium), against the targets in the spec:
 
