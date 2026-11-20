@@ -60,7 +60,8 @@ const dialogClass =
  * Suggested Settlements as one-line rows; "Record a payment" shows only when
  * the visitor has no Suggested Settlement of their own;
  * Small Change clears in one tap; Settled Up is the Settled Up Moment; a
- * Group with no Expenses leads to adding the first.
+ * Group with no Expenses leads to adding the first. Read-only, it shows the
+ * same standing but offers nothing to record, clear or add.
  */
 export function SettleUpSection({
   group,
@@ -69,6 +70,7 @@ export function SettleUpSection({
   settleUp,
   onNews,
   onAddExpense,
+  readOnly = false,
 }: {
   group: GroupSnapshot;
   ledger: Ledger;
@@ -78,6 +80,8 @@ export function SettleUpSection({
   onNews: (news: string) => void;
   /** Opens the Expense editor, for a Group with no Expenses yet. */
   onAddExpense: () => void;
+  /** For a Former Member reading a reopened Balance (ADR 0006): nothing to act on. */
+  readOnly?: boolean;
 }) {
   const heading = useRef<HTMLHeadingElement>(null);
   const [clearing, startClearing] = useTransition();
@@ -110,17 +114,18 @@ export function SettleUpSection({
     });
   }
 
-  const record = (suggestion: SuggestedSettlement | null, label: string, trigger: RecordTrigger) => (
-    <RecordSettlement
-      group={group}
-      suggestion={suggestion}
-      label={label}
-      trigger={trigger}
-      onRecord={settleUp.record}
-      onRecorded={recorded}
-      returnFocus={heading}
-    />
-  );
+  const record = (suggestion: SuggestedSettlement | null, label: string, trigger: RecordTrigger) =>
+    readOnly ? null : (
+      <RecordSettlement
+        group={group}
+        suggestion={suggestion}
+        label={label}
+        trigger={trigger}
+        onRecord={settleUp.record}
+        onRecorded={recorded}
+        returnFocus={heading}
+      />
+    );
 
   return (
     <section
@@ -155,9 +160,11 @@ export function SettleUpSection({
           <p className="mt-1 max-w-sm text-text-secondary">
             Record who paid for what, and the payments that settle this Group appear here.
           </p>
-          <Button onClick={onAddExpense} className="mt-5 px-5">
-            <Plus aria-hidden /> Add the first Expense
-          </Button>
+          {!readOnly && (
+            <Button onClick={onAddExpense} className="mt-5 px-5">
+              <Plus aria-hidden /> Add the first Expense
+            </Button>
+          )}
         </div>
       )}
 
@@ -186,12 +193,14 @@ export function SettleUpSection({
               Change left; nothing worth a payment.
             </p>
           </div>
-          <div className="flex flex-col items-start gap-2">
-            <Button variant="outline" onClick={clearSmallChange} disabled={clearing} className="px-5">
-              {clearing ? "Clearing…" : "Clear Small Change"}
-            </Button>
-            {clearError && <p className="text-sm font-semibold text-error">{clearError}</p>}
-          </div>
+          {!readOnly && (
+            <div className="flex flex-col items-start gap-2">
+              <Button variant="outline" onClick={clearSmallChange} disabled={clearing} className="px-5">
+                {clearing ? "Clearing…" : "Clear Small Change"}
+              </Button>
+              {clearError && <p className="text-sm font-semibold text-error">{clearError}</p>}
+            </div>
+          )}
         </div>
       )}
 

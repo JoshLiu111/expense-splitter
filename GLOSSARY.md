@@ -30,7 +30,7 @@ A Member added by an email that no User has yet; it becomes a Linked Member when
 _Avoid_: Invitee, invited user
 
 **Former Member**:
-A Member removed from a Group at zero Balance; no longer selectable for new Expenses but still shown on past ones. If an edit to a past Expense or Settlement later gives them a non-zero Balance, they are shown in Balances, labelled as a Former Member, and that Balance can be settled like any other.
+A Member removed from a Group at zero Balance; no longer selectable for new Expenses but still shown on past ones. If an edit to a past Expense or Settlement later gives them a non-zero Balance, they are shown in Balances, labelled as a Former Member, and that Balance can be settled like any other; while it is non-zero, a Former Member who was a Linked Member can see the Group again, read-only (ADR 0006).
 _Avoid_: Deleted member, ex-member
 
 **Group Creator**:

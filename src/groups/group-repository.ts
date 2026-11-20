@@ -13,6 +13,13 @@ import type {
 /**
  * Persistence for the Groups one visitor can see: a Guest's session Groups,
  * or a User's Groups in Postgres. Balances are never stored (ADR 0004).
+ *
+ * "Visible" means different things to reads and writes. `listGroups`,
+ * `getGroup` and `listActivity` see every Group the visitor can read: for a
+ * User, those where they are a Linked Member, plus those where they are a
+ * Former Member whose Balance is non-zero (ADR 0006). Every other method
+ * treats a Group as visible only where the visitor is a Linked Member (or,
+ * for a Guest, any session Group), so a Former Member changes nothing.
  */
 export interface GroupRepository {
   /** Groups visible to this visitor, oldest first. */

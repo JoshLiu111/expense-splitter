@@ -31,6 +31,7 @@ async function UserGroup({ params }: Pick<PageProps<"/groups/[groupId]">, "param
   // Groups the User isn't a Linked Member of look the same as missing ones.
   const group = await userGroupRepository(user).getGroup(groupId);
   if (!group) notFound();
+  const me = group.members.find((m) => m.userId === user.id);
   return (
     <GroupDetail
       group={group}
@@ -38,7 +39,9 @@ async function UserGroup({ params }: Pick<PageProps<"/groups/[groupId]">, "param
       backLabel="All Groups"
       settingsHref={`/groups/${groupId}/settings`}
       activityHref={`/groups/${groupId}/activity`}
-      currentMemberId={group.members.find((m) => m.userId === user.id)?.id}
+      currentMemberId={me?.id}
+      // Only a Former Member with a reopened Balance gets here as one (ADR 0006).
+      readOnly={me?.former === true}
       onSaveExpense={saveUserExpense.bind(null, groupId)}
       onDeleteExpense={deleteUserExpense.bind(null, groupId)}
       settleUp={{

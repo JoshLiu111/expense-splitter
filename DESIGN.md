@@ -369,6 +369,7 @@ The Group's Expenses and Settlements, newest first: the Expenses view of the Exp
 - **Settlement row:** payer → payee in 24px avatars; "Sam Rivera paid Taylor Kim" (names semibold ink, "paid" graphite) with "Settlement" (13px graphite) beneath it; the amount in graphite, so it reads as money moving rather than money spent. No panel or dashed border sets it apart.
 - **Row:** at least 64px tall, 10px × 8px padding, 12px gaps, the avatar and amount vertically centred. The row bleeds 8px past the column on each side so its hover tint clears the avatar and figure. Long names and descriptions wrap at whole words (breaking a word only when it cannot fit); the amount never shrinks, so at 390px it stays inside the screen.
 - **Rows carry no buttons.** An Expense or Settlement row is one control: a click, tap or Enter anywhere on it opens it (the Expense editor, or a dialog stating the Settlement), hover tints it hover slate at 60%, and focus rings the whole row. Delete lives inside what the row opens: the Expense editor's quiet Delete Expense, the Settlement dialog's Delete Settlement, each confirmed first.
+- **Read-only** (a Former Member with a reopened Balance, ADR 0006): an Expense row is plain text with no hover tint or pointer, and the Settlement dialog states the Settlement with no Delete Settlement.
 - **Filtering** hides Settlements; the tabs' count line says how many Expenses match, and no match reads "No Expenses match these filters." in a dashed empty-state outline.
 
 ### Groups List
@@ -378,6 +379,7 @@ The Groups page (Guest and signed in) lists each Group as a row of one ledger pa
 - **Settle status** (16px semibold, beneath the name), from the same Suggested Settlements as Settle up: "3 payments to settle up" (ink) with open Debts; "Settled Up" (ink) after a 16px Confirmation Green check; "$0.32 of Small Change left" (graphite, the figure in ink mono) when only Small Change remains; "No Expenses yet" (graphite) when nothing is recorded. Settlements left after every Expense is deleted still count as payments to settle up.
 - **Secondary line:** "13 expenses  $2,751.25 spent" in 13px graphite, the total in the mono figure style, also graphite.
 - **Signed in**, the row adds the User's own Balance: "Your Balance" (13px graphite) and a Balance Status pill, stacked and right-aligned beside the text from 640px, on one line beneath it on phones. Its screen-reader sentence reads "You get back $160.00", "You owe $630.00" or "You're settled up". Guests see only the settle status.
+- **Read-only** (signed in): a Group the User sees only as a Former Member with a reopened Balance (ADR 0006) carries a "Read-only" marker after its name: a 16px graphite eye and a 13px semibold graphite label in an 8px-radius hairline outline.
 - Figures never truncate: the text column wraps first, then the Balance drops beneath it.
 
 ### Cards / Containers

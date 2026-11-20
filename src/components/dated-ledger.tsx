@@ -21,7 +21,10 @@ import { formatCalendarDate } from "@/lib/format";
 /**
  * The Group's Expenses and Settlements as a ledger on the page background:
  * dates in their own column, one per day, and one row per entry. A row is
- * one control: it opens the Expense editor or the Settlement dialog.
+ * one control: it opens the Expense editor or the Settlement dialog. Without
+ * `onOpenExpense` an Expense row is plain text, and without
+ * `onDeleteSettlement` the Settlement dialog only states it (read-only access,
+ * ADR 0006).
  */
 export function DatedLedger({
   group,
@@ -31,8 +34,8 @@ export function DatedLedger({
 }: {
   group: GroupSnapshot;
   timeline: TimelineEntry[];
-  onOpenExpense: (expense: Expense) => void;
-  onDeleteSettlement: (settlement: Settlement) => void;
+  onOpenExpense?: (expense: Expense) => void;
+  onDeleteSettlement?: (settlement: Settlement) => void;
 }) {
   const id = useId();
   const members = new Map(group.members.map((m) => [m.id, m]));
@@ -69,7 +72,7 @@ export function DatedLedger({
                       group={group}
                       payer={memberOf(entry.expense.payerId)}
                       dateId={dateId}
-                      onOpen={() => onOpenExpense(entry.expense)}
+                      onOpen={onOpenExpense && (() => onOpenExpense(entry.expense))}
                     />
                   ) : (
                     <SettlementRow
@@ -78,7 +81,7 @@ export function DatedLedger({
                       from={memberOf(entry.settlement.fromId)}
                       to={memberOf(entry.settlement.toId)}
                       dateId={dateId}
-                      onDelete={() => onDeleteSettlement(entry.settlement)}
+                      onDelete={onDeleteSettlement && (() => onDeleteSettlement(entry.settlement))}
                     />
                   )}
                 </li>
@@ -98,6 +101,8 @@ export function DatedLedger({
  */
 const rowClass =
   "relative -mx-2 flex min-h-16 cursor-pointer items-center gap-3 rounded-md px-2 py-2.5 transition-colors duration-(--duration-fast) has-[button:hover]:bg-bg-tertiary/60 has-focus-visible:ring-[3px] has-focus-visible:ring-ring has-focus-visible:ring-offset-2 has-focus-visible:ring-offset-background";
+/** A row that opens nothing: the same layout, without the hover tint or pointer. */
+const staticRowClass = "-mx-2 flex min-h-16 items-center gap-3 px-2 py-2.5";
 const rowButtonClass =
   "cursor-pointer text-left break-words outline-none after:absolute after:inset-0 after:rounded-md";
 
@@ -112,24 +117,29 @@ function ExpenseRow({
   group: GroupSnapshot;
   payer: Member;
   dateId: string;
-  onOpen: () => void;
+  /** Opens the Expense editor; without it the row is plain text. */
+  onOpen?: () => void;
 }) {
   const { expense } = entry;
   const foreign = expense.currency !== group.currency;
   const id = useId();
   return (
-    <article className={rowClass}>
+    <article className={onOpen ? rowClass : staticRowClass}>
       <MemberAvatar member={payer} size="md" />
       <div className="min-w-0 flex-1">
         <h3>
-          <button
-            type="button"
-            onClick={onOpen}
-            aria-describedby={`${id}-details ${id}-amount ${dateId}`}
-            className={`${rowButtonClass} font-semibold`}
-          >
-            {expense.description}
-          </button>
+          {onOpen ? (
+            <button
+              type="button"
+              onClick={onOpen}
+              aria-describedby={`${id}-details ${id}-amount ${dateId}`}
+              className={`${rowButtonClass} font-semibold`}
+            >
+              {expense.description}
+            </button>
+          ) : (
+            <span className="font-semibold break-words">{expense.description}</span>
+          )}
         </h3>
         <p id={`${id}-details`} className="text-sm break-words text-text-secondary">
           {payer.name} paid in {categoryName(group, expense.category)}
@@ -150,7 +160,8 @@ function ExpenseRow({
 
 /**
  * A Settlement can be added or deleted but never edited, so its row opens a
- * dialog stating it, with Delete Settlement behind a confirmation.
+ * dialog stating it, with Delete Settlement behind a confirmation when it can
+ * be deleted.
  */
 function SettlementRow({
   entry,
@@ -165,7 +176,7 @@ function SettlementRow({
   from: Member;
   to: Member;
   dateId: string;
-  onDelete: () => void;
+  onDelete?: () => void;
 }) {
   const amount = formatMoney(entry.settlement.amount, currency);
   const date = formatCalendarDate(entry.date);
@@ -223,19 +234,21 @@ function SettlementRow({
             {from.name} paid {to.name} <span className="amount font-semibold">{amount}</span> on{" "}
             <time dateTime={entry.date}>{date}</time>.
           </Dialog.Description>
-          <div className="-mr-3 mt-6 flex justify-end">
-            <ConfirmDelete
-              title="Delete this Settlement?"
-              confirmLabel="Delete Settlement"
-              onConfirm={() => {
-                deleted.current = true;
-                setOpen(false);
-                onDelete();
-              }}
-            >
-              The Settlement from {from.name} to {to.name} (<span className="amount">{amount}</span>)
-            </ConfirmDelete>
-          </div>
+          {onDelete && (
+            <div className="-mr-3 mt-6 flex justify-end">
+              <ConfirmDelete
+                title="Delete this Settlement?"
+                confirmLabel="Delete Settlement"
+                onConfirm={() => {
+                  deleted.current = true;
+                  setOpen(false);
+                  onDelete();
+                }}
+              >
+                The Settlement from {from.name} to {to.name} (<span className="amount">{amount}</span>)
+              </ConfirmDelete>
+            </div>
+          )}
         </Dialog.Content>
       </Dialog.Portal>
     </Dialog.Root>

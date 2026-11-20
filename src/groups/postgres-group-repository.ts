@@ -1,5 +1,6 @@
 import { and, asc, desc, eq, exists, inArray, isNull, max, notExists, sql } from "drizzle-orm";
 import {
+  computeLedger,
   isSameExpense,
   type ActivityChange,
   type CurrencyCode,
@@ -145,19 +146,21 @@ async function lockExpense(tx: Tx, groupId: string, expenseId: string): Promise<
 }
 
 /**
- * A User's Groups in Postgres: the Groups where they are a Linked Member.
- * Every query is scoped to that User, so other Users' Groups never leak.
+ * A User's Groups in Postgres: the Groups where they are a Linked Member,
+ * plus, read-only, those where they are a Former Member whose Balance has
+ * reopened (ADR 0006). Every query is scoped to that User, so other Users'
+ * Groups never leak.
  */
 export function createPostgresGroupRepository(
   db: Database,
   currentUser: GroupUser,
   newId: () => string = () => crypto.randomUUID(),
 ): GroupRepository {
+  /** Groups where the User is a Linked Member now: the ones they may change. */
   const isLinkedMember = exists(
     db
       .select({ one: members.id })
       .from(members)
-      // A Former Member no longer sees the Group.
       .where(
         and(
           eq(members.groupId, groups.id),
@@ -166,12 +169,32 @@ export function createPostgresGroupRepository(
         ),
       ),
   );
+  /** Groups where the User is linked to any Member, Former Members included. */
+  const wasLinkedMember = exists(
+    db
+      .select({ one: members.id })
+      .from(members)
+      .where(and(eq(members.groupId, groups.id), eq(members.userId, currentUser.id))),
+  );
 
+  /**
+   * The Groups the User can read: those where they are a Linked Member, and
+   * those where they are a Former Member with a non-zero Balance, computed
+   * from the loaded Group since Balances are never stored (ADR 0004).
+   */
   async function load(groupId?: string): Promise<GroupSnapshot[]> {
+    return (await loadEverLinked(groupId)).filter((group) => {
+      const me = group.members.find((m) => m.userId === currentUser.id);
+      if (!me?.former) return true;
+      return (computeLedger(group).balances.find((b) => b.memberId === me.id)?.amount ?? 0) !== 0;
+    });
+  }
+
+  async function loadEverLinked(groupId?: string): Promise<GroupSnapshot[]> {
     const groupRows = await db
       .select()
       .from(groups)
-      .where(groupId ? and(isLinkedMember, eq(groups.id, groupId)) : isLinkedMember)
+      .where(groupId ? and(wasLinkedMember, eq(groups.id, groupId)) : wasLinkedMember)
       .orderBy(asc(groups.createdAt), asc(groups.id));
     if (groupRows.length === 0) return [];
 
@@ -229,7 +252,8 @@ export function createPostgresGroupRepository(
     }));
   }
 
-  async function canSee(groupId: string): Promise<boolean> {
+  /** Whether the User may change the Group: only as a Linked Member, never as a Former Member. */
+  async function canChange(groupId: string): Promise<boolean> {
     const [row] = await db
       .select({ id: groups.id })
       .from(groups)
@@ -239,7 +263,7 @@ export function createPostgresGroupRepository(
 
   /**
    * Records an Activity entry in the same transaction as its change, under
-   * the User's Linked Member in that Group (one `canSee` already found).
+   * the User's Linked Member in that Group (one `canChange` already found).
    */
   async function record(tx: Tx, groupId: string, change: ActivityChange) {
     const [actor] = await tx
@@ -303,7 +327,7 @@ export function createPostgresGroupRepository(
       return group;
     },
     async addExpense(groupId, input) {
-      if (!(await canSee(groupId))) return null;
+      if (!(await canChange(groupId))) return null;
       const expenseId = `exp_${newId()}`;
       return db.transaction(async (tx) => {
         await tx.insert(expenses).values({ id: expenseId, groupId, ...expenseColumns(input) });
@@ -314,7 +338,7 @@ export function createPostgresGroupRepository(
       });
     },
     async updateExpense(groupId, expenseId, input) {
-      if (!(await canSee(groupId))) return null;
+      if (!(await canChange(groupId))) return null;
       return db.transaction(async (tx) => {
         const before = await lockExpense(tx, groupId, expenseId);
         if (!before) return null;
@@ -327,7 +351,7 @@ export function createPostgresGroupRepository(
       });
     },
     async deleteExpense(groupId, expenseId) {
-      if (!(await canSee(groupId))) return false;
+      if (!(await canChange(groupId))) return false;
       return db.transaction(async (tx) => {
         const expense = await lockExpense(tx, groupId, expenseId);
         if (!expense) return false;
@@ -337,7 +361,7 @@ export function createPostgresGroupRepository(
       });
     },
     async addSettlement(groupId, input) {
-      if (!(await canSee(groupId))) return null;
+      if (!(await canChange(groupId))) return null;
       // Both Members must belong to this Group, not merely exist.
       const found = await db
         .select({ id: members.id })
@@ -362,7 +386,7 @@ export function createPostgresGroupRepository(
       });
     },
     async deleteSettlement(groupId, settlementId) {
-      if (!(await canSee(groupId))) return false;
+      if (!(await canChange(groupId))) return false;
       return db.transaction(async (tx) => {
         const [row] = await tx
           .delete(settlements)
@@ -374,7 +398,7 @@ export function createPostgresGroupRepository(
       });
     },
     async updateGroup(id, details) {
-      if (!(await canSee(id))) return null;
+      if (!(await canChange(id))) return null;
       await db
         .update(groups)
         .set({ name: details.name, description: details.description, currency: details.currency })
@@ -383,7 +407,7 @@ export function createPostgresGroupRepository(
       return group ?? null;
     },
     async addMember(groupId, { name, email }) {
-      if (!(await canSee(groupId))) return null;
+      if (!(await canChange(groupId))) return null;
       const memberId = `mem_${newId()}`;
       await db.transaction(async (tx) => {
         const existing = await tx
@@ -408,7 +432,7 @@ export function createPostgresGroupRepository(
       return group?.members.find((m) => m.id === memberId) ?? null;
     },
     async setMemberEmail(groupId, memberId, email) {
-      if (!(await canSee(groupId))) return null;
+      if (!(await canChange(groupId))) return null;
       const updated = await db.transaction(async (tx) => {
         const rows = await tx
           .update(members)
@@ -423,7 +447,7 @@ export function createPostgresGroupRepository(
       return group?.members.find((m) => m.id === memberId) ?? null;
     },
     async removeMember(groupId, memberId) {
-      if (!(await canSee(groupId))) return false;
+      if (!(await canChange(groupId))) return false;
       const rows = await db
         .update(members)
         .set({ former: true })
@@ -432,13 +456,13 @@ export function createPostgresGroupRepository(
       return rows.length > 0;
     },
     async addCategory(groupId, name) {
-      if (!(await canSee(groupId))) return null;
+      if (!(await canChange(groupId))) return null;
       const id = `cat_${newId()}`;
       await db.insert(customCategories).values({ id, groupId, name });
       return { id, name };
     },
     async renameCategory(groupId, categoryId, name) {
-      if (!(await canSee(groupId))) return null;
+      if (!(await canChange(groupId))) return null;
       const rows = await db
         .update(customCategories)
         .set({ name })
@@ -447,7 +471,7 @@ export function createPostgresGroupRepository(
       return rows.length > 0 ? { id: categoryId, name } : null;
     },
     async deleteCategory(groupId, categoryId) {
-      if (!(await canSee(groupId))) return false;
+      if (!(await canChange(groupId))) return false;
       // Never delete a Category an Expense uses, even one recorded a moment ago.
       const rows = await db
         .delete(customCategories)
@@ -467,7 +491,7 @@ export function createPostgresGroupRepository(
       return rows.length > 0;
     },
     async listActivity(groupId) {
-      if (!(await canSee(groupId))) return null;
+      if ((await load(groupId)).length === 0) return null;
       const rows = await db
         .select()
         .from(activity)
@@ -481,7 +505,9 @@ export function createPostgresGroupRepository(
       }));
     },
     async deleteGroup(id) {
-      // Only the Group Creator may delete a Group, so scope the delete to them.
+      // Only the Group Creator may delete a Group, so scope the delete to them,
+      // and only while they are a Linked Member.
+      if (!(await canChange(id))) return false;
       const rows = await db
         .delete(groups)
         .where(and(eq(groups.id, id), eq(groups.creatorUserId, currentUser.id)))
