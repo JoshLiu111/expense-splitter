@@ -61,7 +61,7 @@ describe("addMember", () => {
   it("adds a Name-only Member who can then share Expenses", async () => {
     const { repo, group } = await flatWithDebt();
 
-    expect(await addMember(repo, group.id, { name: " Dev ", email: "" })).toEqual({ ok: true });
+    expect(await addMember(repo, group.id, { name: " Dev ", email: "" })).toEqual({ ok: true, name: "Dev" });
     expect((await repo.getGroup(group.id))?.members.map((m) => m.name)).toEqual(["You", "Chloe", "Dev"]);
   });
 
@@ -77,7 +77,7 @@ describe("addMember", () => {
   it("adds a Member by email, lower-cased", async () => {
     const { repo, group } = await flatWithDebt();
 
-    expect(await addMember(repo, group.id, { name: "Dev", email: " Dev@Example.com" })).toEqual({ ok: true });
+    expect(await addMember(repo, group.id, { name: "Dev", email: " Dev@Example.com" })).toEqual({ ok: true, name: "Dev" });
     expect((await repo.getGroup(group.id))?.members.at(-1)).toMatchObject({ name: "Dev", email: "dev@example.com" });
   });
 
@@ -97,6 +97,23 @@ describe("addMember", () => {
     expect(await addMember(repo, group.id, { name: "Devin", email: "DEV@example.com" })).toEqual({
       ok: false,
       errors: { email: "Dev already has that email in this Group." },
+    });
+  });
+
+  it("answers the name a Linked Member is shown under: their User's, not the one typed", async () => {
+    const { repo, group } = await flatWithDebt();
+    // A repository that Links the email to a User called Theo Park, as Postgres does.
+    const linking: typeof repo = {
+      ...repo,
+      async addMember(groupId, member) {
+        const added = await repo.addMember(groupId, member);
+        return added && { ...added, name: "Theo Park", userId: "usr_theo" };
+      },
+    };
+
+    expect(await addMember(linking, group.id, { name: "Theo", email: "theo@example.com" })).toEqual({
+      ok: true,
+      name: "Theo Park",
     });
   });
 

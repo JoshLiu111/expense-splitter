@@ -16,6 +16,7 @@ import {
   removeMember,
   setMemberEmail,
   updateGroupDetails,
+  type AddMemberResult,
   type ManageResult,
 } from "@/groups/manage-group";
 import { userGroupRepository } from "@/groups/user-groups";
@@ -54,7 +55,7 @@ export async function deleteUserExpense(groupId: string, expenseId: string): Pro
   return result;
 }
 
-const INVALID: ManageResult = { ok: false, errors: { form: "That request wasn't valid." } };
+const INVALID: Extract<ManageResult, { ok: false }> = { ok: false, errors: { form: "That request wasn't valid." } };
 
 export async function updateUserGroup(groupId: string, fields: unknown): Promise<ManageResult> {
   const user = await requireUser(`/groups/${groupId}`);
@@ -64,7 +65,7 @@ export async function updateUserGroup(groupId: string, fields: unknown): Promise
   return result;
 }
 
-export async function addUserMember(groupId: string, fields: unknown): Promise<ManageResult> {
+export async function addUserMember(groupId: string, fields: unknown): Promise<AddMemberResult> {
   const user = await requireUser(`/groups/${groupId}`);
   if (typeof groupId !== "string") return INVALID;
   const result = await addMember(userGroupRepository(user), groupId, fields);

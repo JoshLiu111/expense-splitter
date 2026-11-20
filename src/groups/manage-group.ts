@@ -34,7 +34,7 @@ export function isGroupCreator(group: { creatorUserId?: string }, visitor: Visit
 }
 
 const GROUP_GONE = "This Group is no longer available.";
-const formError = (form: string): ManageResult => ({ ok: false, errors: { form } });
+const formError = (form: string): Extract<ManageResult, { ok: false }> => ({ ok: false, errors: { form } });
 
 const text = (record: unknown, key: string): string => {
   const value = typeof record === "object" && record !== null ? (record as Record<string, unknown>)[key] : "";
@@ -59,10 +59,16 @@ export async function updateGroupDetails(
 }
 
 /**
+ * What adding a Member answers: on success, the name the Member is shown
+ * under, which for a Linked Member is their User's, not the one typed.
+ */
+export type AddMemberResult = { ok: true; name: string } | Extract<ManageResult, { ok: false }>;
+
+/**
  * Adds a Member: Name-only, or by email, which links a User who has verified
  * it and otherwise makes a Pending Member.
  */
-export async function addMember(repo: GroupRepository, groupId: string, input: unknown): Promise<ManageResult> {
+export async function addMember(repo: GroupRepository, groupId: string, input: unknown): Promise<AddMemberResult> {
   const group = await repo.getGroup(groupId);
   if (!group) return formError(GROUP_GONE);
   const name = parseNewMember(text(input, "name"), group);
@@ -76,7 +82,7 @@ export async function addMember(repo: GroupRepository, groupId: string, input: u
     name: name.value.name,
     ...(email.value ? { email: email.value } : {}),
   });
-  return added ? { ok: true } : formError(GROUP_GONE);
+  return added ? { ok: true, name: added.name } : formError(GROUP_GONE);
 }
 
 /**
@@ -128,7 +134,7 @@ export async function deleteGroup(
 /** The Group management operations a Group page can call, bound to one Group. */
 export interface GroupManagement {
   updateDetails(fields: NewGroupFields): Promise<ManageResult>;
-  addMember(fields: NewMemberFields): Promise<ManageResult>;
+  addMember(fields: NewMemberFields): Promise<AddMemberResult>;
   /** Absent for Guests, who have no Users to link Members to by email. */
   setMemberEmail?: (memberId: string, email: string) => Promise<ManageResult>;
   removeMember(memberId: string): Promise<ManageResult>;

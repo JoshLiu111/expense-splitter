@@ -62,14 +62,14 @@ async function createGroup(page: Page, name: string) {
 
 /**
  * Adds a Member from Group settings, then returns to the Group. A Member
- * linked to a User is shown under that User's name, `shownAs`.
+ * linked to a User is shown, and announced, under that User's name, `shownAs`.
  */
 async function addMember(page: Page, group: string, name: string, email = "", shownAs = name) {
   await page.getByRole("link", { name: "Group settings" }).click();
   await field(page, "Add a Member by name").fill(name);
   await field(page, "Email (optional)").fill(email);
   await page.getByRole("button", { name: "Add Member" }).click();
-  await expect(page.getByText(`Added ${name}.`)).toBeVisible();
+  await expect(page.getByText(`Added ${shownAs}.`)).toBeVisible();
   // Wait for the refreshed Group, so new Splits include them.
   await expect(members(page).getByText(shownAs, { exact: true })).toBeVisible();
   await page.getByRole("link", { name: `Back to ${group}` }).click();

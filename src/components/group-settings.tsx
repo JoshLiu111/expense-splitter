@@ -18,7 +18,7 @@ import {
   type Member,
   type NewGroupFields,
 } from "@/domain";
-import type { ManageResult, NewMemberFields } from "@/groups/manage-group";
+import type { AddMemberResult, ManageResult, NewMemberFields } from "@/groups/manage-group";
 import { attempt } from "@/components/attempt";
 import { ErrorSummary, Field } from "@/components/form";
 import { MemberAvatar } from "@/components/member-avatar";
@@ -181,7 +181,7 @@ export function MembersSection({
 }: {
   group: GroupSnapshot;
   headingRef: RefObject<HTMLHeadingElement | null>;
-  onAdd: (fields: NewMemberFields) => Promise<ManageResult>;
+  onAdd: (fields: NewMemberFields) => Promise<AddMemberResult>;
   onSetEmail?: (memberId: string, email: string) => Promise<ManageResult>;
   onRemove: (memberId: string) => Promise<ManageResult>;
   onNews: (news: string) => void;
@@ -315,7 +315,7 @@ function AddMemberForm({
 }: {
   /** Offer an email field, to add a Linked or Pending Member. */
   byEmail: boolean;
-  onAdd: (fields: NewMemberFields) => Promise<ManageResult>;
+  onAdd: (fields: NewMemberFields) => Promise<AddMemberResult>;
   onAdded: (name: string) => void;
 }) {
   const [fields, setFields] = useState<NewMemberFields>({ name: "", email: "" });
@@ -330,7 +330,7 @@ function AddMemberForm({
     startTransition(async () => {
       const result = await attempt(() => onAdd(fields));
       if (result.ok) {
-        onAdded(fields.name.trim());
+        onAdded(result.name);
         setFields({ name: "", email: "" });
         setErrors(undefined);
       } else {
