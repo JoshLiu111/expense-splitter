@@ -51,10 +51,16 @@ export function createSessionStorageRepository(
   {
     seedActivity = () => ({}),
     newId = () => crypto.randomUUID(),
+    recorderId,
   }: {
     /** The sample Groups' Activity, seeded with them. */
     seedActivity?: () => GuestActivity;
     newId?: () => string;
+    /**
+     * The Recorder of new Expenses and Settlements. A Guest's own records
+     * have none, as their Activity entries have no acting Member.
+     */
+    recorderId?: string;
   } = {},
 ): GuestGroupRepository {
   let cachedRaw: string | null = null;
@@ -75,6 +81,7 @@ export function createSessionStorageRepository(
   }
 
   const read = () => readState().groups;
+  const recorded = recorderId ? { recorderId } : {};
 
   /**
    * Applies `change` to one Group, recording the Activity entry it returns
@@ -156,6 +163,7 @@ export function createSessionStorageRepository(
         ...input,
         id: `exp_${newId()}`,
         createdAt: new Date().toISOString(),
+        ...recorded,
       };
       return updateExpenses(groupId, (expenses) => [...expenses, expense], { kind: "expense-added", expense })
         ? expense
@@ -164,7 +172,12 @@ export function createSessionStorageRepository(
     async updateExpense(groupId, expenseId, input) {
       const existing = findExpense(groupId, expenseId);
       if (!existing) return null;
-      const expense: Expense = { ...input, id: existing.id, createdAt: existing.createdAt };
+      const expense: Expense = {
+        ...input,
+        id: existing.id,
+        createdAt: existing.createdAt,
+        ...(existing.recorderId ? { recorderId: existing.recorderId } : {}),
+      };
       updateExpenses(
         groupId,
         (expenses) => expenses.map((e) => (e.id === expenseId ? expense : e)),
@@ -185,6 +198,7 @@ export function createSessionStorageRepository(
         ...input,
         id: `stl_${newId()}`,
         createdAt: new Date().toISOString(),
+        ...recorded,
       };
       const changed = changeGroup(
         groupId,

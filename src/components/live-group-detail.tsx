@@ -50,7 +50,7 @@ export function LiveGroupDetail({
     local: (repo: GroupRepository, groupId: string) => Promise<Result>,
     server: () => Promise<Result>,
   ): Promise<Result> {
-    const applied = await applyLocally(latest.current, local);
+    const applied = await applyLocally(latest.current, local, props.currentMemberId);
     if (!applied.result.ok) return server();
     latest.current = applied.group;
     return new Promise<Result>((resolve, reject) => {

@@ -53,7 +53,7 @@ export function validateSettlement(group: GroupSnapshot, proposed: ProposedSettl
 }
 
 /** A Settlement about to be recorded; the repository assigns id and createdAt. */
-export type NewSettlement = Omit<Settlement, "id" | "createdAt">;
+export type NewSettlement = Omit<Settlement, "id" | "createdAt" | "recorderId">;
 
 /** The Settlement form as the visitor filled it in; the amount is in the Group Currency. */
 export interface NewSettlementFields {

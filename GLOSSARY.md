@@ -62,6 +62,10 @@ The rule a Split uses: Equal, Exact, Percentage, or Shares (ratio).
 The amount one Member owes for one Expense, as determined by its Split.
 _Avoid_: Portion, part (and do not confuse with the "Shares" Split Type, which is a ratio)
 
+**Recorder**:
+The Member who recorded an Expense or Settlement. Editing an Expense keeps its Recorder. Unknown for records added before Recorders existed whose adding has no Activity entry, and for the Guest's records, as for the Guest's Activity entries.
+_Avoid_: Author, creator, owner (and do not confuse with the Payer, who paid)
+
 **Category**:
 A label on an Expense: one of the nine predefined Categories shared by all Groups, or a Custom Category.
 

@@ -15,6 +15,7 @@ import {
 import { ConfirmDelete } from "@/components/confirm-delete";
 import { ledgerDays } from "@/components/ledger-days";
 import { MemberAvatar, TransferPair } from "@/components/member-avatar";
+import { RecordedBy } from "@/components/recorded-by";
 import { Button } from "@/components/ui/button";
 import { formatCalendarDate } from "@/lib/format";
 
@@ -33,9 +34,12 @@ export function DatedLedger({
   onOpenExpense,
   onDeleteSettlement,
   unconfirmed,
+  currentMemberId,
 }: {
   group: GroupSnapshot;
   timeline: TimelineEntry[];
+  /** The visitor's Member, named "you" as a Recorder. */
+  currentMemberId?: string;
   onOpenExpense?: (expense: Expense) => void;
   onDeleteSettlement?: (settlement: Settlement) => void;
   /** Ids of Expenses and Settlements shown before the server has confirmed them. */
@@ -84,7 +88,8 @@ export function DatedLedger({
                     ) : (
                       <SettlementRow
                         entry={entry}
-                        currency={group.currency}
+                        group={group}
+                        currentMemberId={currentMemberId}
                         from={memberOf(entry.settlement.fromId)}
                         to={memberOf(entry.settlement.toId)}
                         dateId={dateId}
@@ -175,12 +180,13 @@ function ExpenseRow({
 
 /**
  * A Settlement can be added or deleted but never edited, so its row opens a
- * dialog stating it, with Delete Settlement behind a confirmation when it can
- * be deleted.
+ * dialog stating it and who recorded it, with Delete Settlement behind a
+ * confirmation when it can be deleted.
  */
 function SettlementRow({
   entry,
-  currency,
+  group,
+  currentMemberId,
   from,
   to,
   dateId,
@@ -188,7 +194,8 @@ function SettlementRow({
   onDelete,
 }: {
   entry: Extract<TimelineEntry, { kind: "settlement" }>;
-  currency: GroupSnapshot["currency"];
+  group: GroupSnapshot;
+  currentMemberId: string | undefined;
   from: Member;
   to: Member;
   dateId: string;
@@ -196,7 +203,7 @@ function SettlementRow({
   saving: boolean;
   onDelete?: () => void;
 }) {
-  const amount = formatMoney(entry.settlement.amount, currency);
+  const amount = formatMoney(entry.settlement.amount, group.currency);
   const date = formatCalendarDate(entry.date);
   const id = useId();
   const [open, setOpen] = useState(false);
@@ -253,6 +260,12 @@ function SettlementRow({
             {from.name} paid {to.name} <span className="amount font-semibold">{amount}</span> on{" "}
             <time dateTime={entry.date}>{date}</time>.
           </Dialog.Description>
+          <RecordedBy
+            group={group}
+            recorderId={entry.settlement.recorderId}
+            currentMemberId={currentMemberId}
+            className="mt-1"
+          />
           {onDelete && (
             <div className="-mr-3 mt-6 flex justify-end">
               <ConfirmDelete

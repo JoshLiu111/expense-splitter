@@ -11,7 +11,7 @@ export const MAX_EXPENSE_DESCRIPTION_LENGTH = 120;
 export const MAX_EXPENSE_NOTES_LENGTH = 1000;
 
 /** An Expense about to be recorded; the repository assigns id and createdAt. */
-export type NewExpense = Omit<Expense, "id" | "createdAt">;
+export type NewExpense = Omit<Expense, "id" | "createdAt" | "recorderId">;
 
 /** The Expense form as the visitor filled it in. */
 export interface NewExpenseFields {

@@ -77,6 +77,12 @@ export interface Expense {
   /** A predefined Category's name, or a Custom Category's id. */
   category: string;
   notes?: string;
+  /**
+   * The Recorder: the Member who recorded the Expense, kept through edits.
+   * Absent when unknown (recorded before Recorders existed, with no
+   * Activity to tell) or recorded by the Guest.
+   */
+  recorderId?: string;
 }
 
 /** A Category created within one Group and visible only there. */
@@ -94,6 +100,8 @@ export interface Settlement {
   amount: MinorUnits;
   date: CalendarDate;
   createdAt: string;
+  /** The Recorder: absent when unknown or recorded by the Guest, as on an Expense. */
+  recorderId?: string;
 }
 
 /** Everything the domain core needs to know about one Group. */

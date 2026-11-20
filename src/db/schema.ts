@@ -160,6 +160,8 @@ export const expenses = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     category: text("category").notNull(),
     notes: text("notes"),
+    /** The Recorder; null when unknown, for Expenses recorded before Recorders existed. */
+    recorderMemberId: text("recorder_member_id").references(() => members.id),
   },
   (t) => [index("expenses_group_id_idx").on(t.groupId)],
 );
@@ -200,6 +202,8 @@ export const settlements = pgTable(
     amount: bigint("amount", { mode: "number" }).notNull(),
     date: date("date", { mode: "string" }).notNull(),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    /** The Recorder; null when unknown, as on Expenses. */
+    recorderMemberId: text("recorder_member_id").references(() => members.id),
   },
   (t) => [index("settlements_group_id_idx").on(t.groupId)],
 );

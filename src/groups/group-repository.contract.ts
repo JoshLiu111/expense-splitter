@@ -39,6 +39,9 @@ export function groupRepositoryContract(
     invitationStatus(token: string): Promise<string>;
   },
 ) {
+  /** The Recorder field of what this repository records in `group`, as its snapshots show it. */
+  const recordedIn = (group: GroupSnapshot) => (actorOf(group) ? { recorderId: actorOf(group) } : {});
+
   /**
    * A Group whose Members are its creator, a Name-only Member, a Pending
    * Member and a Former Member who was Linked to `theo`, with an Expense.
@@ -95,6 +98,7 @@ export function groupRepositoryContract(
       ...lunch(group, { notes: "Tacos" }),
       id: expect.any(String),
       createdAt: expect.any(String),
+      ...recordedIn(group),
     });
     expect((await repo.getGroup(group.id))?.expenses).toEqual([expense]);
   });
@@ -128,8 +132,40 @@ export function groupRepositoryContract(
       ...lunch(group, { description: "Dinner", amount: 9000, shares: [{ memberId: group.members[0].id, amount: 9000 }], date: "2026-03-02", category: "Other" }),
       id: original!.id,
       createdAt: original!.createdAt,
+      ...recordedIn(group),
     });
     expect((await repo.getGroup(group.id))?.expenses).toEqual([edited]);
+  });
+
+  describe("Recorder", () => {
+    it("records who recorded an Expense, and keeps them when someone edits it", async () => {
+      const repo = await makeRepository();
+      const group = await repo.createGroup({ name: "Flat", description: "", currency: "USD" });
+
+      const added = await repo.addExpense(group.id, lunch(group));
+      const edited = await repo.updateExpense(group.id, added!.id, lunch(group, { description: "Dinner" }));
+
+      expect(added?.recorderId).toBe(actorOf(group));
+      expect(edited?.recorderId).toBe(actorOf(group));
+      expect((await repo.getGroup(group.id))?.expenses.map((e) => e.recorderId)).toEqual([actorOf(group)]);
+    });
+
+    it("records who recorded a Settlement", async () => {
+      const repo = await makeRepository();
+      const group = await repo.createGroup({ name: "Flat", description: "", currency: "USD" });
+      const chloe = await repo.addMember(group.id, { name: "Chloe" });
+      await repo.addExpense(group.id, lunch(group, { shares: [{ memberId: chloe!.id, amount: 2450 }] }));
+
+      const settlement = await repo.addSettlement(group.id, {
+        fromId: chloe!.id,
+        toId: group.members[0].id,
+        amount: 1000,
+        date: "2026-03-02",
+      });
+
+      expect(settlement?.recorderId).toBe(actorOf(group));
+      expect((await repo.getGroup(group.id))?.settlements.map((s) => s.recorderId)).toEqual([actorOf(group)]);
+    });
   });
 
   it("keeps the percentages and ratios a Split was entered with", async () => {
@@ -142,7 +178,7 @@ export function groupRepositoryContract(
     });
     const added = await repo.addExpense(group.id, byPercentage);
     expect((await repo.getGroup(group.id))?.expenses).toEqual([
-      { ...byPercentage, id: added!.id, createdAt: added!.createdAt },
+      { ...byPercentage, id: added!.id, createdAt: added!.createdAt, ...recordedIn(group) },
     ]);
 
     const byRatio = lunch(group, {
@@ -151,7 +187,7 @@ export function groupRepositoryContract(
     });
     await repo.updateExpense(group.id, added!.id, byRatio);
     expect((await repo.getGroup(group.id))?.expenses).toEqual([
-      { ...byRatio, id: added!.id, createdAt: added!.createdAt },
+      { ...byRatio, id: added!.id, createdAt: added!.createdAt, ...recordedIn(group) },
     ]);
   });
 
@@ -417,6 +453,7 @@ export function groupRepositoryContract(
       amount: 1000,
       date: "2026-03-02",
       createdAt: expect.any(String),
+      ...recordedIn(group),
     });
     expect((await repo.getGroup(group.id))?.settlements).toEqual(expect.arrayContaining([first, second]));
 
