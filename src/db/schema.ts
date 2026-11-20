@@ -228,6 +228,34 @@ export const activity = pgTable(
   (t) => [index("activity_group_seq_idx").on(t.groupId, t.seq)],
 );
 
+/**
+ * Invitations (ADR 0007): one-time links emailed to a Pending Member. Only
+ * the token's hash is stored. Only a Pending Member's latest Invitation
+ * works; removing or claiming the Pending Member, or using it, ends it.
+ */
+export const invitations = pgTable(
+  "invitations",
+  {
+    id: text("id").primaryKey(),
+    /** SHA-256 of the token in the emailed link, hex. */
+    tokenHash: text("token_hash").notNull().unique(),
+    memberId: text("member_id")
+      .notNull()
+      .references(() => members.id, { onDelete: "cascade" }),
+    groupId: text("group_id")
+      .notNull()
+      .references(() => groups.id, { onDelete: "cascade" }),
+    /** The (lower-cased) email it was sent to: the only one it can claim. */
+    email: text("email").notNull(),
+    issuedAt: timestamp("issued_at", { withTimezone: true }).notNull(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    usedAt: timestamp("used_at", { withTimezone: true }),
+    /** Issue order: a Pending Member's highest is their latest Invitation. */
+    seq: integer("seq").notNull().generatedAlwaysAsIdentity(),
+  },
+  (t) => [index("invitations_member_seq_idx").on(t.memberId, t.seq)],
+);
+
 // ---------------------------------------------------------------------------
 // Exchange Rate cache: the latest rates from ExchangeRate-API, refreshed at
 // most daily. Units of `quote` per one unit of `base`.

@@ -7,14 +7,28 @@ import { Button } from "@/components/ui/button";
 import { ErrorSummary, Field, FormCard } from "@/components/form";
 import { MAX_DISPLAY_NAME_LENGTH } from "@/auth/display-name";
 import { MIN_PASSWORD_LENGTH } from "@/auth/password";
-import { signIn, signUp, type AuthFormState } from "./actions";
+import { signIn, signUp, signUpThroughInvitation, type AuthFormState } from "./actions";
 
-export function AuthForm({ mode }: { mode: "sign-in" | "sign-up" }) {
+/** A valid Invitation being followed: sign-up is for its email only. */
+export interface InvitationToJoin {
+  token: string;
+  email: string;
+  groupName: string;
+}
+
+export function AuthForm({
+  mode,
+  invitation,
+}: {
+  mode: "sign-in" | "sign-up";
+  /** Sign up through this Invitation, with its email filled in and locked. */
+  invitation?: InvitationToJoin;
+}) {
   const params = useSearchParams();
-  const next = params.get("next") ?? "";
+  const next = invitation ? `/invite/${invitation.token}` : (params.get("next") ?? "");
   const justReset = mode === "sign-in" && params.get("reset") !== null;
   const [state, action, pending] = useActionState<AuthFormState, FormData>(
-    mode === "sign-up" ? signUp : signIn,
+    invitation ? signUpThroughInvitation : mode === "sign-up" ? signUp : signIn,
     {},
   );
   const formId = useId();
@@ -30,8 +44,14 @@ export function AuthForm({ mode }: { mode: "sign-in" | "sign-up" }) {
   return (
     <section aria-labelledby={`${formId}-heading`} className="mx-auto flex max-w-md flex-col gap-6">
       <h1 id={`${formId}-heading`} className="text-2xl font-extrabold">
-        {isSignUp ? "Sign up" : "Sign in"}
+        {invitation ? `Join ${invitation.groupName}` : isSignUp ? "Sign up" : "Sign in"}
       </h1>
+      {invitation && (
+        <p className="text-text-secondary">
+          Sign up as {invitation.email} to join the Group. This link verifies your email, so there&apos;s
+          nothing else to confirm.
+        </p>
+      )}
       {justReset && (
         <p role="status" className="rounded-md border border-border p-4 text-sm">
           Your password has been changed. Sign in with your new password.
@@ -41,6 +61,7 @@ export function AuthForm({ mode }: { mode: "sign-in" | "sign-up" }) {
         <form action={action} noValidate className="flex flex-col gap-5">
           <ErrorSummary errors={errors} fieldIds={ids} />
           <input type="hidden" name="next" value={next} />
+          {invitation && <input type="hidden" name="token" value={invitation.token} />}
           {isSignUp && (
             <Field id={ids.name} label="Name" error={errors.name}>
               {(describedBy, className) => (
@@ -58,7 +79,12 @@ export function AuthForm({ mode }: { mode: "sign-in" | "sign-up" }) {
               )}
             </Field>
           )}
-          <Field id={ids.email} label="Email" error={errors.email}>
+          <Field
+            id={ids.email}
+            label="Email"
+            error={errors.email}
+            hint={invitation ? "The Invitation was sent to this email, so it can't be changed." : undefined}
+          >
             {(describedBy, className) => (
               <input
                 id={ids.email}
@@ -66,7 +92,8 @@ export function AuthForm({ mode }: { mode: "sign-in" | "sign-up" }) {
                 type="email"
                 autoComplete="email"
                 required
-                defaultValue={state.values?.email}
+                defaultValue={invitation?.email ?? state.values?.email}
+                readOnly={invitation !== undefined}
                 aria-invalid={errors.email ? true : undefined}
                 aria-describedby={describedBy}
                 className={className}

@@ -17,10 +17,16 @@ import {
   expenseShares,
   expenses,
   groups,
+  invitations,
   members,
   settlements,
   user,
 } from "@/db/schema";
+import {
+  hashInvitationToken,
+  INVITATION_LIFETIME_MS,
+  newInvitationToken,
+} from "@/invitations/invitation-token";
 import { AVATAR_COLORS, nextAvatarColor, type GroupRepository } from "./group-repository";
 
 /** The signed-in User a repository acts for. */
@@ -155,6 +161,7 @@ export function createPostgresGroupRepository(
   db: Database,
   currentUser: GroupUser,
   newId: () => string = () => crypto.randomUUID(),
+  now: () => Date = () => new Date(),
 ): GroupRepository {
   /** Groups where the User is a Linked Member now: the ones they may change. */
   const isLinkedMember = exists(
@@ -449,6 +456,34 @@ export function createPostgresGroupRepository(
       if (!updated) return null;
       const [group] = await load(groupId);
       return group?.members.find((m) => m.id === memberId) ?? null;
+    },
+    async issueInvitation(groupId, memberId) {
+      if (!(await canChange(groupId))) return null;
+      const [pending] = await db
+        .select({ email: members.email })
+        .from(members)
+        .where(
+          and(
+            eq(members.id, memberId),
+            eq(members.groupId, groupId),
+            isNull(members.userId),
+            eq(members.former, false),
+          ),
+        );
+      if (!pending?.email) return null;
+      const token = newInvitationToken();
+      const issuedAt = now();
+      // Older Invitations stop working because this one is newer.
+      await db.insert(invitations).values({
+        id: `inv_${newId()}`,
+        tokenHash: hashInvitationToken(token),
+        memberId,
+        groupId,
+        email: pending.email.toLowerCase(),
+        issuedAt,
+        expiresAt: new Date(issuedAt.getTime() + INVITATION_LIFETIME_MS),
+      });
+      return token;
     },
     async removeMember(groupId, memberId) {
       if (!(await canChange(groupId))) return false;

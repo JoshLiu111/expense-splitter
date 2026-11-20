@@ -302,6 +302,33 @@ export function groupRepositoryContract(
     expect((await repo.getGroup(flat.id))?.members).toEqual([me, chloe, pending, former]);
   });
 
+  it("issues an Invitation only for a Pending Member of a visible Group, and a Guest none", async () => {
+    const repo = await makeRepository();
+    const theo = users ? await users.aUser() : { email: "theo@nowhere.test" };
+    const { flat, me, chloe, pending } = await everyKindOfMember(repo, theo);
+    const linked = users ? (await repo.addMember(flat.id, { name: "Mia", email: (await users.aUser()).email }))! : null;
+    const other = await (await makeRepository()).createGroup({ name: "Other", description: "", currency: "USD" });
+
+    const first = await repo.issueInvitation(flat.id, pending.id);
+    const second = await repo.issueInvitation(flat.id, pending.id);
+
+    if (users) {
+      expect(first).toEqual(expect.stringMatching(/^[\w-]{32,}$/));
+      expect(second).toEqual(expect.stringMatching(/^[\w-]{32,}$/));
+      expect(second).not.toBe(first);
+    } else {
+      // A Guest's Pending Members are never sent anything.
+      expect(first).toBeNull();
+      expect(second).toBeNull();
+    }
+    expect(await repo.issueInvitation(flat.id, chloe.id)).toBeNull();
+    expect(await repo.issueInvitation(flat.id, me.id)).toBeNull();
+    if (linked) expect(await repo.issueInvitation(flat.id, linked.id)).toBeNull();
+    expect(await repo.issueInvitation(flat.id, "mem_missing")).toBeNull();
+    expect(await repo.issueInvitation(other.id, other.members[0].id)).toBeNull();
+    expect(await repo.issueInvitation(other.id, pending.id)).toBeNull();
+  });
+
   it("deletes a Group with everything in it", async () => {
     const repo = await makeRepository();
     const group = await repo.createGroup({ name: "Flat", description: "", currency: "USD" });

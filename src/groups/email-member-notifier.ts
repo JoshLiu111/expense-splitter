@@ -1,0 +1,19 @@
+import "server-only";
+import { invitationEmail, sendEmail } from "@/auth/email";
+import type { MemberNotifier } from "./member-notifier";
+
+/** The app's public origin, for links in emails. */
+function appOrigin(): string {
+  return process.env.BETTER_AUTH_URL ?? "http://localhost:3000";
+}
+
+/** Emails the people a signed-in User adds to a Group, on that User's behalf. */
+export function emailMemberNotifier(inviter: { name: string }): MemberNotifier {
+  return {
+    inviterName: inviter.name,
+    async invited({ groupName, email, inviterName, token }) {
+      const url = new URL(`/invite/${encodeURIComponent(token)}`, appOrigin()).toString();
+      await sendEmail(invitationEmail({ to: email, groupName, inviterName }, url));
+    },
+  };
+}
