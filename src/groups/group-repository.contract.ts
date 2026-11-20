@@ -20,7 +20,7 @@ function lunch(group: GroupSnapshot, overrides: Partial<NewExpense> = {}): NewEx
 }
 
 /** Behaviour every GroupRepository must share, Guest or Postgres. */
-export function groupRepositoryContract(
+export function groupRepositoryContract<U extends { id: string; email: string }>(
   makeRepository: () => Promise<GroupRepository>,
   /** The `actorMemberId` this repository's changes to a Group are recorded under. */
   actorOf: (group: GroupSnapshot) => string | undefined,
@@ -30,7 +30,9 @@ export function groupRepositoryContract(
    */
   users?: {
     /** A new verified User, whom adding a Member by their email Links. */
-    aUser(): Promise<{ id: string; email: string }>;
+    aUser(): Promise<U>;
+    /** The repository `user` acts through, as `makeRepository`'s User does. */
+    repositoryOf(user: U): Promise<GroupRepository>;
     rename(userId: string, name: string): Promise<void>;
     /** Sets the User's avatar and answers its URL. */
     setAvatar(userId: string): Promise<string>;
@@ -146,6 +148,24 @@ export function groupRepositoryContract(
       const edited = await repo.updateExpense(group.id, added!.id, lunch(group, { description: "Dinner" }));
 
       expect(added?.recorderId).toBe(actorOf(group));
+      expect(edited?.recorderId).toBe(actorOf(group));
+      expect((await repo.getGroup(group.id))?.expenses.map((e) => e.recorderId)).toEqual([actorOf(group)]);
+    });
+
+    it.skipIf(!users)("keeps an Expense's Recorder when another Member edits it", async () => {
+      const repo = await makeRepository();
+      const group = await repo.createGroup({ name: "Flat", description: "", currency: "USD" });
+      const theo = await users!.aUser();
+      await repo.addMember(group.id, { name: "Theo", email: theo.email });
+      const added = await repo.addExpense(group.id, lunch(group));
+
+      const edited = await (await users!.repositoryOf(theo)).updateExpense(
+        group.id,
+        added!.id,
+        lunch(group, { description: "Dinner" }),
+      );
+
+      expect(edited?.description).toBe("Dinner");
       expect(edited?.recorderId).toBe(actorOf(group));
       expect((await repo.getGroup(group.id))?.expenses.map((e) => e.recorderId)).toEqual([actorOf(group)]);
     });

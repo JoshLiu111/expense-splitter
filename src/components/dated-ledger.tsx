@@ -15,7 +15,7 @@ import {
 import { ConfirmDelete } from "@/components/confirm-delete";
 import { ledgerDays } from "@/components/ledger-days";
 import { MemberAvatar, TransferPair } from "@/components/member-avatar";
-import { RecordedBy } from "@/components/recorded-by";
+import { RecordedBy, recorderName } from "@/components/recorded-by";
 import { Button } from "@/components/ui/button";
 import { formatCalendarDate } from "@/lib/format";
 
@@ -81,6 +81,7 @@ export function DatedLedger({
                         entry={entry}
                         group={group}
                         payer={memberOf(entry.expense.payerId)}
+                        recorder={recorderName(group, entry.expense.recorderId, currentMemberId)}
                         dateId={dateId}
                         saving={saving}
                         onOpen={!saving && onOpenExpense ? () => onOpenExpense(entry.expense) : undefined}
@@ -126,6 +127,7 @@ function ExpenseRow({
   entry,
   group,
   payer,
+  recorder,
   dateId,
   saving,
   onOpen,
@@ -133,6 +135,8 @@ function ExpenseRow({
   entry: Extract<TimelineEntry, { kind: "expense" }>;
   group: GroupSnapshot;
   payer: Member;
+  /** The Recorder's name, when known. */
+  recorder: string | undefined;
   dateId: string;
   /** Shown before the server has confirmed it. */
   saving: boolean;
@@ -162,6 +166,7 @@ function ExpenseRow({
         </h3>
         <p id={`${id}-details`} className="text-sm break-words text-text-secondary">
           {payer.name} paid in {categoryName(group, expense.category)}
+          {recorder && ` · recorded by ${recorder}`}
           {saving && " · Saving…"}
         </p>
       </div>
@@ -204,6 +209,7 @@ function SettlementRow({
   onDelete?: () => void;
 }) {
   const amount = formatMoney(entry.settlement.amount, group.currency);
+  const recorder = recorderName(group, entry.settlement.recorderId, currentMemberId);
   const date = formatCalendarDate(entry.date);
   const id = useId();
   const [open, setOpen] = useState(false);
@@ -222,7 +228,7 @@ function SettlementRow({
         <div className="min-w-0 flex-1">
           <h3>
             <Dialog.Trigger
-              aria-describedby={`${id}-amount ${dateId}`}
+              aria-describedby={[recorder && `${id}-recorder`, `${id}-amount`, dateId].filter(Boolean).join(" ")}
               className={`${rowButtonClass} text-text-secondary`}
             >
               <span className="sr-only">Settlement: </span>
@@ -233,6 +239,12 @@ function SettlementRow({
           <p className="text-sm text-text-secondary">
             {/* The button already says "Settlement" to screen readers. */}
             <span aria-hidden>Settlement</span>
+            {recorder && (
+              <>
+                <span aria-hidden> · </span>
+                <span id={`${id}-recorder`}>recorded by {recorder}</span>
+              </>
+            )}
             {saving && " · Saving…"}
           </p>
         </div>

@@ -50,6 +50,7 @@ describe.skipIf(!url)("Postgres GroupRepository", () => {
     (group) => group.members[0].id,
     {
       aUser: () => aUser({ verified: true }),
+      repositoryOf: async (u) => createPostgresGroupRepository(db, u),
       async rename(userId, name) {
         expect(await updateDisplayName(db, { id: userId }, { name })).toEqual({ ok: true });
       },

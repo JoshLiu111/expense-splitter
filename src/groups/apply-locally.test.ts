@@ -106,42 +106,67 @@ describe("applyLocally", () => {
     expect(balances(after)).toEqual([1600, -1600]);
   });
 
-  it("shows the visitor as Recorder of what they record, and keeps the Recorder of what they edit", async () => {
-    const { group, you, chloe } = await flatWithDebt();
-    const recordedByChloe = { ...group, expenses: [{ ...group.expenses[0], recorderId: chloe.id }] };
-    const groceries = {
-      amount: "30",
-      currency: "USD",
-      rate: "",
-      description: "Groceries",
-      date: "2026-03-02",
-      category: "Groceries",
-      payerId: you.id,
-      participantIds: [you.id, chloe.id],
-      notes: "",
-      splitType: "equal" as const,
-      splitValues: {},
-    };
+  describe("Recorder", () => {
+    /** The Group with its Expense recorded by Chloe, and an Expense as the visitor fills it in. */
+    async function recordedByChloe() {
+      const { group, you, chloe } = await flatWithDebt();
+      return {
+        group: { ...group, expenses: [{ ...group.expenses[0], recorderId: chloe.id }] },
+        you,
+        chloe,
+        groceries: {
+          amount: "30",
+          currency: "USD",
+          rate: "",
+          description: "Groceries",
+          date: "2026-03-02",
+          category: "Groceries",
+          payerId: you.id,
+          participantIds: [you.id, chloe.id],
+          notes: "",
+          splitType: "equal" as const,
+          splitValues: {},
+        },
+      };
+    }
 
-    const added = await applyLocally(
-      recordedByChloe,
-      (repo, groupId) => saveExpense(repo, groupId, null, groceries, noRates),
-      you.id,
-    );
-    const edited = await applyLocally(
-      recordedByChloe,
-      (repo, groupId) => saveExpense(repo, groupId, group.expenses[0].id, { ...groceries, description: "Pizza" }, noRates),
-      you.id,
-    );
-    const settled = await applyLocally(
-      recordedByChloe,
-      (repo, groupId) => recordSettlement(repo, groupId, { fromId: chloe.id, toId: you.id, amount: "4.00", date: "2026-03-02" }),
-      you.id,
-    );
+    it("shows the visitor as Recorder of an Expense they add", async () => {
+      const { group, you, chloe, groceries } = await recordedByChloe();
 
-    expect(added.group.expenses.map((e) => e.recorderId)).toEqual([chloe.id, you.id]);
-    expect(edited.group.expenses.map((e) => e.recorderId)).toEqual([chloe.id]);
-    expect(settled.group.settlements.map((s) => s.recorderId)).toEqual([you.id]);
+      const { group: after } = await applyLocally(
+        group,
+        (repo, groupId) => saveExpense(repo, groupId, null, groceries, noRates),
+        { recorderId: you.id },
+      );
+
+      expect(after.expenses.map((e) => e.recorderId)).toEqual([chloe.id, you.id]);
+    });
+
+    it("keeps the Recorder of an Expense the visitor edits", async () => {
+      const { group, you, chloe, groceries } = await recordedByChloe();
+
+      const { group: after } = await applyLocally(
+        group,
+        (repo, groupId) =>
+          saveExpense(repo, groupId, group.expenses[0].id, { ...groceries, description: "Pizza" }, noRates),
+        { recorderId: you.id },
+      );
+
+      expect(after.expenses.map((e) => e.recorderId)).toEqual([chloe.id]);
+    });
+
+    it("shows the visitor as Recorder of a Settlement they record", async () => {
+      const { group, you, chloe } = await recordedByChloe();
+
+      const { group: after } = await applyLocally(
+        group,
+        (repo, groupId) =>
+          recordSettlement(repo, groupId, { fromId: chloe.id, toId: you.id, amount: "4.00", date: "2026-03-02" }),
+        { recorderId: you.id },
+      );
+
+      expect(after.settlements.map((s) => s.recorderId)).toEqual([you.id]);
+    });
   });
 
   it("reflects a deleted Expense", async () => {

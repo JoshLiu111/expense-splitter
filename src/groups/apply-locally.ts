@@ -15,7 +15,7 @@ import type { GroupRepository } from "./group-repository";
 export async function applyLocally<Result extends { ok: boolean }>(
   group: GroupSnapshot,
   write: (repo: GroupRepository, groupId: string) => Promise<Result>,
-  recorderId?: string,
+  { recorderId }: { recorderId?: string } = {},
 ): Promise<{ result: Result; group: GroupSnapshot }> {
   const repo = createSessionStorageRepository(memoryStorage(), () => [group], { recorderId });
   const result = await write(repo, group.id);
