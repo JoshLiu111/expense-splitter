@@ -1,17 +1,19 @@
 "use client";
 
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { Play } from "lucide-react";
 import {
   computeLedger,
   formatMoney,
   type DebtEdge,
+  type ExplainedSettlement,
   type GroupSnapshot,
   type SettlementExplanation,
 } from "@/domain";
 import { layoutDebtGraph, NODE, SIZE, type EdgeLayout } from "@/components/debt-graph-layout";
 import { SIMPLIFY_TIMING, simplifyDurations, staggerFor } from "@/components/simplify-timing";
 import { avatarFill, initials, textColourOn } from "@/components/member-avatar";
+import { PaymentSources } from "@/components/payment-sources";
 import { Button } from "@/components/ui/button";
 import { useMediaQuery } from "@/components/use-media-query";
 import { pluralize } from "@/lib/format";
@@ -190,6 +192,25 @@ export default function WhyThesePayments({
   const alreadySimplest = edgeKeys(before) === edgeKeys(after);
   // Nothing to compare then: one graph of the Suggested Settlements.
   const shown: GraphPhase = alreadySimplest ? "after" : phase;
+  // Under each Suggested Settlement: why it pairs these two, and what it adds up from.
+  const explain = (s: ExplainedSettlement) => (
+    <>
+      {!s.sharedAnExpense && (
+        <p className="text-text-secondary">
+          {nameOf(s.fromId)} and {nameOf(s.toId)} never shared an Expense; settling directly saves the Group a
+          Settlement.
+        </p>
+      )}
+      <PaymentSources
+        group={group}
+        payerName={nameOf(s.fromId)}
+        amount={s.amount}
+        sources={s.sources}
+        nameOf={nameOf}
+        money={money}
+      />
+    </>
+  );
 
   return (
     <div className="flex flex-col gap-4 rounded-lg border border-border bg-surface p-4">
@@ -315,6 +336,7 @@ export default function WhyThesePayments({
           edges={after}
           nameOf={nameOf}
           money={money}
+          detail={explain}
         />
       ) : (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -334,6 +356,7 @@ export default function WhyThesePayments({
             edges={after}
             nameOf={nameOf}
             money={money}
+            detail={explain}
           />
         </div>
       )}
@@ -456,7 +479,7 @@ function Edge({
   );
 }
 
-function PaymentList({
+function PaymentList<E extends DebtEdge>({
   title,
   current,
   edges,
@@ -464,6 +487,7 @@ function PaymentList({
   nameOf,
   money,
   note,
+  detail,
 }: {
   title: string;
   /** "owes" for debts, "pays" for Suggested Settlements. */
@@ -471,18 +495,25 @@ function PaymentList({
   /** A line under the list, e.g. about Small Change. */
   note?: string;
   current: boolean;
-  edges: DebtEdge[];
+  edges: E[];
   nameOf: (id: string) => string;
   money: (amount: number) => string;
+  /** More about one entry, under its line. */
+  detail?: (edge: E) => ReactNode;
 }) {
+  const titleId = useId();
   return (
     // The pressed Before/After chip shows which list the graph draws.
     <div aria-current={current || undefined}>
-      <h4 className="text-sm font-semibold">{title}</h4>
-      <ul className="mt-2 flex flex-col gap-1 text-sm">
+      <h4 id={titleId} className="text-sm font-semibold">
+        {title}
+      </h4>
+      {/* Entries with details need more room between them, or one's sources run into the next. */}
+      <ul aria-labelledby={titleId} className={`mt-2 flex flex-col text-sm ${detail ? "gap-3" : "gap-1"}`}>
         {edges.map((e) => (
           <li key={`${e.fromId}-${e.toId}`}>
             {nameOf(e.fromId)} {verb} {nameOf(e.toId)} <span className="amount">{money(e.amount)}</span>
+            {detail?.(e)}
           </li>
         ))}
       </ul>

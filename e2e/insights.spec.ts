@@ -194,6 +194,59 @@ test.describe("with reduced motion", () => {
     );
   });
 
+  test("S2: Why these payments? traces each suggestion back to its Expenses", async ({ page }) => {
+    await page.goto("/guest/groups/grp_japan_2024");
+    await settleUp(page).getByRole("button", { name: "Why these payments?" }).click();
+    const toTaylor = settleUp(page)
+      .getByRole("list", { name: /^After:/ })
+      .getByRole("listitem")
+      .filter({ hasText: "Sam Rivera pays Taylor Kim" });
+    await toTaylor.getByText(/^From “Kyoto ryokan \(2 nights\)” and 6 other expenses$/).click();
+    await expect(toTaylor).toContainText("Taylor Kim paid · Mar 22, 2024$167.50");
+    await expect(toTaylor).toContainText("What Sam Rivera owes from these, after what they paid for others$315.09");
+  });
+
+  test("S2: Why these payments? says why someone pays a Member they never shared an Expense with", async ({
+    page,
+  }) => {
+    await page.goto("/guest/groups/new");
+    await field(page, "Name").fill("Carpool");
+    await page.getByRole("button", { name: "Create Group" }).click();
+    await expect(page.getByRole("heading", { level: 1, name: "Carpool" })).toBeVisible();
+    await page.getByRole("link", { name: "Group settings" }).click();
+    const members = page.getByRole("region", { name: "Members" });
+    for (const name of ["Taylor", "Sam"]) {
+      await field(page, "Add a Member by name").fill(name);
+      await page.getByRole("button", { name: "Add Member" }).click();
+      await expect(members.getByText(name, { exact: true })).toBeVisible();
+    }
+    await page.getByRole("link", { name: "Back to Carpool" }).click();
+
+    // Taylor pays for You and Taylor; You pay for You and Sam. Sam ends up paying Taylor.
+    const chip = (role: "radio" | "checkbox", name: string) =>
+      page.locator("label").filter({ has: page.getByRole(role, { name, exact: true }) }).filter({ visible: true });
+    async function addExpense(amount: string, description: string, payer: string, without: string) {
+      await page.getByRole("button", { name: /^Add (the first )?Expense$/ }).click();
+      await field(page, "Amount (USD)").fill(amount);
+      await field(page, "Description").fill(description);
+      await chip("radio", payer).click();
+      await chip("checkbox", without).click();
+      await page.getByRole("button", { name: "Add Expense", exact: true }).click();
+      await expect(page.getByText("Expense added.")).toBeVisible();
+    }
+    await addExpense("30", "Fuel", "Taylor", "Sam");
+    await addExpense("30", "Tolls", "You", "Taylor");
+
+    await settleUp(page).getByRole("button", { name: "Why these payments?" }).click();
+    const samPays = settleUp(page)
+      .getByRole("list", { name: /^After:/ })
+      .getByRole("listitem")
+      .filter({ hasText: "Sam pays Taylor" });
+    await expect(samPays).toContainText(
+      "Sam and Taylor never shared an Expense; settling directly saves the Group a Settlement.",
+    );
+  });
+
   test("Why these payments? simplifies at once when asked", async ({ page }) => {
     await page.goto("/guest/groups/grp_japan_2024");
     await settleUp(page).getByRole("button", { name: "Why these payments?" }).click();
