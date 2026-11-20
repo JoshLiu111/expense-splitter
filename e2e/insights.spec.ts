@@ -101,6 +101,13 @@ test("S2: Expenses and Insights are two views over one set of filters", async ({
   await expect(timeline(page)).toHaveCount(12);
 });
 
+test("Insights lists no per-currency subtotals when every Expense is in the Group Currency", async ({ page }) => {
+  await page.goto("/guest/groups/grp_apt_4b");
+  await tab(page, "Insights").click();
+  await expect(insights(page).getByRole("list", { name: "Spending by Category" })).toBeVisible();
+  await expect(insights(page).getByRole("list", { name: "Spent per currency" })).toHaveCount(0);
+});
+
 test("S2: charts load with text alternatives", async ({ page }) => {
   await page.goto("/guest/groups/grp_apt_4b");
   await tab(page, "Insights").click();

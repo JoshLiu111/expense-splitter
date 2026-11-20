@@ -145,3 +145,24 @@ describe("Compute Insights: spending over time", () => {
     ]);
   });
 });
+
+describe("Compute Insights: spending per Expense Currency", () => {
+  const japan = sample("grp_japan_2024");
+  const spent = (filter: Parameters<typeof computeInsights>[1]) =>
+    computeInsights(japan, filter).byCurrency.map(({ currency, amount }) => ({ currency, amount }));
+
+  it("subtotals every Expense Currency used, the Group Currency first", () => {
+    expect(spent({})).toEqual([
+      { currency: "USD", amount: 23650 },
+      { currency: "EUR", amount: 9600 },
+      // the eleven yen receipts, ¥84,000 to ¥2,400
+      { currency: "JPY", amount: 359860 },
+    ]);
+  });
+
+  it("subtotals only the filtered Expenses", () => {
+    // Food & Drink: ¥32,400 + ¥4,850 + ¥28,000 + ¥42,600, all in yen.
+    expect(spent({ category: "Food & Drink" })).toEqual([{ currency: "JPY", amount: 107850 }]);
+    expect(spent({ ...monthRange("2024-04") })).toEqual([]);
+  });
+});

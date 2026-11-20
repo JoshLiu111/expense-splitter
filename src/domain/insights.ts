@@ -1,6 +1,7 @@
 import { categoryName, categoryOptions } from "./categories";
+import { CURRENCY_CODES } from "./currency";
 import { computeLedger, type TimelineEntry } from "./ledger";
-import type { CalendarDate, GroupSnapshot, MinorUnits } from "./types";
+import type { CalendarDate, CurrencyCode, GroupSnapshot, MinorUnits } from "./types";
 
 /**
  * Filters on a Group's Expenses; each one set narrows the list, and they
@@ -35,6 +36,15 @@ export interface MonthTotal {
   amount: MinorUnits;
 }
 
+/** What the filtered Expenses cost in one Expense Currency, e.g. "¥312,000 ≈ $2,090.40". */
+export interface CurrencySubtotal {
+  currency: CurrencyCode;
+  /** In that Expense Currency. */
+  amount: MinorUnits;
+  /** The same Expenses in the Group Currency, at their Locked Rates. */
+  groupAmount: MinorUnits;
+}
+
 export type ExpenseEntry = Extract<TimelineEntry, { kind: "expense" }>;
 
 export interface Insights {
@@ -46,6 +56,8 @@ export interface Insights {
   breakdown: CategoryTotal[];
   /** Per calendar month from the first to the last, oldest first. */
   byMonth: MonthTotal[];
+  /** Per Expense Currency used, the Group Currency first. */
+  byCurrency: CurrencySubtotal[];
   /** Every month any Expense of the Group falls in, newest first (ignores the filter). */
   months: string[];
 }
@@ -104,8 +116,22 @@ export function computeInsights(group: GroupSnapshot, filter: ExpenseFilter): In
     total,
     breakdown,
     byMonth: monthTotals(expenses),
+    byCurrency: currencySubtotals(expenses, group.currency),
     months: [...new Set(all.map((e) => e.date.slice(0, 7)))].sort().reverse(),
   };
+}
+
+function currencySubtotals(expenses: ExpenseEntry[], groupCurrency: CurrencyCode): CurrencySubtotal[] {
+  const subtotals = new Map<CurrencyCode, CurrencySubtotal>();
+  for (const { expense, groupAmount } of expenses) {
+    const subtotal = subtotals.get(expense.currency) ?? { currency: expense.currency, amount: 0, groupAmount: 0 };
+    subtotal.amount += expense.amount;
+    subtotal.groupAmount += groupAmount;
+    subtotals.set(expense.currency, subtotal);
+  }
+  return [groupCurrency, ...CURRENCY_CODES.filter((code) => code !== groupCurrency)].flatMap(
+    (code) => subtotals.get(code) ?? [],
+  );
 }
 
 function matches({ expense }: ExpenseEntry, filter: ExpenseFilter): boolean {

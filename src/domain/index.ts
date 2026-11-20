@@ -11,7 +11,7 @@ export type { CategoryOption, ParseCategoryResult } from "./categories";
 export { computeLedger, inGroupCurrency } from "./ledger";
 export { settleUpStatus } from "./settle-up-status";
 export type { SettleUpStatus } from "./settle-up-status";
-export type { CurrencySubtotal, Ledger, MemberBalance, OwingLine, TimelineEntry } from "./ledger";
+export type { Ledger, MemberBalance, OwingLine, TimelineEntry } from "./ledger";
 export type { SuggestedSettlement } from "./settle-up";
 export { parseNewSettlement, validateSettlement } from "./settlement";
 export type {
@@ -30,7 +30,7 @@ export type {
   SettlementSource,
 } from "./explain-settlements";
 export { computeInsights, filterMonth, isFiltering, monthRange } from "./insights";
-export type { CategoryTotal, ExpenseEntry, ExpenseFilter, Insights, MonthTotal } from "./insights";
+export type { CategoryTotal, CurrencySubtotal, ExpenseEntry, ExpenseFilter, Insights, MonthTotal } from "./insights";
 export { importSampleGroups } from "./sample-data";
 export { amountText, CURRENCY_CODES, formatMoney, isCurrencyCode, parseAmount } from "./currency";
 export type { ParseAmountResult } from "./currency";
