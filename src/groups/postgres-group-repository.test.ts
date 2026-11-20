@@ -1,5 +1,4 @@
-import { eq, sql } from "drizzle-orm";
-import { migrate } from "drizzle-orm/node-postgres/migrator";
+import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createDatabase, type Database } from "@/db/client";
 import { groups, members, user } from "@/db/schema";
@@ -17,12 +16,11 @@ describe.skipIf(!url)("Postgres GroupRepository", () => {
   let close: () => Promise<void>;
   let userCount = 0;
 
-  beforeAll(async () => {
+  // The database is migrated and emptied once per run (src/test/database-setup.ts).
+  beforeAll(() => {
     const created = createDatabase(url!);
     db = created.db;
     close = () => created.pool.end();
-    await migrate(db, { migrationsFolder: "drizzle" });
-    await db.execute(sql`truncate table "user", groups cascade`);
   });
 
   afterAll(async () => {
