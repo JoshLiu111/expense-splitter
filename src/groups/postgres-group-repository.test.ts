@@ -47,16 +47,17 @@ describe.skipIf(!url)("Postgres GroupRepository", () => {
   groupRepositoryContract(
     async () => createPostgresGroupRepository(db, await aUser()),
     (group) => group.members[0].id,
-    async (userId, name) => {
-      expect(await updateDisplayName(db, { id: userId }, { name })).toEqual({ ok: true });
-    },
     {
-      async set(userId) {
+      aUser: () => aUser({ verified: true }),
+      async rename(userId, name) {
+        expect(await updateDisplayName(db, { id: userId }, { name })).toEqual({ ok: true });
+      },
+      async setAvatar(userId) {
         const store = createMemoryAvatarStore();
         expect(await setAvatar(db, store, { id: userId }, anImage("png"))).toEqual({ ok: true });
         return store.urls()[0];
       },
-      async remove(userId) {
+      async removeAvatar(userId) {
         expect(await removeAvatar(db, createMemoryAvatarStore(), { id: userId })).toEqual({ ok: true });
       },
     },
@@ -287,48 +288,6 @@ describe.skipIf(!url)("Postgres GroupRepository", () => {
     expect((await theosRepo.listGroups()).map((g) => g.id)).toEqual([group.id]);
     expect(await theosRepo.updateGroup(group.id, { name: "Ours", description: "", currency: "USD" })).not.toBeNull();
     expect((await mayasRepo.getGroup(group.id))?.name).toBe("Ours");
-  });
-
-  it("shows a Former Member who was Linked under their User's current name on past Expenses", async () => {
-    const mayasRepo = createPostgresGroupRepository(db, await aUser());
-    const theo = await aUser({ verified: true });
-    const group = await mayasRepo.createGroup({ name: "Shared", description: "", currency: "USD" });
-    const theoMember = (await mayasRepo.addMember(group.id, { name: "Theo", email: theo.email }))!;
-    const coffee = (await mayasRepo.addExpense(group.id, {
-      description: "Coffee",
-      amount: 500,
-      currency: "USD",
-      lockedRate: "1",
-      payerId: theoMember.id,
-      splitType: "equal",
-      shares: [{ memberId: theoMember.id, amount: 500 }],
-      date: "2026-03-01",
-      category: "Food & Drink",
-    }))!;
-    await mayasRepo.removeMember(group.id, theoMember.id);
-
-    await updateDisplayName(db, theo, { name: "Theo Park" });
-
-    const after = await mayasRepo.getGroup(group.id);
-    expect(after?.members[1]).toEqual({ ...theoMember, name: "Theo Park", former: true });
-    expect(after?.expenses).toEqual([coffee]);
-  });
-
-  it("shows a Former Member who was Linked with their User's avatar", async () => {
-    const mayasRepo = createPostgresGroupRepository(db, await aUser());
-    const theo = await aUser({ verified: true });
-    const group = await mayasRepo.createGroup({ name: "Shared", description: "", currency: "USD" });
-    const theoMember = (await mayasRepo.addMember(group.id, { name: "Theo", email: theo.email }))!;
-    await mayasRepo.removeMember(group.id, theoMember.id);
-    const store = createMemoryAvatarStore();
-
-    await setAvatar(db, store, theo, anImage("webp"));
-
-    expect((await mayasRepo.getGroup(group.id))?.members[1]).toEqual({
-      ...theoMember,
-      former: true,
-      avatarUrl: store.urls()[0],
-    });
   });
 
   it("makes a Member added by an unknown or unverified email a Pending Member", async () => {
