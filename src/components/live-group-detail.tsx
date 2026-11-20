@@ -1,6 +1,6 @@
 "use client";
 
-import { startTransition, useOptimistic, type ComponentProps } from "react";
+import { startTransition, useEffect, useOptimistic, useRef, type ComponentProps } from "react";
 import { GroupDetail } from "@/components/group-detail";
 import { deleteExpense, saveExpense } from "@/expenses/save-expense";
 import { applyLocally } from "@/groups/apply-locally";
@@ -15,7 +15,8 @@ import { clearSmallChange, deleteSettlement, recordSettlement } from "@/settleme
  * the server refuses, the Group as it was comes back with the server's error.
  * Entries only the copy has can't be opened yet, since the server gives them
  * their ids. A write the copy refuses goes to the server as is, since the
- * server's Group may be newer.
+ * server's Group may be newer. Leaving the page before the server has
+ * confirmed a write asks first, since the write may not be saved.
  */
 export function LiveGroupDetail({
   group,
@@ -25,6 +26,21 @@ export function LiveGroupDetail({
   ...props
 }: ComponentProps<typeof GroupDetail>) {
   const [shown, show] = useOptimistic(group);
+  // The Group as the latest write left it, so writes started before a
+  // re-render, or from a dialog opened earlier, build on each other.
+  const latest = useRef(shown);
+  useEffect(() => {
+    latest.current = shown;
+  }, [shown]);
+
+  const saving = shown !== group;
+  useEffect(() => {
+    if (!saving) return;
+    const ask = (event: BeforeUnloadEvent) => event.preventDefault();
+    window.addEventListener("beforeunload", ask);
+    return () => window.removeEventListener("beforeunload", ask);
+  }, [saving]);
+
   const confirmed = new Set([...group.expenses, ...group.settlements].map((entry) => entry.id));
   const unconfirmed = new Set(
     [...shown.expenses, ...shown.settlements].map((entry) => entry.id).filter((id) => !confirmed.has(id)),
@@ -34,8 +50,9 @@ export function LiveGroupDetail({
     local: (repo: GroupRepository, groupId: string) => Promise<Result>,
     server: () => Promise<Result>,
   ): Promise<Result> {
-    const applied = await applyLocally(shown, local);
+    const applied = await applyLocally(latest.current, local);
     if (!applied.result.ok) return server();
+    latest.current = applied.group;
     return new Promise<Result>((resolve, reject) => {
       startTransition(async () => {
         show(applied.group);

@@ -223,11 +223,11 @@ function SettlementRow({
               <span className="font-semibold text-text-primary">{to.name}</span>
             </Dialog.Trigger>
           </h3>
-          {/* The button already says "Settlement" to screen readers. */}
-          <p aria-hidden className="text-sm text-text-secondary">
-            Settlement
+          <p className="text-sm text-text-secondary">
+            {/* The button already says "Settlement" to screen readers. */}
+            <span aria-hidden>Settlement</span>
+            {saving && " · Saving…"}
           </p>
-          {saving && <p className="text-sm text-text-secondary">Saving…</p>}
         </div>
         <span id={`${id}-amount`} className="amount shrink-0 font-semibold text-text-secondary">
           {amount}

@@ -75,6 +75,37 @@ describe("applyLocally", () => {
     expect(after).toEqual(group);
   });
 
+  it("reflects an edited Expense, keeping its id", async () => {
+    const { group, you, chloe } = await flatWithDebt();
+    const pizza = group.expenses[0];
+
+    const { result, group: after } = await applyLocally(group, (repo, groupId) =>
+      saveExpense(
+        repo,
+        groupId,
+        pizza.id,
+        {
+          amount: "16",
+          currency: "USD",
+          rate: "",
+          description: "Pizza",
+          date: pizza.date,
+          category: pizza.category,
+          payerId: you.id,
+          participantIds: [chloe.id],
+          notes: "",
+          splitType: "equal",
+          splitValues: {},
+        },
+        noRates,
+      ),
+    );
+
+    expect(result).toEqual({ ok: true });
+    expect(after.expenses.map((e) => e.id)).toEqual([pizza.id]);
+    expect(balances(after)).toEqual([1600, -1600]);
+  });
+
   it("reflects a deleted Expense", async () => {
     const { group } = await flatWithDebt();
 
