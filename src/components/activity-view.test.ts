@@ -134,6 +134,26 @@ describe("activityItems", () => {
     expect(items.map((i) => i.actor)).toEqual(["Drew Patel (Former Member)", "Riley Morgan", "You"]);
   });
 
+  it("gives the acting Member for their avatar, image included, and none for the Guest", () => {
+    const before: Expense = { ...electricity, description: "Power" };
+    const drewsImage = "https://blob.example/drew.webp";
+    const group = {
+      ...apartment,
+      members: apartment.members.map((m) => (m.id === "mem_drew" ? { ...m, avatarUrl: drewsImage } : m)),
+    };
+
+    const items = activityItems(
+      [edited(before, electricity, "mem_drew"), edited(before, electricity, "mem_riley"), edited(before, electricity)],
+      group,
+    );
+
+    expect(items.map((i) => i.actorMember && [i.actorMember.name, i.actorMember.avatarUrl])).toEqual([
+      ["Drew Patel", drewsImage],
+      ["Riley Morgan", undefined],
+      undefined,
+    ]);
+  });
+
   it("shows a deleted Expense's description, amount, Payer and date, and a deleted Settlement's Members, amount and date", () => {
     const settlement = apartment.settlements.find((s) => s.id === "stl_101")!;
     const entries: ActivityEntry[] = [
@@ -146,6 +166,7 @@ describe("activityItems", () => {
         id: "act_2",
         at: "2024-02-02T10:00:00.000Z",
         actor: "Riley Morgan",
+        actorMember: expect.objectContaining({ id: "mem_riley" }),
         kind: "expense-deleted",
         subject: { kind: "expense", id: "exp_102" },
         title: "January electricity",
@@ -160,6 +181,7 @@ describe("activityItems", () => {
         id: "act_1",
         at: "2024-02-01T10:00:00.000Z",
         actor: "Drew Patel",
+        actorMember: expect.objectContaining({ id: "mem_drew" }),
         kind: "settlement-deleted",
         subject: { kind: "settlement", id: "stl_101" },
         title: "Casey Brooks paid Riley Morgan",
