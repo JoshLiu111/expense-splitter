@@ -43,4 +43,18 @@ describe("todaysRates", () => {
 
     expect(await todaysRates()).toEqual({ perUsd: { USD: 1, JPY: 150 }, fetchedOn: today, stale: false });
   });
+
+  it("reports an ignored FIXED_EXCHANGE_RATES once per process, not on every call", async () => {
+    vi.resetModules();
+    const fresh = await import("./todays-rates");
+    vi.stubEnv("FIXED_EXCHANGE_RATES", JSON.stringify({ JPY: 150 }));
+    vi.stubEnv("E2E", "");
+
+    await fresh.todaysRates();
+    await fresh.todaysRates();
+    await fresh.todaysRates();
+
+    expect(console.error).toHaveBeenCalledTimes(1);
+    expect(console.error).toHaveBeenCalledWith(expect.stringContaining("FIXED_EXCHANGE_RATES is ignored"));
+  });
 });
