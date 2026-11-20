@@ -205,6 +205,7 @@ test("auth forms give specific, announced errors", async ({ page }) => {
 test("sign-in with an over-long password gives the form error, not a crash", async ({ page }) => {
   await page.goto("/sign-in");
   await field(page, "Email").fill(uniqueEmail());
+  // One over Better Auth's default maximum of 128 characters.
   await field(page, "Password").fill("x".repeat(129));
   await page.getByRole("button", { name: "Sign in" }).click();
   await expect(page.getByRole("alert", { name: /problem/ })).toContainText(
