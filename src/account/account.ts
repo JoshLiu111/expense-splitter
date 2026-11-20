@@ -1,10 +1,10 @@
 import { isAPIError } from "better-auth/api";
 import { eq } from "drizzle-orm";
 import type { Auth } from "@/auth/auth";
+import { displayNameRuleError } from "@/auth/display-name";
 import { passwordRuleError } from "@/auth/password";
 import type { Database } from "@/db/client";
 import { user } from "@/db/schema";
-import { MAX_MEMBER_NAME_LENGTH } from "@/domain";
 import { avatarExtension, avatarFileError, NOT_AN_IMAGE, sniffAvatarType } from "./avatar-rules";
 import type { AvatarStore } from "./avatar-store";
 
@@ -49,10 +49,8 @@ const text = (record: unknown, key: string): string => {
  */
 export async function updateDisplayName(db: Database, signedIn: SignedInUser, input: unknown): Promise<AccountResult> {
   const name = text(input, "name").trim();
-  // A display name is shown as a Member name, so it keeps to the same limit.
-  if (!name) return { ok: false, errors: { name: "Enter your name." } };
-  if (name.length > MAX_MEMBER_NAME_LENGTH)
-    return { ok: false, errors: { name: `Keep the name to ${MAX_MEMBER_NAME_LENGTH} characters or fewer.` } };
+  const ruleError = displayNameRuleError(name);
+  if (ruleError) return { ok: false, errors: { name: ruleError } };
   const rows = await db
     .update(user)
     .set({ name, updatedAt: new Date() })

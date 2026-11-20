@@ -202,6 +202,20 @@ test("auth forms give specific, announced errors", async ({ page }) => {
   );
 });
 
+test("sign-up keeps a name to 60 characters, as Account Settings does", async ({ page }) => {
+  await page.goto("/sign-up");
+  const name = field(page, "Name");
+  await expect(name).toHaveAttribute("maxlength", "60");
+  // A request from outside the form is refused by the server too.
+  await name.evaluate((input) => input.removeAttribute("maxlength"));
+  await name.fill("M".repeat(61));
+  await field(page, "Email").fill(uniqueEmail());
+  await field(page, "Password").fill(PASSWORD);
+  await page.getByRole("button", { name: "Sign up", exact: true }).click();
+  await expect(field(page, "Name")).toHaveAccessibleDescription("Keep the name to 60 characters or fewer.");
+  await expect(page).toHaveURL(/\/sign-up/);
+});
+
 test("sign-in with an over-long password gives the form error, not a crash", async ({ page }) => {
   await page.goto("/sign-in");
   await field(page, "Email").fill(uniqueEmail());

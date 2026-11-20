@@ -4,6 +4,7 @@ import { isAPIError } from "better-auth/api";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { auth } from "@/auth/auth";
+import { displayNameRuleError } from "@/auth/display-name";
 import { passwordRuleError } from "@/auth/password";
 import { safeReturnTo } from "@/auth/return-to";
 import { requireUser } from "@/auth/session";
@@ -40,7 +41,8 @@ export async function signUp(_: AuthFormState, formData: FormData): Promise<Auth
   const values = { name, email };
   const errors: NonNullable<AuthFormState["errors"]> = {};
 
-  if (!name) errors.name = "Enter your name.";
+  const nameError = displayNameRuleError(name);
+  if (nameError) errors.name = nameError;
   if (!email) errors.email = "Enter your email address.";
   else if (!EMAIL_PATTERN.test(email)) errors.email = "Enter an email address like name@example.com.";
   const passwordError = passwordRuleError(password);

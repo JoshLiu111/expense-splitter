@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { useActionState, useId } from "react";
 import { Button } from "@/components/ui/button";
 import { ErrorSummary, Field, FormCard } from "@/components/form";
+import { MAX_DISPLAY_NAME_LENGTH } from "@/auth/display-name";
 import { MIN_PASSWORD_LENGTH } from "@/auth/password";
 import { signIn, signUp, type AuthFormState } from "./actions";
 
@@ -47,6 +48,7 @@ export function AuthForm({ mode }: { mode: "sign-in" | "sign-up" }) {
                   id={ids.name}
                   name="name"
                   autoComplete="name"
+                  maxLength={MAX_DISPLAY_NAME_LENGTH}
                   required
                   defaultValue={state.values?.name}
                   aria-invalid={errors.name ? true : undefined}

@@ -1,7 +1,7 @@
 "use client";
 
 import { useId, useState, useTransition, type FormEvent } from "react";
-import { MAX_MEMBER_NAME_LENGTH } from "@/domain";
+import { MAX_DISPLAY_NAME_LENGTH } from "@/auth/display-name";
 import type { AccountFields, AccountManagement, AccountResult, PasswordFields } from "@/account/account";
 import { MIN_PASSWORD_LENGTH } from "@/auth/password";
 import { AvatarSection } from "@/components/account-avatar-section";
@@ -103,7 +103,7 @@ function DisplayNameSection({
               id={ids.name}
               required
               autoComplete="name"
-              maxLength={MAX_MEMBER_NAME_LENGTH}
+              maxLength={MAX_DISPLAY_NAME_LENGTH}
               value={fields.name}
               onChange={(e) => setFields({ name: e.target.value })}
               aria-invalid={errors?.name ? true : undefined}
