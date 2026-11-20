@@ -1,4 +1,4 @@
-import { formatMoney, type GroupSnapshot, type SettlementSource } from "@/domain";
+import type { GroupSnapshot, SettlementSource } from "@/domain";
 import { formatCalendarDate, pluralize } from "@/lib/format";
 
 /**
@@ -11,15 +11,17 @@ export function PaymentSources({
   payerName,
   amount,
   sources,
+  nameOf,
+  money,
 }: {
   group: GroupSnapshot;
   payerName: string;
   amount: number;
   sources: SettlementSource[];
+  nameOf: (id: string) => string;
+  money: (amount: number) => string;
 }) {
   if (sources.length === 0) return null;
-  const money = (value: number) => formatMoney(value, group.currency);
-  const nameOf = (id: string) => group.members.find((m) => m.id === id)?.name ?? "Unknown member";
   const described = sources.map((source) => {
     if (source.kind === "expense") {
       const expense = group.expenses.find((e) => e.id === source.id);
@@ -37,7 +39,8 @@ export function PaymentSources({
     };
   });
   const rest = sources.slice(1);
-  const restNoun = rest.every((s) => s.kind === "expense") ? "expense" : "item";
+  const restKinds = new Set(rest.map((s) => s.kind));
+  const restNoun = restKinds.size === 1 ? rest[0].kind : "item";
   const summary =
     rest.length === 0
       ? `From ${described[0].title}`

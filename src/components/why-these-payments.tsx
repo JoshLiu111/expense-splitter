@@ -201,7 +201,14 @@ export default function WhyThesePayments({
           Settlement.
         </p>
       )}
-      <PaymentSources group={group} payerName={nameOf(s.fromId)} amount={s.amount} sources={s.sources} />
+      <PaymentSources
+        group={group}
+        payerName={nameOf(s.fromId)}
+        amount={s.amount}
+        sources={s.sources}
+        nameOf={nameOf}
+        money={money}
+      />
     </>
   );
 
