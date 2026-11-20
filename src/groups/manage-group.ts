@@ -1,5 +1,6 @@
 import {
   groupDeletionBlock,
+  isPendingMember,
   memberEmailBlock,
   memberRemovalBlock,
   parseGroupDetails,
@@ -44,29 +45,23 @@ const text = (record: unknown, key: string): string => {
 };
 
 /**
- * Sends a Member with an email that no User has verified (a Pending Member)
- * a new Invitation, recording it as sent once it is. Sending can fail
- * without undoing whatever came before, so a failure is only reported, and
- * the Pending Member shows its Invitation wasn't sent. Answers whether it was.
+ * Sends a Pending Member a new Invitation, recording it as sent once it is.
+ * Sending can fail without undoing whatever came before, so a failure is
+ * only reported, and the Pending Member shows its Invitation wasn't sent.
+ * Answers whether it was sent, or `undefined` if none was due: the Member
+ * isn't Pending, or there is no notifier (a Guest).
  */
 async function invite(
   repo: GroupRepository,
   notify: MemberNotifier | undefined,
   group: { id: string; name: string },
   member: Member,
-): Promise<boolean> {
-  if (!notify?.invited || !member.email || member.userId) return false;
+): Promise<boolean | undefined> {
+  if (!notify || !member.email || !isPendingMember(member)) return undefined;
   try {
     const token = await repo.issueInvitation(group.id, member.id);
     if (!token) return false;
-    await notify.invited({
-      groupId: group.id,
-      groupName: group.name,
-      memberId: member.id,
-      email: member.email,
-      inviterName: notify.inviterName,
-      token,
-    });
+    await notify.invited({ groupId: group.id, groupName: group.name, email: member.email, token });
     await repo.recordInvitationSent(group.id, token);
     return true;
   } catch (error) {
@@ -74,6 +69,9 @@ async function invite(
     return false;
   }
 }
+
+/** On success, whether a Pending Member's Invitation was sent, when one was due. */
+const invitationOutcome = (sent: boolean | undefined) => (sent === undefined ? {} : { invitationSent: sent });
 
 // Each operation re-checks its domain rule against the Group as stored now,
 // so a stale or hand-crafted request can't get round what the UI hides.
@@ -88,9 +86,9 @@ async function notifyAdded(
   group: { id: string; name: string },
   member: Member,
 ): Promise<void> {
-  if (!notify?.added || !member.email || !member.userId) return;
+  if (!notify || !member.email || !member.userId) return;
   try {
-    await notify.added({ groupId: group.id, groupName: group.name, email: member.email, inviterName: notify.inviterName });
+    await notify.added({ groupId: group.id, groupName: group.name, email: member.email });
   } catch (error) {
     console.error(`Couldn't tell ${member.email} they were added to Group ${group.id}`, error);
   }
@@ -111,10 +109,19 @@ export async function updateGroupDetails(
 }
 
 /**
- * What adding a Member answers: on success, the name the Member is shown
- * under, which for a Linked Member is their User's, not the one typed.
+ * What giving a Member an email answers: on success, when a Pending Member
+ * was due an Invitation, whether it was sent, so a failure is told at once.
  */
-export type AddMemberResult = { ok: true; name: string } | Extract<ManageResult, { ok: false }>;
+export type SetMemberEmailResult = { ok: true; invitationSent?: boolean } | Extract<ManageResult, { ok: false }>;
+
+/**
+ * What adding a Member answers: on success, the name the Member is shown
+ * under, which for a Linked Member is their User's, not the one typed, and,
+ * as for giving one an email, whether a due Invitation was sent.
+ */
+export type AddMemberResult =
+  | { ok: true; name: string; invitationSent?: boolean }
+  | Extract<ManageResult, { ok: false }>;
 
 /**
  * Adds a Member: Name-only, or by email, which links a User who has verified
@@ -141,9 +148,9 @@ export async function addMember(
     ...(email.value ? { email: email.value } : {}),
   });
   if (!added) return formError(GROUP_GONE);
-  await invite(repo, notify, group, added);
+  const sent = await invite(repo, notify, group, added);
   await notifyAdded(notify, group, added);
-  return { ok: true, name: added.name };
+  return { ok: true, name: added.name, ...invitationOutcome(sent) };
 }
 
 /**
@@ -157,7 +164,7 @@ export async function setMemberEmail(
   memberId: string,
   rawEmail: unknown,
   notify?: MemberNotifier,
-): Promise<ManageResult> {
+): Promise<SetMemberEmailResult> {
   const group = await repo.getGroup(groupId);
   if (!group) return formError(GROUP_GONE);
   const block = memberEmailBlock(group, memberId);
@@ -167,9 +174,9 @@ export async function setMemberEmail(
   if (!email.value) return { ok: false, errors: { email: "Enter the Member's email address." } };
   const updated = await repo.setMemberEmail(groupId, memberId, email.value);
   if (!updated) return formError(GROUP_GONE);
-  await invite(repo, notify, group, updated);
+  const sent = await invite(repo, notify, group, updated);
   await notifyAdded(notify, group, updated);
-  return { ok: true };
+  return { ok: true, ...invitationOutcome(sent) };
 }
 
 /**
@@ -185,7 +192,7 @@ export async function resendInvitation(
   const group = await repo.getGroup(groupId);
   if (!group) return formError(GROUP_GONE);
   const member = group.members.find((m) => m.id === memberId);
-  if (!member?.email || member.userId || member.former) return formError("Only a Pending Member is sent an Invitation.");
+  if (!member || !isPendingMember(member)) return formError("Only a Pending Member is sent an Invitation.");
   return (await invite(repo, notify, group, member))
     ? { ok: true }
     : formError("The Invitation couldn't be sent. Try again in a moment.");
@@ -222,7 +229,7 @@ export interface GroupManagement {
   updateDetails(fields: NewGroupFields): Promise<ManageResult>;
   addMember(fields: NewMemberFields): Promise<AddMemberResult>;
   /** Absent for Guests, who have no Users to link Members to by email. */
-  setMemberEmail?: (memberId: string, email: string) => Promise<ManageResult>;
+  setMemberEmail?: (memberId: string, email: string) => Promise<SetMemberEmailResult>;
   /** Absent for Guests, whose Pending Members are never sent an Invitation. */
   resendInvitation?: (memberId: string) => Promise<ManageResult>;
   removeMember(memberId: string): Promise<ManageResult>;

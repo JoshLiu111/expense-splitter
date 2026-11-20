@@ -1,6 +1,7 @@
-import { and, asc, desc, eq, exists, inArray, isNull, max, notExists, sql } from "drizzle-orm";
+import { and, asc, desc, eq, exists, inArray, isNotNull, isNull, max, notExists, sql } from "drizzle-orm";
 import {
   computeLedger,
+  isPendingMember,
   isSameExpense,
   type ActivityChange,
   type CurrencyCode,
@@ -10,7 +11,7 @@ import {
   type Settlement,
   type SplitType,
 } from "@/domain";
-import type { Database } from "@/db/client";
+import type { Database, Transaction } from "@/db/client";
 import {
   activity,
   customCategories,
@@ -36,7 +37,7 @@ export interface GroupUser {
   email: string;
 }
 
-type Tx = Parameters<Parameters<Database["transaction"]>[0]>[0];
+type Tx = Transaction;
 
 /**
  * The User a Member with this email should be linked to: the one who has
@@ -63,22 +64,23 @@ async function userToLink(tx: Tx, groupId: string, email: string): Promise<strin
 }
 
 /**
+ * The rows of Pending Members (`isPendingMember`): an email, no User yet,
+ * not removed.
+ */
+const pendingMembers = () => and(isNotNull(members.email), isNull(members.userId), eq(members.former, false));
+
+/**
  * Links a User who has just verified their email to every Pending Member
  * with that exact email, at most one per Group and never in a Group where
- * they are already linked. Former Members are left as they are.
+ * they are already linked. Former Members are left as they are. Pass a
+ * transaction to make claiming part of it.
  */
-export async function claimPendingMembers(db: Database, verified: { id: string; email: string }) {
+export async function claimPendingMembers(db: Database | Transaction, verified: { id: string; email: string }) {
   await db.transaction(async (tx) => {
     const pending = await tx
       .select({ id: members.id, groupId: members.groupId })
       .from(members)
-      .where(
-        and(
-          eq(sql`lower(${members.email})`, verified.email.toLowerCase()),
-          isNull(members.userId),
-          eq(members.former, false),
-        ),
-      )
+      .where(and(eq(sql`lower(${members.email})`, verified.email.toLowerCase()), pendingMembers()))
       .orderBy(asc(members.position));
     const linkedGroups = new Set(
       (
@@ -253,7 +255,7 @@ export function createPostgresGroupRepository(
           ...(m.userId ? { userId: m.userId } : {}),
           ...(m.former ? { former: true } : {}),
           ...(userImage ? { avatarUrl: userImage } : {}),
-          ...(m.email && !m.userId && !m.former ? { invitationSent: sentInvitation.get(m.id) ?? false } : {}),
+          ...(isPendingMember(m) ? { invitationSent: sentInvitation.get(m.id) ?? false } : {}),
         })),
       customCategories: categoryRows
         .filter((c) => c.groupId === g.id)
@@ -470,14 +472,7 @@ export function createPostgresGroupRepository(
       const [pending] = await db
         .select({ email: members.email })
         .from(members)
-        .where(
-          and(
-            eq(members.id, memberId),
-            eq(members.groupId, groupId),
-            isNull(members.userId),
-            eq(members.former, false),
-          ),
-        );
+        .where(and(eq(members.id, memberId), eq(members.groupId, groupId), pendingMembers()));
       if (!pending?.email) return null;
       const token = newInvitationToken();
       const issuedAt = now();

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { Expense, GroupSnapshot, Member, Settlement } from "./types";
 import {
   groupDeletionBlock,
+  isPendingMember,
   memberRemovalBlock,
   memberLabel,
   membersInBalances,
@@ -159,6 +160,23 @@ describe("parseMemberEmail", () => {
   it("ignores the Member whose email is being changed", () => {
     const flat = group({ members: [member("mem_ana", { name: "Ana Silva", email: "ana@example.com" })] });
     expect(parseMemberEmail("ana@example.com", flat, "mem_ana")).toEqual({ ok: true, value: "ana@example.com" });
+  });
+});
+
+describe("isPendingMember", () => {
+  it("is a current Member with an email and no User yet", () => {
+    expect(isPendingMember(member("dev", { email: "dev@example.com" }))).toBe(true);
+  });
+
+  it("isn't a Name-only, Linked or Former Member", () => {
+    expect(isPendingMember(member("ana"))).toBe(false);
+    expect(isPendingMember(member("sam", { email: "sam@example.com", userId: "usr_sam" }))).toBe(false);
+    expect(isPendingMember(member("lee", { email: "lee@example.com", former: true }))).toBe(false);
+  });
+
+  it("reads database rows, where absent values are null", () => {
+    expect(isPendingMember({ email: "dev@example.com", userId: null, former: false })).toBe(true);
+    expect(isPendingMember({ email: null, userId: null, former: false })).toBe(false);
   });
 });
 

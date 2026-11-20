@@ -8,6 +8,8 @@ export type InvitationSignUpResult =
   | { ok: true; email: string; groupId: string }
   | { ok: false; errors: { name?: string; password?: string; form?: string } };
 
+const ALREADY_REGISTERED = "This email is already registered. Sign in instead.";
+
 const text = (record: unknown, key: string): string => {
   const value = typeof record === "object" && record !== null ? (record as Record<string, unknown>)[key] : "";
   return typeof value === "string" ? value : "";
@@ -15,9 +17,10 @@ const text = (record: unknown, key: string): string => {
 
 /**
  * Creates an account for the email an Invitation was sent to (never one the
- * form sends), then uses the Invitation, which verifies that email and
- * claims its Pending Members (ADR 0007). No verification email is sent:
- * the link already proved the inbox. The caller signs the new User in.
+ * form sends) and uses the Invitation, which verifies that email and claims
+ * its Pending Members (ADR 0007), all or nothing: if any step fails, no
+ * account is left behind and the link still works. No verification email is
+ * sent: the link already proved the inbox. The caller signs the new User in.
  */
 export async function signUpByInvitation(
   auth: Pick<Auth, "$context">,
@@ -36,24 +39,21 @@ export async function signUpByInvitation(
   const token = text(input, "token");
   const invitation = await invitations.lookUp(token);
   if (invitation.status !== "valid") return { ok: false, errors: { form: invitationProblem(invitation.status) } };
-  if (invitation.hasAccount)
-    return { ok: false, errors: { form: "This email is already registered. Sign in instead." } };
+  if (invitation.hasAccount) return { ok: false, errors: { form: ALREADY_REGISTERED } };
 
   // Better Auth's sign-up would email a verification link, so create the
-  // account as it does, but without that email.
+  // account as it does (its ids and password hashing), but without that email.
   const context = await auth.$context;
-  const created = await context.internalAdapter.createUser(
-    { email: invitation.email, name, emailVerified: false },
-    { method: "email-password" },
-  );
-  await context.internalAdapter.linkAccount({
-    userId: created.id,
-    providerId: "credential",
-    accountId: created.id,
-    password: await context.password.hash(password),
+  const id = (model: "user" | "account") => context.generateId({ model }) || crypto.randomUUID();
+  const outcome = await invitations.signUp(token, {
+    id: id("user"),
+    accountId: id("account"),
+    name,
+    passwordHash: await context.password.hash(password),
   });
-
-  const accepted = await invitations.accept(token, created);
-  if (!accepted.ok) return { ok: false, errors: { form: invitationProblem(accepted.status) } };
-  return { ok: true, email: invitation.email, groupId: accepted.groupId };
+  if (outcome.ok) return { ok: true, email: invitation.email, groupId: outcome.groupId };
+  return {
+    ok: false,
+    errors: { form: outcome.status === "registered" ? ALREADY_REGISTERED : invitationProblem(outcome.status) },
+  };
 }

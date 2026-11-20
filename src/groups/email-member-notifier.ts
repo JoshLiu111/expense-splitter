@@ -9,13 +9,13 @@ function appOrigin(): string {
 
 /** Emails the people a signed-in User adds to a Group, on that User's behalf. */
 export function emailMemberNotifier(inviter: { name: string }): MemberNotifier {
+  const inviterName = inviter.name;
   return {
-    inviterName: inviter.name,
-    async invited({ groupName, email, inviterName, token }) {
+    async invited({ groupName, email, token }) {
       const url = new URL(`/invite/${encodeURIComponent(token)}`, appOrigin()).toString();
       await sendEmail(invitationEmail({ to: email, groupName, inviterName }, url));
     },
-    async added({ groupId, groupName, email, inviterName }) {
+    async added({ groupId, groupName, email }) {
       // Signed out, the Group's page sends them through sign-in and back (return-to).
       const url = new URL(`/groups/${encodeURIComponent(groupId)}`, appOrigin()).toString();
       await sendEmail(addedToGroupEmail({ to: email, groupName, inviterName }, url));

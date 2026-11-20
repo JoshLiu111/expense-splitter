@@ -19,6 +19,7 @@ import {
   updateGroupDetails,
   type AddMemberResult,
   type ManageResult,
+  type SetMemberEmailResult,
 } from "@/groups/manage-group";
 import { emailMemberNotifier } from "@/groups/email-member-notifier";
 import { userGroupRepository } from "@/groups/user-groups";
@@ -75,7 +76,11 @@ export async function addUserMember(groupId: string, fields: unknown): Promise<A
   return result;
 }
 
-export async function setUserMemberEmail(groupId: string, memberId: string, email: unknown): Promise<ManageResult> {
+export async function setUserMemberEmail(
+  groupId: string,
+  memberId: string,
+  email: unknown,
+): Promise<SetMemberEmailResult> {
   const user = await requireUser(`/groups/${groupId}`);
   if (typeof groupId !== "string" || typeof memberId !== "string") return INVALID;
   const result = await setMemberEmail(userGroupRepository(user), groupId, memberId, email, emailMemberNotifier(user));

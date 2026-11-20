@@ -6,6 +6,7 @@ import {
   createPostgresGroupRepository,
   type GroupUser,
 } from "@/groups/postgres-group-repository";
+import { failClaiming } from "@/test/fail-claiming";
 import { createInvitations } from "./invitations";
 
 const url = process.env.TEST_DATABASE_URL;
@@ -177,6 +178,20 @@ describe.skipIf(!url)("Invitations", () => {
       expect(await createInvitations(db, now).accept(token, dev)).toEqual({ ok: false, status: "expired" });
       expect(await createPostgresGroupRepository(db, dev).listGroups()).toEqual([]);
       clock = issued;
+    });
+
+    it("uses nothing up when claiming fails, so the link still works afterwards", async () => {
+      const { group, pending, token, email } = await anInvitation();
+      const dev = await aUser({ email });
+      const invitations = createInvitations(db, now);
+      const restore = await failClaiming(db, pending.id);
+
+      await expect(invitations.accept(token, dev)).rejects.toThrow();
+      await restore();
+
+      expect(await invitations.lookUp(token)).toMatchObject({ status: "valid" });
+      expect(await invitations.accept(token, dev)).toEqual({ ok: true, groupId: group.id });
+      expect((await createPostgresGroupRepository(db, dev).listGroups()).map((g) => g.id)).toEqual([group.id]);
     });
 
     it("works only once", async () => {

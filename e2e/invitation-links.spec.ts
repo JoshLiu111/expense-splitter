@@ -55,7 +55,7 @@ test("resending an Invitation makes only the newest link work", async ({ page })
   await expect(members(page)).toContainText(`${devEmail} · Pending`);
   await expect(members(page)).toContainText("Invitation sent");
 
-  await page.getByRole("button", { name: "Resend invitation to Dev" }).click();
+  await page.getByRole("button", { name: "Resend Invitation to Dev" }).click();
   await expect(page.getByText(`Sent Dev a new Invitation at ${devEmail}.`)).toBeVisible();
   const second = await linkInEmail(devEmail, /^Maya Chen invited you to Flat 3B/);
   expect(second).not.toBe(first);

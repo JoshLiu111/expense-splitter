@@ -18,13 +18,21 @@ import {
   type Member,
   type NewGroupFields,
 } from "@/domain";
-import type { AddMemberResult, ManageResult, NewMemberFields } from "@/groups/manage-group";
+import type {
+  AddMemberResult,
+  ManageResult,
+  NewMemberFields,
+  SetMemberEmailResult,
+} from "@/groups/manage-group";
 import { attempt } from "@/components/attempt";
 import { ErrorSummary, Field } from "@/components/form";
 import { MemberAvatar } from "@/components/member-avatar";
 import { Button } from "@/components/ui/button";
 
 type Failure = Extract<ManageResult, { ok: false }>;
+
+/** How news after an action reads: a plain confirmation, or a `warning` that part of it didn't happen. */
+export type NewsTone = "warning";
 
 const dialogClass =
   "fixed top-1/2 left-1/2 z-50 max-h-[92dvh] w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-lg border border-border bg-surface p-6 shadow-lg outline-none";
@@ -185,10 +193,10 @@ export function MembersSection({
   group: GroupSnapshot;
   headingRef: RefObject<HTMLHeadingElement | null>;
   onAdd: (fields: NewMemberFields) => Promise<AddMemberResult>;
-  onSetEmail?: (memberId: string, email: string) => Promise<ManageResult>;
+  onSetEmail?: (memberId: string, email: string) => Promise<SetMemberEmailResult>;
   onResendInvitation?: (memberId: string) => Promise<ManageResult>;
   onRemove: (memberId: string) => Promise<ManageResult>;
-  onNews: (news: string) => void;
+  onNews: (news: string, tone?: NewsTone) => void;
 }) {
   const current = currentMembers(group);
   const former = group.members.filter((m) => m.former);
@@ -202,6 +210,12 @@ export function MembersSection({
     else setRowError(result.errors.form ?? `Couldn't remove ${member.name}.`);
     // The Remove button that opened the dialog may be gone, so land here.
     headingRef.current?.focus();
+  }
+
+  /** Says what was done, and at once if the Invitation it was due wasn't sent. */
+  function told(done: string, invitationSent: boolean | undefined) {
+    if (invitationSent === false) onNews(`${done} Their Invitation wasn't sent; use Resend to try again.`, "warning");
+    else onNews(done);
   }
 
   async function resend(member: Member) {
@@ -258,7 +272,7 @@ export function MembersSection({
                   <MemberEmailDialog
                     member={member}
                     onSave={(email) => onSetEmail(member.id, email)}
-                    onSaved={(email) => onNews(`Saved ${email} for ${member.name}.`)}
+                    onSaved={(email, invitationSent) => told(`Saved ${email} for ${member.name}.`, invitationSent)}
                   />
                 )}
                 {block ? (
@@ -274,7 +288,7 @@ export function MembersSection({
       <AddMemberForm
         byEmail={onSetEmail !== undefined}
         onAdd={onAdd}
-        onAdded={(name) => onNews(`Added ${name}.`)}
+        onAdded={(name, invitationSent) => told(`Added ${name}.`, invitationSent)}
       />
       {former.length > 0 && (
         <div className="mt-4">
@@ -313,7 +327,7 @@ function InvitationState({
     <Button
       variant="quiet"
       className="-ml-3 text-sm"
-      aria-label={`${label === "Resend" ? "Resend invitation" : label} to ${member.name}`}
+      aria-label={`Resend Invitation to ${member.name}`}
       disabled={sending}
       onClick={onResend}
     >
@@ -323,7 +337,7 @@ function InvitationState({
   return member.invitationSent ? (
     <span className="flex flex-wrap items-center gap-x-3 text-sm text-text-secondary">
       <span>Invitation sent</span>
-      {button("Resend invitation")}
+      {button("Resend Invitation")}
     </span>
   ) : (
     <span className="flex flex-wrap items-center gap-x-3 text-sm">
@@ -375,7 +389,8 @@ function AddMemberForm({
   /** Offer an email field, to add a Linked or Pending Member. */
   byEmail: boolean;
   onAdd: (fields: NewMemberFields) => Promise<AddMemberResult>;
-  onAdded: (name: string) => void;
+  /** With whether the Invitation the new Member was due was sent, if one was. */
+  onAdded: (name: string, invitationSent: boolean | undefined) => void;
 }) {
   const [fields, setFields] = useState<NewMemberFields>({ name: "", email: "" });
   const [errors, setErrors] = useState<Failure["errors"]>();
@@ -389,7 +404,7 @@ function AddMemberForm({
     startTransition(async () => {
       const result = await attempt(() => onAdd(fields));
       if (result.ok) {
-        onAdded(result.name);
+        onAdded(result.name, result.invitationSent);
         setFields({ name: "", email: "" });
         setErrors(undefined);
       } else {
@@ -461,8 +476,8 @@ function MemberEmailDialog({
   onSaved,
 }: {
   member: Member;
-  onSave: (email: string) => Promise<ManageResult>;
-  onSaved: (email: string) => void;
+  onSave: (email: string) => Promise<SetMemberEmailResult>;
+  onSaved: (email: string, invitationSent: boolean | undefined) => void;
 }) {
   const [open, setOpen] = useState(false);
   const [email, setEmail] = useState(member.email ?? "");
@@ -477,7 +492,7 @@ function MemberEmailDialog({
       const result = await attempt(() => onSave(email));
       if (result.ok) {
         setOpen(false);
-        onSaved(email.trim().toLowerCase());
+        onSaved(email.trim().toLowerCase(), result.invitationSent);
       } else setError(result.errors.email ?? result.errors.form ?? "Couldn't save the email.");
     });
   }

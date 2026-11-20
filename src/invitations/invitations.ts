@@ -1,16 +1,11 @@
 import { and, eq, isNull, max, sql } from "drizzle-orm";
-import type { Database } from "@/db/client";
-import { groups, invitations, members, user } from "@/db/schema";
+import type { Database, Transaction } from "@/db/client";
+import { account, groups, invitations, members, user } from "@/db/schema";
 import { claimPendingMembers } from "@/groups/postgres-group-repository";
 import { hashInvitationToken } from "./invitation-token";
+import { invitationStatus, type InvitationStatus } from "./invitation-status";
 
-/**
- * Why an Invitation's link does or doesn't work: `superseded` by a newer
- * Invitation to the same Pending Member, `revoked` because the Pending
- * Member was removed (or given another email), `used` once it or another
- * way of verifying the email has claimed the Pending Member.
- */
-export type InvitationStatus = "valid" | "expired" | "superseded" | "revoked" | "used" | "unknown";
+export type { InvitationStatus } from "./invitation-status";
 
 /** What an Invitation's link leads to. */
 export type InvitationLookup =
@@ -37,18 +32,44 @@ export type AcceptInvitationResult =
   | { ok: true; groupId: string }
   | { ok: false; status: Exclude<InvitationStatus, "valid"> | "wrong-email" };
 
+/** The account to create for someone signing up through an Invitation. */
+export interface NewInvitedUser {
+  id: string;
+  /** The id of the credential account holding their password. */
+  accountId: string;
+  name: string;
+  passwordHash: string;
+}
+
+/** What signing up through an Invitation does: `registered` if the email already has an account. */
+export type InvitationSignUpOutcome = AcceptInvitationResult | { ok: false; status: "registered" };
+
+/** Undoes a sign-up whose Invitation couldn't be used, carrying why. */
+class Unused extends Error {
+  constructor(readonly result: Extract<AcceptInvitationResult, { ok: false }>) {
+    super(`Invitation not used: ${result.status}`);
+  }
+}
+
+/** Whether Postgres refused a write because a unique value was taken. */
+function isUniqueViolation(error: unknown): boolean {
+  for (let e: unknown = error; typeof e === "object" && e !== null; e = (e as { cause?: unknown }).cause)
+    if ((e as { code?: unknown }).code === "23505") return true;
+  return false;
+}
+
 /**
  * Invitations (ADR 0007): the one-time links emailed to Pending Members.
  * `now` is the clock they expire by.
  */
 export function createInvitations(db: Database, now: () => Date = () => new Date()) {
-  async function find(token: string) {
+  async function find(token: string, executor: Database | Transaction = db) {
     const latest = db
       .select({ memberId: invitations.memberId, seq: max(invitations.seq).as("latest_seq") })
       .from(invitations)
       .groupBy(invitations.memberId)
       .as("latest");
-    const [row] = await db
+    const [row] = await executor
       .select({
         id: invitations.id,
         email: invitations.email,
@@ -68,17 +89,7 @@ export function createInvitations(db: Database, now: () => Date = () => new Date
       .innerJoin(latest, eq(latest.memberId, invitations.memberId))
       .where(eq(invitations.tokenHash, hashInvitationToken(token)));
     if (!row) return null;
-    const status: InvitationStatus = row.usedAt
-      ? "used"
-      : row.former || row.memberEmail?.toLowerCase() !== row.email
-        ? "revoked"
-        : row.memberUserId
-          ? "used"
-          : row.seq !== row.latestSeq
-            ? "superseded"
-            : now().getTime() >= row.expiresAt.getTime()
-              ? "expired"
-              : "valid";
+    const status = invitationStatus(row, now());
     return { ...row, status };
   }
 
@@ -94,7 +105,7 @@ export function createInvitations(db: Database, now: () => Date = () => new Date
           ...(found.memberUserId ? { claimedBy: found.memberUserId } : {}),
         };
       if (found.status !== "valid") return { status: found.status, groupId: found.groupId };
-      const [account] = await db
+      const [existing] = await db
         .select({ id: user.id })
         .from(user)
         .where(eq(sql`lower(${user.email})`, found.email));
@@ -103,7 +114,7 @@ export function createInvitations(db: Database, now: () => Date = () => new Date
         email: found.email,
         groupId: found.groupId,
         groupName: found.groupName,
-        hasAccount: account !== undefined,
+        hasAccount: existing !== undefined,
       };
     },
 
@@ -113,26 +124,71 @@ export function createInvitations(db: Database, now: () => Date = () => new Date
      * now verified (ADR 0007) and, as verifying does, claims every Pending
      * Member with it. Answers the Group to take them to.
      */
-    async accept(token: string, account: { id: string; email: string }): Promise<AcceptInvitationResult> {
-      const found = await find(token);
-      if (!found) return { ok: false, status: "unknown" };
-      if (found.status !== "valid") return { ok: false, status: found.status };
-      if (account.email.toLowerCase() !== found.email) return { ok: false, status: "wrong-email" };
-      const used = await db.transaction(async (tx) => {
-        const rows = await tx
-          .update(invitations)
-          .set({ usedAt: now() })
-          .where(and(eq(invitations.id, found.id), isNull(invitations.usedAt)))
-          .returning({ id: invitations.id });
-        if (rows.length === 0) return false;
-        await tx.update(user).set({ emailVerified: true }).where(eq(user.id, account.id));
-        return true;
-      });
-      if (!used) return { ok: false, status: "used" };
-      await claimPendingMembers(db, account);
-      return { ok: true, groupId: found.groupId };
+    async accept(token: string, holder: { id: string; email: string }): Promise<AcceptInvitationResult> {
+      return db.transaction((tx) => acceptIn(tx, token, holder));
+    },
+
+    /**
+     * Creates an account, with a credential password, for the email the
+     * Invitation was sent to, and uses the Invitation for it, all at once:
+     * if any step fails nothing is kept and the link still works. Answers
+     * `registered` if that email has an account, even one created a moment
+     * ago by a concurrent sign-up.
+     */
+    async signUp(token: string, newUser: NewInvitedUser): Promise<InvitationSignUpOutcome> {
+      try {
+        return await db.transaction(async (tx) => {
+          const found = await find(token, tx);
+          if (found?.status !== "valid") return { ok: false, status: found?.status ?? "unknown" };
+          const [created] = await tx
+            .insert(user)
+            .values({ id: newUser.id, name: newUser.name, email: found.email, emailVerified: false })
+            .returning({ id: user.id, email: user.email });
+          await tx.insert(account).values({
+            id: newUser.accountId,
+            userId: created.id,
+            accountId: created.id,
+            providerId: "credential",
+            password: newUser.passwordHash,
+          });
+          const used = await acceptIn(tx, token, created);
+          // Nothing of the account is kept if the Invitation can't be used.
+          if (!used.ok) throw new Unused(used);
+          return used;
+        });
+      } catch (error) {
+        if (error instanceof Unused) return error.result;
+        if (isUniqueViolation(error)) return { ok: false, status: "registered" };
+        throw error;
+      }
     },
   };
+
+  /**
+   * Uses the Invitation in `tx` for `holder`: marks it used, verifies the
+   * email and claims its Pending Members, so a failure in any step undoes
+   * all of them and leaves the link working. Marking it used only while
+   * unused makes a second, concurrent use wait for the first, then fail.
+   */
+  async function acceptIn(
+    tx: Transaction,
+    token: string,
+    holder: { id: string; email: string },
+  ): Promise<AcceptInvitationResult> {
+    const found = await find(token, tx);
+    if (!found) return { ok: false, status: "unknown" };
+    if (found.status !== "valid") return { ok: false, status: found.status };
+    if (holder.email.toLowerCase() !== found.email) return { ok: false, status: "wrong-email" };
+    const used = await tx
+      .update(invitations)
+      .set({ usedAt: now() })
+      .where(and(eq(invitations.id, found.id), isNull(invitations.usedAt)))
+      .returning({ id: invitations.id });
+    if (used.length === 0) return { ok: false, status: "used" };
+    await tx.update(user).set({ emailVerified: true }).where(eq(user.id, holder.id));
+    await claimPendingMembers(tx, holder);
+    return { ok: true, groupId: found.groupId };
+  }
 }
 
 export type Invitations = ReturnType<typeof createInvitations>;
