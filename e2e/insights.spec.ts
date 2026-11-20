@@ -101,6 +101,27 @@ test("S2: Expenses and Insights are two views over one set of filters", async ({
   await expect(timeline(page)).toHaveCount(12);
 });
 
+test("Insights lists no per-currency subtotals when every Expense is in the Group Currency", async ({ page }) => {
+  await page.goto("/guest/groups/grp_apt_4b");
+  await tab(page, "Insights").click();
+  await expect(insights(page).getByRole("list", { name: "Spending by Category" })).toBeVisible();
+  await expect(insights(page).getByRole("list", { name: "Spent per currency" })).toHaveCount(0);
+});
+
+test("Insights' per-currency subtotals follow the filters", async ({ page }) => {
+  await page.goto("/guest/groups/grp_japan_2024");
+  await tab(page, "Insights").click();
+  const spent = insights(page).getByRole("list", { name: "Spent per currency" });
+  await expect(spent).toContainText("Spent in JPY: ¥359,860");
+
+  // 15 March has only the JR Pass, paid in dollars.
+  await page.getByRole("button", { name: "Filter" }).click();
+  await field(page, "From date").fill("2024-03-15");
+  await field(page, "To date").fill("2024-03-15");
+  await expect(page.getByText("Showing 1 matching Expense of 13.")).toBeVisible();
+  await expect(spent).toHaveCount(0);
+});
+
 test("S2: charts load with text alternatives", async ({ page }) => {
   await page.goto("/guest/groups/grp_apt_4b");
   await tab(page, "Insights").click();
@@ -294,26 +315,30 @@ test.describe("with reduced motion", () => {
           "aria-pressed",
           "true",
         );
-        const labels = await settleUp(page)
-          .locator("svg[role=img] [data-edge]")
-          .evaluateAll((edges) =>
-            edges
-              .filter((edge) => (edge as SVGGElement).style.opacity === "1")
-              .map((edge) => {
-                const text = edge.querySelector("text")!;
-                const { left, right, top, bottom } = text.getBoundingClientRect();
-                const px = text.getScreenCTM()!.a * Number(text.getAttribute("font-size"));
-                return { left, right, top, bottom, px };
-              }),
-          );
-        expect(labels.length, `${id} ${phase}`).toBeGreaterThan(0);
-        labels.forEach((a, i) => {
-          expect(a.px, `${id} ${phase} font size`).toBeGreaterThanOrEqual(11);
-          for (const b of labels.slice(i + 1)) {
-            const apart = a.right <= b.left || b.right <= a.left || a.bottom <= b.top || b.bottom <= a.top;
-            expect(apart, `${id} ${phase} labels overlap`).toBe(true);
-          }
-        });
+        // A ResizeObserver rescales the graph after it first renders, so measure until the rescale lands.
+        // The time limit keeps a real failure quick and naming its Group and phase.
+        await expect(async () => {
+          const labels = await settleUp(page)
+            .locator("svg[role=img] [data-edge]")
+            .evaluateAll((edges) =>
+              edges
+                .filter((edge) => (edge as SVGGElement).style.opacity === "1")
+                .map((edge) => {
+                  const text = edge.querySelector("text")!;
+                  const { left, right, top, bottom } = text.getBoundingClientRect();
+                  const px = text.getScreenCTM()!.a * Number(text.getAttribute("font-size"));
+                  return { left, right, top, bottom, px };
+                }),
+            );
+          expect(labels.length, `${id} ${phase}`).toBeGreaterThan(0);
+          labels.forEach((a, i) => {
+            expect(a.px, `${id} ${phase} font size`).toBeGreaterThanOrEqual(11);
+            for (const b of labels.slice(i + 1)) {
+              const apart = a.right <= b.left || b.right <= a.left || a.bottom <= b.top || b.bottom <= a.top;
+              expect(apart, `${id} ${phase} labels overlap`).toBe(true);
+            }
+          });
+        }).toPass({ timeout: 5_000 });
       }
     }
   });

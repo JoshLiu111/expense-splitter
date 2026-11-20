@@ -153,7 +153,8 @@ export function ExpenseFilters({
 }
 
 /**
- * Where the (filtered) money went: each Category's total and percentage,
+ * Where the (filtered) money went: what was spent in each Expense Currency
+ * (when any differs from the Group Currency), each Category's total and percentage,
  * then charts of Category share, spending over time and Balance per Member.
  */
 export function SpendingInsights({
@@ -178,6 +179,22 @@ export function SpendingInsights({
           <span className="amount text-text-primary">{money(insights.total)}</span> across{" "}
           {filtering ? pluralize(insights.expenses.length, "matching expense") : pluralize(insights.expenses.length, "expense")}
         </p>
+        {insights.byCurrency.some((s) => s.currency !== group.currency) && (
+          <ul aria-label="Spent per currency" className="mt-1 flex flex-wrap gap-x-4 text-sm text-text-secondary">
+            {insights.byCurrency.map((subtotal) => (
+              <li key={subtotal.currency}>
+                Spent in {subtotal.currency}:{" "}
+                <span className="amount text-text-primary">{formatMoney(subtotal.amount, subtotal.currency)}</span>
+                {subtotal.currency !== group.currency && (
+                  <>
+                    {" "}
+                    ≈ <span className="amount">{money(subtotal.groupAmount)}</span>
+                  </>
+                )}
+              </li>
+            ))}
+          </ul>
+        )}
         {insights.breakdown.length === 0 ? (
           <p className="mt-2 text-text-secondary">No Expenses to break down.</p>
         ) : (

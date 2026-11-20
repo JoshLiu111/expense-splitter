@@ -1,4 +1,4 @@
-/** A Storage kept in memory, standing in for sessionStorage in tests. */
+/** A Storage kept in memory: sessionStorage in tests, and a scratch copy of a Group in the browser. */
 export function memoryStorage(): Storage {
   const items = new Map<string, string>();
   return {

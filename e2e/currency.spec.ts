@@ -34,6 +34,14 @@ test("S2: a Guest records a yen Expense at today's rate, overrides it, and re-lo
   await expect(row(page, "Ryokan")).not.toContainText("1 JPY");
   await expect(page.getByTestId("balance-mem_olivia")).toContainText("gets back $420.00");
 
+  // Insights subtotals each currency; only the yen one is converted.
+  await page.getByRole("tab", { name: "Insights" }).click();
+  const spent = page.getByRole("list", { name: "Spent per currency" }).getByRole("listitem");
+  await expect(spent).toHaveCount(2);
+  await expect(spent.first()).toHaveText(/^Spent in USD: \$[\d,]+\.\d\d$/);
+  await expect(spent.last()).toHaveText("Spent in JPY: ¥84,000 ≈ $560.00");
+  await page.getByRole("tab", { name: "Expenses" }).click();
+
   // A manual rate, to match a card statement.
   await page.getByRole("button", { name: "Ryokan", exact: true }).click();
   await field(page, "Exchange rate (USD per 1 JPY)").fill("0.0067");

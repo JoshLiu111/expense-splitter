@@ -46,8 +46,9 @@ pnpm-debug.log*
 .DS_Store
 Thumbs.db
 
-# Claude Code local settings
+# Claude Code local settings and agent worktrees
 .claude/settings.local.json
+.claude/worktrees/
 
 # Misc
 *.pem

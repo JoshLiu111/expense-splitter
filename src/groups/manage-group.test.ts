@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createSessionStorageRepository } from "@/guest/guest-repository";
-import { memoryStorage } from "@/test/memory-storage";
+import { memoryStorage } from "@/lib/memory-storage";
 import type { GroupRepository } from "./group-repository";
 import {
   addMember,

@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import { requireUser } from "@/auth/session";
-import { GroupDetail } from "@/components/group-detail";
+import { LiveGroupDetail } from "@/components/live-group-detail";
 import { userGroupRepository } from "@/groups/user-groups";
 import {
   clearUserSmallChange,
@@ -33,7 +33,7 @@ async function UserGroup({ params }: Pick<PageProps<"/groups/[groupId]">, "param
   if (!group) notFound();
   const me = group.members.find((m) => m.userId === user.id);
   return (
-    <GroupDetail
+    <LiveGroupDetail
       group={group}
       backHref="/dashboard"
       backLabel="All Groups"

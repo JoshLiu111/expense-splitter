@@ -1,5 +1,5 @@
 import { oldestFirst, type Recorded } from "./chronology";
-import { convert, CURRENCY_CODES, exponentOf } from "./currency";
+import { convert, exponentOf } from "./currency";
 import { simplifyDebts, type SuggestedSettlement } from "./settle-up";
 import type {
   CalendarDate,
@@ -42,15 +42,6 @@ export type TimelineEntry =
       settlement: Settlement;
     };
 
-/** What a Group spent in one Expense Currency, e.g. "¥312,000 ≈ $2,090.40". */
-export interface CurrencySubtotal {
-  currency: CurrencyCode;
-  /** In that Expense Currency. */
-  amount: MinorUnits;
-  /** The same Expenses in the Group Currency, at their Locked Rates. */
-  groupAmount: MinorUnits;
-}
-
 export interface Ledger {
   /** One entry per Member, in Group Member order. */
   balances: MemberBalance[];
@@ -61,8 +52,6 @@ export interface Ledger {
   expenseCount: number;
   /** Total of all Expenses in the Group Currency. */
   totalSpent: MinorUnits;
-  /** Spending per Expense Currency used, the Group Currency first. */
-  currencySubtotals: CurrencySubtotal[];
   /**
    * Suggested Settlements from Debt Simplification, in the order found;
    * under one unit of Group Currency only when it involves a Member whose
@@ -93,7 +82,6 @@ export function computeLedger(group: GroupSnapshot): Ledger {
 
   const entries: { entry: TimelineEntry; recorded: Recorded }[] = [];
   let totalSpent = 0;
-  const subtotals = new Map<CurrencyCode, CurrencySubtotal>();
 
   for (const expense of group.expenses) {
     const { lines, groupAmount } = inGroupCurrency(expense, group.currency);
@@ -104,14 +92,6 @@ export function computeLedger(group: GroupSnapshot): Ledger {
     }
     add(expense.payerId, groupAmount);
     totalSpent += groupAmount;
-    const subtotal = subtotals.get(expense.currency) ?? {
-      currency: expense.currency,
-      amount: 0,
-      groupAmount: 0,
-    };
-    subtotal.amount += expense.amount;
-    subtotal.groupAmount += groupAmount;
-    subtotals.set(expense.currency, subtotal);
     entries.push({
       recorded: expense,
       entry: {
@@ -164,9 +144,6 @@ export function computeLedger(group: GroupSnapshot): Ledger {
     timeline: entries.map(({ entry }) => entry),
     expenseCount: group.expenses.length,
     totalSpent,
-    currencySubtotals: [group.currency, ...CURRENCY_CODES]
-      .filter((code, i, codes) => codes.indexOf(code) === i)
-      .flatMap((code) => subtotals.get(code) ?? []),
     suggestions: simplified.filter(suggested),
     smallChange: simplified.filter((p) => !suggested(p)),
   };
