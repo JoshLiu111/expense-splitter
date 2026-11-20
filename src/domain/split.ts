@@ -1,5 +1,5 @@
 import { exponentOf, formatMoney } from "./currency";
-import type { CurrencyCode, MinorUnits, Share, SplitType } from "./types";
+import type { CurrencyCode, Expense, MinorUnits, Share, SplitType } from "./types";
 
 export interface SplitInput {
   /** The Expense amount in the Expense Currency's minor unit. */
@@ -206,6 +206,32 @@ function apportion(amount: MinorUnits, parts: { id: string; weight: number }[]):
     leftover -= 1;
   }
   return lines.map(({ memberId, amount }) => ({ memberId, amount }));
+}
+
+/**
+ * The Members whose Share received a Leftover Cent: more than the floor of
+ * their exact portion, by the weights the Split was computed from (equal, or
+ * the percentages or ratios typed). An Exact Split has none: its Shares were
+ * typed. A Share missing its percentage or ratio is never marked.
+ */
+export function leftoverCentMembers(
+  expense: Pick<Expense, "amount" | "splitType" | "shares">,
+): Set<string> {
+  if (expense.splitType === "exact") return new Set();
+  const weights = expense.shares.map((share) => {
+    if (expense.splitType === "equal") return 1;
+    const typed = expense.splitType === "percentage" ? share.percentage : share.ratio;
+    const parsed = typed === undefined ? null : parseDecimal(typed, 2);
+    return typeof parsed === "number" ? parsed : null;
+  });
+  if (weights.some((w) => w === null)) return new Set();
+  const total = BigInt(weights.reduce<number>((sum, w) => sum + w!, 0));
+  if (total === 0n) return new Set();
+  return new Set(
+    expense.shares
+      .filter((share, i) => BigInt(share.amount) * total > BigInt(expense.amount) * BigInt(weights[i]!))
+      .map((share) => share.memberId),
+  );
 }
 
 /** The live preview of an Equal Split, e.g. "$60.00 split 3 ways = $20.00 each". */

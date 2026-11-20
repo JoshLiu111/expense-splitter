@@ -19,6 +19,7 @@ import {
   type MemberBalance,
 } from "@/domain";
 import { MemberAvatar } from "@/components/member-avatar";
+import { MemberStatementDialog } from "@/components/member-statement";
 import { Button } from "@/components/ui/button";
 import { describeBalance, formatSignedMoney } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -28,7 +29,8 @@ import { cn } from "@/lib/utils";
  * each with its total, so the two sides visibly reconcile. Every side carries
  * a word and an arrow, every figure its sign, and every row a screen-reader
  * sentence, so colour is never the only cue. Members at zero share one
- * "Settled up" line. Collapsed once Settled Up.
+ * "Settled up" line. Collapsed once Settled Up. Every Member listed opens
+ * their Member Statement: a row is one button, as is each settled-up name.
  */
 export function BalancesPanel({
   group,
@@ -127,7 +129,24 @@ export function BalancesPanel({
           <p data-testid="balances-settled-up" className={cn("text-sm text-text-secondary", anyoneOwes && "mt-4")}>
             Settled up:{" "}
             <span className="font-semibold text-text-primary">
-              {even.map((b) => memberLabel(members.get(b.memberId)!)).join(", ")}
+              {even.map((b, i) => {
+                const member = members.get(b.memberId)!;
+                return (
+                  <span key={b.memberId}>
+                    {i > 0 && ", "}
+                    <MemberStatementDialog group={group} member={member} isYou={b.memberId === currentMemberId}>
+                      {/* Text in the sentence, with a 44px hit area that doesn't move the line. */}
+                      <button
+                        type="button"
+                        aria-label={`${memberLabel(member)}, Member Statement`}
+                        className="relative cursor-pointer rounded-sm underline decoration-border-input decoration-1 underline-offset-4 outline-none after:absolute after:-inset-x-1 after:-inset-y-3 hover:text-accent hover:decoration-accent focus-visible:ring-[3px] focus-visible:ring-ring"
+                      >
+                        {memberLabel(member)}
+                      </button>
+                    </MemberStatementDialog>
+                  </span>
+                );
+              })}
             </span>
           </p>
         )}
@@ -148,6 +167,8 @@ export function BalancesPanel({
             </span>
           </p>
         )}
+
+        <p className="mt-2 text-sm text-text-secondary">Select a Member to see their Member Statement.</p>
       </div>
     </section>
   );
@@ -212,9 +233,17 @@ function BalanceRow({
   return (
     <li
       data-testid={`balance-${member.id}`}
-      className="flex flex-wrap items-center gap-x-3 gap-y-1 py-2.5"
+      // The row bleeds 8px past its column so the hover tint clears the avatar and figure.
+      className="relative -mx-2 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-md px-2 py-2.5 transition-colors duration-(--duration-fast) has-[button:hover]:bg-bg-tertiary/60 has-focus-visible:ring-[3px] has-focus-visible:ring-ring has-focus-visible:ring-offset-2 has-focus-visible:ring-offset-surface"
     >
-      <span className="sr-only">{describeBalance(member.name, amount, group.currency)}</span>
+      <MemberStatementDialog group={group} member={member} isYou={isYou}>
+        {/* One button covering the row, so a click or tap anywhere on it opens the Statement. */}
+        <button type="button" className="absolute inset-0 cursor-pointer rounded-md outline-none">
+          <span className="sr-only">
+            {describeBalance(memberLabel(member), amount, group.currency)}. Member Statement
+          </span>
+        </button>
+      </MemberStatementDialog>
       {/* Whole words: a long name pushes the figure onto its own line instead. */}
       <span aria-hidden className="flex min-w-[min(100%,min-content)] flex-[1_1_12rem] items-center gap-3 font-semibold">
         <MemberAvatar member={member} size="sm" />

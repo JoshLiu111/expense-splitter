@@ -203,6 +203,11 @@ test("S2: a Former Member whose Balance reopens shows in Balances and can be set
   const olivia = page.getByTestId("balance-mem_olivia");
   await expect(olivia).toContainText("Olivia Hayes (Former Member)");
   await expect(olivia).toContainText("$18.75");
+  // Her Member Statement itemises the reopened Balance.
+  await olivia.getByRole("button").click();
+  const statement = page.getByRole("dialog", { name: "Olivia Hayes (Former Member)" });
+  await expect(statement.getByTestId("member-statement-balance")).toContainText("Olivia Hayes (Former Member) gets back $18.75");
+  await statement.getByRole("button", { name: "Close" }).click();
   // The Balance chart labels her the same way.
   await page.getByRole("tab", { name: "Insights" }).click();
   await expect(page.getByRole("rowheader", { name: "Olivia Hayes (Former Member)" })).toHaveCount(1);
