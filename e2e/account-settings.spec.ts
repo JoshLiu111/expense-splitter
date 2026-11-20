@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
+import { showSection } from "./group-page";
 
 /** A fresh email per test so runs never collide in the shared database. */
 function uniqueEmail(): string {
@@ -51,6 +52,7 @@ test("a User renames themselves in Account Settings and their Group shows the ne
   await expect(userMenu(page)).toContainText("Maya Rivera");
 
   await page.goto(groupUrl);
+  await showSection(page, "Expenses");
   await expect(page.getByText("Maya Rivera paid in Other")).toBeVisible();
   await expect(page.getByRole("main")).not.toContainText("Maya Chen");
 });

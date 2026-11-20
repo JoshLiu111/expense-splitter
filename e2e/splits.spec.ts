@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
+import { showSection } from "./group-page";
 
 /** A visible form field by label (hidden cached pages can share labels). */
 function field(page: Page, label: string) {
@@ -65,6 +66,7 @@ test("S1: an Exact Split must add up, shows the difference, and allows $0", asyn
   await expect(page.getByTestId("balance-mem_olivia")).toContainText("gets back $30.00");
   await expect(page.getByTestId("balance-mem_ben")).toContainText("owes $15.63");
   // The typed amounts come back on edit.
+  await showSection(page, "Expenses");
   await page.getByRole("button", { name: "Gift wrap", exact: true }).click();
   await expect(page.getByRole("radio", { name: "Exact", exact: true })).toBeChecked();
   await expect(field(page, "Olivia Hayes (USD)")).toHaveValue("20.00");
@@ -119,6 +121,7 @@ test("S1: a 2:1 Shares Split gives the first Member two thirds, and reloads on e
   await expect(page.getByText("Expense added.")).toBeVisible();
 
   await page.reload();
+  await showSection(page, "Expenses");
   await page.getByRole("button", { name: "Candles", exact: true }).click();
   await expect(page.getByRole("radio", { name: "Shares", exact: true })).toBeChecked();
   await expect(field(page, "Olivia Hayes (shares)")).toHaveValue("2");
@@ -127,6 +130,7 @@ test("S1: a 2:1 Shares Split gives the first Member two thirds, and reloads on e
 
 test("a sample Percentage Expense opens with its percentages", async ({ page }) => {
   await page.goto("/guest/groups/grp_office_lunch");
+  await showSection(page, "Expenses");
   await page.getByRole("button", { name: "Sushi lunch", exact: true }).click();
   await expect(page.getByRole("radio", { name: "Percentage", exact: true })).toBeChecked();
   await expect(field(page, "Mia Torres (%)")).toHaveValue("30");

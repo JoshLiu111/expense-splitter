@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
+import { showSection } from "./group-page";
 
 /** A visible form field by label (hidden cached pages can share labels). */
 function field(page: Page, label: string) {
@@ -80,6 +81,7 @@ test("a signed-in User's Balances change within 500ms of each change", async ({ 
   await expect(samBalance(page)).toContainText("owes $15.00");
   await expect(page.getByText("Expense added.")).toBeVisible();
 
+  await showSection(page, "Expenses");
   await expenseRow(page, "Lunch").getByRole("button", { name: "Lunch", exact: true }).click();
   await field(page, "Amount (USD)").fill("50");
   expect(
@@ -132,11 +134,13 @@ test("Balances go back when the server refuses a change shown early", async ({ p
   // Another tab deletes Dinner; this tab still shows it.
   const other = await context.newPage();
   await other.goto(page.url());
+  await showSection(other, "Expenses");
   await expenseRow(other, "Dinner").getByRole("button", { name: "Dinner", exact: true }).click();
   await other.getByRole("button", { name: "Delete Expense" }).click();
   await other.getByRole("alertdialog").getByRole("button", { name: "Delete Expense" }).click();
   await expect(other.getByText("Deleted “Dinner”.")).toBeVisible();
 
+  await showSection(page, "Expenses");
   await expenseRow(page, "Dinner").getByRole("button", { name: "Dinner", exact: true }).click();
   await field(page, "Amount (USD)").fill("40");
   // The early Balance may last only as long as the round-trip, so record every one shown.
