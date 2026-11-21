@@ -66,7 +66,7 @@ const INVALID: Extract<ManageResult, { ok: false }> = { ok: false, errors: { for
 export async function updateUserGroup(groupId: string, fields: unknown): Promise<ManageResult> {
   const user = await requireUser(`/groups/${groupId}`);
   if (typeof groupId !== "string") return INVALID;
-  const result = await updateGroupDetails(userGroupRepository(user), groupId, fields);
+  const result = await updateGroupDetails(userGroupRepository(user), groupId, fields, { userId: user.id });
   if (result.ok) refresh();
   return result;
 }
@@ -74,7 +74,7 @@ export async function updateUserGroup(groupId: string, fields: unknown): Promise
 export async function addUserMember(groupId: string, fields: unknown): Promise<AddMemberResult> {
   const user = await requireUser(`/groups/${groupId}`);
   if (typeof groupId !== "string") return INVALID;
-  const result = await addMember(userGroupRepository(user), groupId, fields, emailMemberNotifier(user));
+  const result = await addMember(userGroupRepository(user), groupId, fields, { userId: user.id }, emailMemberNotifier(user));
   if (result.ok) refresh();
   return result;
 }
@@ -86,7 +86,14 @@ export async function setUserMemberEmail(
 ): Promise<SetMemberEmailResult> {
   const user = await requireUser(`/groups/${groupId}`);
   if (typeof groupId !== "string" || typeof memberId !== "string") return INVALID;
-  const result = await setMemberEmail(userGroupRepository(user), groupId, memberId, email, emailMemberNotifier(user));
+  const result = await setMemberEmail(
+    userGroupRepository(user),
+    groupId,
+    memberId,
+    email,
+    { userId: user.id },
+    emailMemberNotifier(user),
+  );
   if (result.ok) refresh();
   return result;
 }
@@ -94,7 +101,13 @@ export async function setUserMemberEmail(
 export async function resendUserInvitation(groupId: string, memberId: string): Promise<ManageResult> {
   const user = await requireUser(`/groups/${groupId}`);
   if (typeof groupId !== "string" || typeof memberId !== "string") return INVALID;
-  const result = await resendInvitation(userGroupRepository(user), groupId, memberId, emailMemberNotifier(user));
+  const result = await resendInvitation(
+    userGroupRepository(user),
+    groupId,
+    memberId,
+    { userId: user.id },
+    emailMemberNotifier(user),
+  );
   // Refreshed either way: a failed send shows on the Member as not sent.
   refresh();
   return result;
@@ -103,7 +116,7 @@ export async function resendUserInvitation(groupId: string, memberId: string): P
 export async function removeUserMember(groupId: string, memberId: string): Promise<ManageResult> {
   const user = await requireUser(`/groups/${groupId}`);
   if (typeof groupId !== "string" || typeof memberId !== "string") return INVALID;
-  const result = await removeMember(userGroupRepository(user), groupId, memberId);
+  const result = await removeMember(userGroupRepository(user), groupId, memberId, { userId: user.id });
   if (result.ok) refresh();
   return result;
 }
@@ -154,7 +167,7 @@ const INVALID_CATEGORY: CategoryResult = { ok: false, errors: { form: "That requ
 export async function addUserCategory(groupId: string, fields: unknown): Promise<CategoryResult> {
   const user = await requireUser(`/groups/${groupId}`);
   if (typeof groupId !== "string") return INVALID_CATEGORY;
-  const result = await addCategory(userGroupRepository(user), groupId, fields);
+  const result = await addCategory(userGroupRepository(user), groupId, fields, { userId: user.id });
   if (result.ok) refresh();
   return result;
 }
@@ -162,7 +175,7 @@ export async function addUserCategory(groupId: string, fields: unknown): Promise
 export async function renameUserCategory(groupId: string, categoryId: string, fields: unknown): Promise<CategoryResult> {
   const user = await requireUser(`/groups/${groupId}`);
   if (typeof groupId !== "string" || typeof categoryId !== "string") return INVALID_CATEGORY;
-  const result = await renameCategory(userGroupRepository(user), groupId, categoryId, fields);
+  const result = await renameCategory(userGroupRepository(user), groupId, categoryId, fields, { userId: user.id });
   if (result.ok) refresh();
   return result;
 }
@@ -170,7 +183,7 @@ export async function renameUserCategory(groupId: string, categoryId: string, fi
 export async function deleteUserCategory(groupId: string, categoryId: string): Promise<CategoryResult> {
   const user = await requireUser(`/groups/${groupId}`);
   if (typeof groupId !== "string" || typeof categoryId !== "string") return INVALID_CATEGORY;
-  const result = await deleteCategory(userGroupRepository(user), groupId, categoryId);
+  const result = await deleteCategory(userGroupRepository(user), groupId, categoryId, { userId: user.id });
   if (result.ok) refresh();
   return result;
 }

@@ -1,6 +1,7 @@
 import { computeLedger } from "./ledger";
 import { parseNewGroup, type NewGroupFields, type ParseResult } from "./new-group";
 import type { Expense, GroupSnapshot, Member } from "./types";
+import { groupCreatorPhrase, isGroupCreator, type Visitor } from "./visitor";
 
 export const MAX_MEMBER_NAME_LENGTH = 60;
 
@@ -130,16 +131,8 @@ export function memberRemovalBlock(group: GroupSnapshot, memberId: string): stri
  * Why the visitor can't delete the Group, or `null` if they can: only the
  * Group Creator may, and only once the Group is Settled Up.
  */
-export function groupDeletionBlock(
-  group: GroupSnapshot,
-  visitor: { isCreator: boolean },
-): string | null {
-  if (!visitor.isCreator) {
-    const creator = group.members.find((m) => m.userId && m.userId === group.creatorUserId);
-    return creator
-      ? `Only the Group Creator, ${creator.name}, can delete this Group.`
-      : "Only the Group Creator can delete this Group.";
-  }
+export function groupDeletionBlock(group: GroupSnapshot, visitor: Visitor): string | null {
+  if (!isGroupCreator(group, visitor)) return `Only ${groupCreatorPhrase(group)} can delete this Group.`;
   if (!computeLedger(group).settledUp)
     return "Everyone must be Settled Up before this Group can be deleted.";
   return null;

@@ -84,11 +84,13 @@ export {
   EDITING_MODES,
   editingModeBlock,
   editingModeOf,
+  groupManagementBlock,
   isEditingMode,
-  isGroupCreator,
   recordChangeBlock,
 } from "./editing-mode";
-export type { EditingMode, RecordAction, Visitor } from "./editing-mode";
+export type { EditingMode, ManagementAction, RecordAction } from "./editing-mode";
+export { isGroupCreator } from "./visitor";
+export type { Visitor } from "./visitor";
 export { memberStatement } from "./member-statement";
 export type { MemberStatement, StatementLine } from "./member-statement";
 export { groupCsv, groupCsvFileName } from "./group-csv";

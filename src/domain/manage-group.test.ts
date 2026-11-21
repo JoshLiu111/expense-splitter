@@ -264,7 +264,8 @@ describe("membersInBalances", () => {
       expenses: [expense("mem_ana", [["mem_ben", 500]])],
     });
     expect(membersInBalances(reopened).map((m) => m.id)).toEqual(["mem_ana", "mem_ben"]);
-    expect(groupDeletionBlock(reopened, { isCreator: true })).toBe(
+    // The Guest is Group Creator of their session Groups.
+    expect(groupDeletionBlock(reopened, { userId: undefined })).toBe(
       "Everyone must be Settled Up before this Group can be deleted.",
     );
   });
@@ -283,25 +284,30 @@ describe("memberLabel", () => {
 describe("groupDeletionBlock", () => {
   const maya = member("mem_maya", { name: "Maya Lee", userId: "usr_maya" });
   const owned = (overrides: Partial<GroupSnapshot> = {}) =>
-    group({ creatorUserId: "usr_maya", members: [maya, member("mem_ben")], ...overrides });
+    group({ creatorUserId: "usr_maya", members: [maya, member("mem_ben", { userId: "usr_ben" })], ...overrides });
+  const asMaya = { userId: "usr_maya" };
+  const asBen = { userId: "usr_ben" };
 
   it("lets the Group Creator delete a Settled Up Group", () => {
     const settled = owned({
       expenses: [expense("mem_maya", [["mem_ben", 500]])],
       settlements: [settlement("mem_ben", "mem_maya", 500)],
     });
-    expect(groupDeletionBlock(settled, { isCreator: true })).toBeNull();
+    expect(groupDeletionBlock(settled, asMaya)).toBeNull();
   });
 
   it("names the Group Creator to anyone else", () => {
-    expect(groupDeletionBlock(owned(), { isCreator: false })).toBe(
-      "Only the Group Creator, Maya Lee, can delete this Group.",
-    );
+    expect(groupDeletionBlock(owned(), asBen)).toBe("Only the Group Creator, Maya Lee, can delete this Group.");
+  });
+
+  it("just says the Group Creator when none of the Members is theirs", () => {
+    const orphaned = owned({ creatorUserId: "usr_gone" });
+    expect(groupDeletionBlock(orphaned, asBen)).toBe("Only the Group Creator can delete this Group.");
   });
 
   it("keeps a Group that isn't Settled Up, even for its Group Creator", () => {
     const owing = owned({ expenses: [expense("mem_maya", [["mem_ben", 500]])] });
-    expect(groupDeletionBlock(owing, { isCreator: true })).toBe(
+    expect(groupDeletionBlock(owing, asMaya)).toBe(
       "Everyone must be Settled Up before this Group can be deleted.",
     );
   });

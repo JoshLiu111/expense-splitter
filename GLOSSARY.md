@@ -30,7 +30,7 @@ A Member added by an email that no User has yet (or a Name-only Member given one
 _Avoid_: Invitee, invited user
 
 **Invitation**:
-A one-time link emailed to a Pending Member that lets its holder sign up (or sign in) as that email, which counts as verifying it, and claim every Pending Member with that email (ADR 0007). It names the Group and who sent it, and works for 7 days; only a Pending Member's latest Invitation works, and it stops working once used or once the Pending Member is removed or claimed. A Member can resend it, which sends a new Invitation and stops the older link working; Group settings show whether a Pending Member's latest Invitation was sent, and adding a Member or giving one an email says at once if their Invitation wasn't. A link that no longer works explains why, except that a used one takes the User who used it back into the Group.
+A one-time link emailed to a Pending Member that lets its holder sign up (or sign in) as that email, which counts as verifying it, and claim every Pending Member with that email (ADR 0007). It names the Group and who sent it, and works for 7 days; only a Pending Member's latest Invitation works, and it stops working once used or once the Pending Member is removed or claimed. A Member can resend it (in Own Records Only, only the Group Creator), which sends a new Invitation and stops the older link working; Group settings show whether a Pending Member's latest Invitation was sent, and adding a Member or giving one an email says at once if their Invitation wasn't. A link that no longer works explains why, except that a used one takes the User who used it back into the Group.
 _Avoid_: Invite code, share link
 
 **Former Member**:
@@ -38,11 +38,11 @@ A Member removed from a Group at zero Balance; no longer selectable for new Expe
 _Avoid_: Deleted member, ex-member
 
 **Group Creator**:
-The User who created the Group; the only one allowed to delete it or change its Editing Mode, and in Own Records Only the only one who may edit or delete every Expense and Settlement. A Guest is the Group Creator of every session Group. Otherwise all Linked Members have equal editing rights.
+The User who created the Group; the only one allowed to delete it or change its Editing Mode. In Own Records Only, also the only one who may edit or delete every Expense and Settlement, and who manages the Group: adds, removes, invites or resends to Members, gives a Member an email, renames or describes the Group, and adds, renames or deletes Custom Categories. A Guest is the Group Creator of every session Group. Otherwise all Linked Members have equal editing rights.
 _Avoid_: Owner, admin
 
 **Editing Mode**:
-Who may edit or delete a Group's Expenses and Settlements: Open (any Member, the default) or Own Records Only (only their Recorder or the Group Creator; one with no Recorder, only the Group Creator). Adding them is never restricted. Every Member can see it; only the Group Creator can change it (ADR 0008).
+Who may edit or delete a Group's Expenses and Settlements, and manage the Group: Open (any Member, the default) or Own Records Only (a record only by its Recorder or the Group Creator; one with no Recorder, and the Group's details, Members and Custom Categories, only by the Group Creator). Adding Expenses and Settlements is never restricted. Every Member can see it; only the Group Creator can change it (ADR 0008).
 _Avoid_: Permissions, lock, edit policy
 
 ### Expenses and splits
@@ -74,7 +74,7 @@ _Avoid_: Author, creator, owner (and do not confuse with the Payer, who paid)
 A label on an Expense: one of the nine predefined Categories shared by all Groups, or a Custom Category.
 
 **Custom Category**:
-A Category created within one Group and visible only there.
+A Category created within one Group and visible only there. Any Member adds, renames or deletes one, except in Own Records Only, where only the Group Creator does.
 _Avoid_: Tag, label
 
 **Leftover Cent**:

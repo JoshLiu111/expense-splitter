@@ -43,14 +43,18 @@ const dangerClass = "bg-error text-white hover:bg-error/90";
 
 /**
  * Edit a Group's name, description and Group Currency. The Group Currency is
- * locked, with the reason shown, once anything has been recorded.
+ * locked, with the reason shown, once anything has been recorded. With a
+ * `block`, the details are shown read-only with the reason.
  */
 export function GroupDetailsSection({
   group,
+  block,
   onSave,
   onSaved,
 }: {
   group: GroupSnapshot;
+  /** Why the visitor can't change the Group's details, or `null`. */
+  block: string | null;
   onSave: (fields: NewGroupFields) => Promise<ManageResult>;
   onSaved: () => void;
 }) {
@@ -59,19 +63,27 @@ export function GroupDetailsSection({
       <h2 id="details-heading" className="text-lg font-bold">
         Details
       </h2>
+      <SectionBlock block={block} />
       <div className="mt-3">
-        <GroupDetailsForm group={group} onSave={onSave} onSaved={onSaved} />
+        <GroupDetailsForm group={group} block={block} onSave={onSave} onSaved={onSaved} />
       </div>
     </section>
   );
 }
 
+/** Why the visitor can't use a section's controls, under its heading. */
+export function SectionBlock({ block }: { block: string | null }) {
+  return block && <p className="mt-1 text-sm text-text-secondary">{block}</p>;
+}
+
 function GroupDetailsForm({
   group,
+  block,
   onSave,
   onSaved,
 }: {
   group: GroupSnapshot;
+  block: string | null;
   onSave: (fields: NewGroupFields) => Promise<ManageResult>;
   onSaved: () => void;
 }) {
@@ -104,65 +116,69 @@ function GroupDetailsForm({
   }
 
   return (
-    <form onSubmit={submit} noValidate className="flex flex-col gap-5">
-      <ErrorSummary errors={errors} fieldIds={ids} />
-      <Field id={ids.name} label="Name" error={errors?.name}>
-        {(describedBy, className) => (
-          <input
-            id={ids.name}
-            required
-            maxLength={MAX_GROUP_NAME_LENGTH}
-            value={fields.name}
-            onChange={(e) => set("name", e.target.value)}
-            aria-invalid={errors?.name ? true : undefined}
-            aria-describedby={describedBy}
-            className={className}
-          />
+    <form onSubmit={submit} noValidate>
+      <fieldset disabled={block !== null} className="flex flex-col gap-5">
+        <ErrorSummary errors={errors} fieldIds={ids} />
+        <Field id={ids.name} label="Name" error={errors?.name}>
+          {(describedBy, className) => (
+            <input
+              id={ids.name}
+              required
+              maxLength={MAX_GROUP_NAME_LENGTH}
+              value={fields.name}
+              onChange={(e) => set("name", e.target.value)}
+              aria-invalid={errors?.name ? true : undefined}
+              aria-describedby={describedBy}
+              className={className}
+            />
+          )}
+        </Field>
+        <Field id={ids.description} label="Description (optional)" error={errors?.description}>
+          {(describedBy, className) => (
+            <textarea
+              id={ids.description}
+              rows={3}
+              maxLength={MAX_GROUP_DESCRIPTION_LENGTH}
+              value={fields.description}
+              onChange={(e) => set("description", e.target.value)}
+              aria-invalid={errors?.description ? true : undefined}
+              aria-describedby={describedBy}
+              className={className}
+            />
+          )}
+        </Field>
+        <Field
+          id={ids.currency}
+          label="Group Currency"
+          hint={lock ?? "Balances and Settlements are measured in this currency."}
+          error={errors?.currency}
+        >
+          {(describedBy, className) => (
+            <select
+              id={ids.currency}
+              value={fields.currency}
+              disabled={lock !== null}
+              onChange={(e) => set("currency", e.target.value)}
+              aria-invalid={errors?.currency ? true : undefined}
+              aria-describedby={describedBy}
+              className={`${className} min-h-11 disabled:opacity-60`}
+            >
+              {CURRENCY_CODES.map((code) => (
+                <option key={code} value={code}>
+                  {code}
+                </option>
+              ))}
+            </select>
+          )}
+        </Field>
+        {block === null && (
+          <div>
+            <Button type="submit" disabled={pending}>
+              {pending ? "Saving…" : "Save changes"}
+            </Button>
+          </div>
         )}
-      </Field>
-      <Field id={ids.description} label="Description (optional)" error={errors?.description}>
-        {(describedBy, className) => (
-          <textarea
-            id={ids.description}
-            rows={3}
-            maxLength={MAX_GROUP_DESCRIPTION_LENGTH}
-            value={fields.description}
-            onChange={(e) => set("description", e.target.value)}
-            aria-invalid={errors?.description ? true : undefined}
-            aria-describedby={describedBy}
-            className={className}
-          />
-        )}
-      </Field>
-      <Field
-        id={ids.currency}
-        label="Group Currency"
-        hint={lock ?? "Balances and Settlements are measured in this currency."}
-        error={errors?.currency}
-      >
-        {(describedBy, className) => (
-          <select
-            id={ids.currency}
-            value={fields.currency}
-            disabled={lock !== null}
-            onChange={(e) => set("currency", e.target.value)}
-            aria-invalid={errors?.currency ? true : undefined}
-            aria-describedby={describedBy}
-            className={`${className} min-h-11 disabled:opacity-60`}
-          >
-            {CURRENCY_CODES.map((code) => (
-              <option key={code} value={code}>
-                {code}
-              </option>
-            ))}
-          </select>
-        )}
-      </Field>
-      <div>
-        <Button type="submit" disabled={pending}>
-          {pending ? "Saving…" : "Save changes"}
-        </Button>
-      </div>
+      </fieldset>
     </form>
   );
 }
@@ -181,10 +197,11 @@ function linkStatus(member: Member): string | null {
  * Members can be added by email and Name-only Members given one, which
  * links them to the User who verified it. With `onResendInvitation`, a
  * Pending Member shows whether their Invitation was sent and can be sent a
- * new one.
+ * new one. With a `block`, the Members are only listed, with the reason.
  */
 export function MembersSection({
   group,
+  block,
   headingRef,
   onAdd,
   onSetEmail,
@@ -193,6 +210,8 @@ export function MembersSection({
   onNews,
 }: {
   group: GroupSnapshot;
+  /** Why the visitor can't add, remove or invite Members, or give them an email, or `null`. */
+  block: string | null;
   headingRef: RefObject<HTMLHeadingElement | null>;
   onAdd: (fields: NewMemberFields) => Promise<AddMemberResult>;
   onSetEmail?: (memberId: string, email: string) => Promise<SetMemberEmailResult>;
@@ -240,6 +259,7 @@ export function MembersSection({
       >
         Members
       </h2>
+      <SectionBlock block={block} />
       {rowError && (
         <p role="alert" className="mt-2 text-sm font-semibold text-error">
           {rowError}
@@ -247,7 +267,7 @@ export function MembersSection({
       )}
       <ul className="mt-3 divide-y divide-border-subtle rounded-lg border border-border bg-surface">
         {current.map((member) => {
-          const block = memberRemovalBlock(group, member.id);
+          const removalBlock = memberRemovalBlock(group, member.id);
           const status = onSetEmail ? linkStatus(member) : null;
           return (
             <li
@@ -264,34 +284,38 @@ export function MembersSection({
                     <InvitationState
                       member={member}
                       sending={resending === member.id}
-                      onResend={() => resend(member)}
+                      onResend={block === null ? () => resend(member) : undefined}
                     />
                   )}
                 </span>
               </span>
-              <span className="flex flex-wrap items-center gap-1">
-                {onSetEmail && memberEmailBlock(group, member.id) === null && (
-                  <MemberEmailDialog
-                    member={member}
-                    onSave={(email) => onSetEmail(member.id, email)}
-                    onSaved={(email, invitationSent) => told(`Saved ${email} for ${member.name}.`, invitationSent)}
-                  />
-                )}
-                {block ? (
-                  <span className="text-sm text-text-secondary">{block}</span>
-                ) : (
-                  <ConfirmRemoveMember member={member} onConfirm={() => remove(member)} />
-                )}
-              </span>
+              {block === null && (
+                <span className="flex flex-wrap items-center gap-1">
+                  {onSetEmail && memberEmailBlock(group, member.id) === null && (
+                    <MemberEmailDialog
+                      member={member}
+                      onSave={(email) => onSetEmail(member.id, email)}
+                      onSaved={(email, invitationSent) => told(`Saved ${email} for ${member.name}.`, invitationSent)}
+                    />
+                  )}
+                  {removalBlock ? (
+                    <span className="text-sm text-text-secondary">{removalBlock}</span>
+                  ) : (
+                    <ConfirmRemoveMember member={member} onConfirm={() => remove(member)} />
+                  )}
+                </span>
+              )}
             </li>
           );
         })}
       </ul>
-      <AddMemberForm
-        byEmail={onSetEmail !== undefined}
-        onAdd={onAdd}
-        onAdded={(name, invitationSent) => told(`Added ${name}.`, invitationSent)}
-      />
+      {block === null && (
+        <AddMemberForm
+          byEmail={onSetEmail !== undefined}
+          onAdd={onAdd}
+          onAdded={(name, invitationSent) => told(`Added ${name}.`, invitationSent)}
+        />
+      )}
       {former.length > 0 && (
         <div className="mt-4">
           <h3 className="text-sm font-semibold text-text-secondary">Former Members</h3>
@@ -314,7 +338,7 @@ export function MembersSection({
 
 /**
  * Whether a Pending Member's latest Invitation was sent, with a way to send
- * a new one (which stops the older link working).
+ * a new one (which stops the older link working) given `onResend`.
  */
 function InvitationState({
   member,
@@ -323,19 +347,20 @@ function InvitationState({
 }: {
   member: Member;
   sending: boolean;
-  onResend: () => void;
+  onResend?: () => void;
 }) {
-  const button = (label: string) => (
-    <Button
-      variant="quiet"
-      className="-ml-3 text-sm"
-      aria-label={`Resend Invitation to ${member.name}`}
-      disabled={sending}
-      onClick={onResend}
-    >
-      {sending ? "Sending…" : label}
-    </Button>
-  );
+  const button = (label: string) =>
+    onResend && (
+      <Button
+        variant="quiet"
+        className="-ml-3 text-sm"
+        aria-label={`Resend Invitation to ${member.name}`}
+        disabled={sending}
+        onClick={onResend}
+      >
+        {sending ? "Sending…" : label}
+      </Button>
+    );
   return member.invitationSent ? (
     <span className="flex flex-wrap items-center gap-x-3 text-sm text-text-secondary">
       <span>Invitation sent</span>
@@ -343,7 +368,7 @@ function InvitationState({
     </span>
   ) : (
     <span className="flex flex-wrap items-center gap-x-3 text-sm">
-      <span className="font-semibold text-error">Invitation not sent —</span>
+      <span className="font-semibold text-error">Invitation not sent{onResend && " —"}</span>
       {button("Resend")}
     </span>
   );
@@ -567,7 +592,7 @@ function MemberEmailDialog({
 const EDITING_MODE_HINTS: Record<EditingMode, string> = {
   open: "Any Member can edit or delete any Expense or Settlement.",
   "own-records-only":
-    "Members can edit or delete only the Expenses and Settlements they recorded. The Group Creator can edit or delete everything, including records no one is known to have recorded.",
+    "Members can edit or delete only the Expenses and Settlements they recorded. The Group Creator can edit or delete everything, including records no one is known to have recorded, and alone changes the Group's details, Categories and Members.",
 };
 
 const modeChipClass =

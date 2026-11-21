@@ -1,6 +1,13 @@
 import { describe, expect, it } from "vitest";
 import type { GroupSnapshot, Member } from "./types";
-import { editingModeBlock, recordChangeBlock, type EditingMode, type RecordAction } from "./editing-mode";
+import {
+  editingModeBlock,
+  groupManagementBlock,
+  recordChangeBlock,
+  type EditingMode,
+  type ManagementAction,
+  type RecordAction,
+} from "./editing-mode";
 
 const member = (id: string, name: string, userId?: string): Member => ({
   id,
@@ -109,5 +116,64 @@ describe("editingModeBlock", () => {
     expect(editingModeBlock(usersGroup(), creator)).toBeNull();
     expect(editingModeBlock(guestGroup(), guest)).toBeNull();
     expect(editingModeBlock(usersGroup(), sam)).toBe("Only the Group Creator, Alex, can change the Editing Mode.");
+  });
+});
+
+const MANAGEMENT_ACTIONS: ManagementAction[] = [
+  "edit-details",
+  "add-member",
+  "remove-member",
+  "set-member-email",
+  "resend-invitation",
+  "add-category",
+  "rename-category",
+  "delete-category",
+];
+
+describe("groupManagementBlock", () => {
+  it.each([
+    // mode, visitor, allowed
+    ["open", "Creator", creator, true],
+    ["open", "other Member", sam, true],
+    ["own-records-only", "Creator", creator, true],
+    ["own-records-only", "other Member", sam, false],
+  ] as const)("%s, %s: allowed %s", (mode, _who, visitor, allowed) => {
+    for (const action of MANAGEMENT_ACTIONS) {
+      expect(groupManagementBlock(usersGroup(mode), visitor, action) === null, action).toBe(allowed);
+    }
+  });
+
+  it.each(["open", "own-records-only"] as const)("lets the Guest, as Group Creator, manage the Group (%s)", (mode) => {
+    for (const action of MANAGEMENT_ACTIONS) {
+      expect(groupManagementBlock(guestGroup(mode), guest, action), action).toBeNull();
+    }
+  });
+
+  it("treats a Group with no Editing Mode as Open", () => {
+    expect(groupManagementBlock(usersGroup(), jo, "remove-member")).toBeNull();
+  });
+
+  it("names the Group Creator and what only they can do", () => {
+    const group = usersGroup("own-records-only");
+    expect(groupManagementBlock(group, jo, "edit-details")).toBe(
+      "This Group is set to Own Records Only: only the Group Creator, Alex, can change the Group's details.",
+    );
+    for (const action of ["add-member", "remove-member", "set-member-email", "resend-invitation"] as const) {
+      expect(groupManagementBlock(group, jo, action), action).toBe(
+        "This Group is set to Own Records Only: only the Group Creator, Alex, can add, remove or invite Members, or give them an email.",
+      );
+    }
+    for (const action of ["add-category", "rename-category", "delete-category"] as const) {
+      expect(groupManagementBlock(group, jo, action), action).toBe(
+        "This Group is set to Own Records Only: only the Group Creator, Alex, can add, rename or delete Categories.",
+      );
+    }
+  });
+
+  it("leaves out a Group Creator who has left", () => {
+    const group = { ...usersGroup("own-records-only"), creatorUserId: "user_gone" };
+    expect(groupManagementBlock(group, jo, "add-category")).toBe(
+      "This Group is set to Own Records Only: only the Group Creator can add, rename or delete Categories.",
+    );
   });
 });

@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createSessionStorageRepository } from "@/guest/guest-repository";
 import { memoryStorage } from "@/lib/memory-storage";
+import type { EditingMode, GroupSnapshot, Visitor } from "@/domain";
 import type { GroupRepository } from "./group-repository";
 import {
   addMember,
@@ -14,6 +15,9 @@ import {
 import type { MemberNotifier } from "./member-notifier";
 
 afterEach(() => vi.restoreAllMocks());
+
+/** The Guest: Group Creator of every session Group, so never restricted. */
+const GUEST = { userId: undefined };
 
 /** A Group with "You" and Chloe, where Chloe owes You $10.00. */
 async function flatWithDebt() {
@@ -93,7 +97,7 @@ describe("updateGroupDetails", () => {
     const { repo, group } = await flatWithDebt();
 
     expect(
-      await updateGroupDetails(repo, group.id, { name: "Flat 3B", description: "Bills", currency: "USD" }),
+      await updateGroupDetails(repo, group.id, { name: "Flat 3B", description: "Bills", currency: "USD" }, GUEST),
     ).toEqual({ ok: true });
     expect(await repo.getGroup(group.id)).toMatchObject({ name: "Flat 3B", description: "Bills" });
   });
@@ -102,7 +106,7 @@ describe("updateGroupDetails", () => {
     const { repo, group } = await flatWithDebt();
 
     expect(
-      await updateGroupDetails(repo, group.id, { name: "Flat", description: "", currency: "EUR" }),
+      await updateGroupDetails(repo, group.id, { name: "Flat", description: "", currency: "EUR" }, GUEST),
     ).toEqual({
       ok: false,
       errors: {
@@ -115,7 +119,7 @@ describe("updateGroupDetails", () => {
   it("treats malformed input as empty fields", async () => {
     const { repo, group } = await flatWithDebt();
 
-    expect(await updateGroupDetails(repo, group.id, { name: 42 })).toMatchObject({
+    expect(await updateGroupDetails(repo, group.id, { name: 42 }, GUEST)).toMatchObject({
       ok: false,
       errors: { name: "Enter a name for the Group." },
     });
@@ -126,14 +130,14 @@ describe("addMember", () => {
   it("adds a Name-only Member who can then share Expenses", async () => {
     const { repo, group } = await flatWithDebt();
 
-    expect(await addMember(repo, group.id, { name: " Dev ", email: "" })).toEqual({ ok: true, name: "Dev" });
+    expect(await addMember(repo, group.id, { name: " Dev ", email: "" }, GUEST)).toEqual({ ok: true, name: "Dev" });
     expect((await repo.getGroup(group.id))?.members.map((m) => m.name)).toEqual(["You", "Chloe", "Dev"]);
   });
 
   it("explains a duplicate name", async () => {
     const { repo, group } = await flatWithDebt();
 
-    expect(await addMember(repo, group.id, { name: "chloe" })).toEqual({
+    expect(await addMember(repo, group.id, { name: "chloe" }, GUEST)).toEqual({
       ok: false,
       errors: { name: "Chloe is already a Member of this Group." },
     });
@@ -142,14 +146,14 @@ describe("addMember", () => {
   it("adds a Member by email, lower-cased", async () => {
     const { repo, group } = await flatWithDebt();
 
-    expect(await addMember(repo, group.id, { name: "Dev", email: " Dev@Example.com" })).toEqual({ ok: true, name: "Dev" });
+    expect(await addMember(repo, group.id, { name: "Dev", email: " Dev@Example.com" }, GUEST)).toEqual({ ok: true, name: "Dev" });
     expect((await repo.getGroup(group.id))?.members.at(-1)).toMatchObject({ name: "Dev", email: "dev@example.com" });
   });
 
   it("explains a bad name and a bad email together", async () => {
     const { repo, group } = await flatWithDebt();
 
-    expect(await addMember(repo, group.id, { name: "", email: "dev" })).toEqual({
+    expect(await addMember(repo, group.id, { name: "", email: "dev" }, GUEST)).toEqual({
       ok: false,
       errors: { name: "Enter the Member's name.", email: "Enter an email address like name@example.com." },
     });
@@ -157,9 +161,9 @@ describe("addMember", () => {
 
   it("refuses an email another Member of the Group already has", async () => {
     const { repo, group } = await flatWithDebt();
-    await addMember(repo, group.id, { name: "Dev", email: "dev@example.com" });
+    await addMember(repo, group.id, { name: "Dev", email: "dev@example.com" }, GUEST);
 
-    expect(await addMember(repo, group.id, { name: "Devin", email: "DEV@example.com" })).toEqual({
+    expect(await addMember(repo, group.id, { name: "Devin", email: "DEV@example.com" }, GUEST)).toEqual({
       ok: false,
       errors: { email: "Dev already has that email in this Group." },
     });
@@ -176,7 +180,7 @@ describe("addMember", () => {
       },
     };
 
-    expect(await addMember(linking, group.id, { name: "Theo", email: "theo@example.com" })).toEqual({
+    expect(await addMember(linking, group.id, { name: "Theo", email: "theo@example.com" }, GUEST)).toEqual({
       ok: true,
       name: "Theo Park",
     });
@@ -186,7 +190,7 @@ describe("addMember", () => {
     const { repo, group } = await flatWithDebt();
     const { notifier, added } = recordingNotifier();
 
-    expect(await addMember(linkingAll(repo), group.id, { name: "Theo", email: "Theo@example.com" }, notifier)).toEqual({
+    expect(await addMember(linkingAll(repo), group.id, { name: "Theo", email: "Theo@example.com" }, GUEST, notifier)).toEqual({
       ok: true,
       name: "Theo Park",
     });
@@ -199,8 +203,8 @@ describe("addMember", () => {
     const { repo, group } = await flatWithDebt();
     const { notifier, added } = recordingNotifier();
 
-    await addMember(repo, group.id, { name: "Dev", email: "dev@example.com" }, notifier);
-    await addMember(repo, group.id, { name: "Eve", email: "" }, notifier);
+    await addMember(repo, group.id, { name: "Dev", email: "dev@example.com" }, GUEST, notifier);
+    await addMember(repo, group.id, { name: "Eve", email: "" }, GUEST, notifier);
 
     expect(added).toEqual([]);
   });
@@ -210,7 +214,7 @@ describe("addMember", () => {
     const failing = failingNotifier("added");
     vi.spyOn(console, "error").mockImplementation(() => {});
 
-    expect(await addMember(linkingAll(repo), group.id, { name: "Theo", email: "theo@example.com" }, failing)).toEqual({
+    expect(await addMember(linkingAll(repo), group.id, { name: "Theo", email: "theo@example.com" }, GUEST, failing)).toEqual({
       ok: true,
       name: "Theo Park",
     });
@@ -222,7 +226,7 @@ describe("addMember", () => {
     const { notifier, invited } = recordingNotifier();
 
     expect(
-      await addMember(issuingInvitations(repo), group.id, { name: "Dev", email: "Dev@example.com" }, notifier),
+      await addMember(issuingInvitations(repo), group.id, { name: "Dev", email: "Dev@example.com" }, GUEST, notifier),
     ).toEqual({ ok: true, name: "Dev", invitationSent: true });
 
     expect(invited).toEqual([
@@ -241,12 +245,13 @@ describe("addMember", () => {
     const failing = failingNotifier("invited");
     vi.spyOn(console, "error").mockImplementation(() => {});
 
-    await addMember(issuingInvitations(repo, sent), group.id, { name: "Dev", email: "dev@example.com" }, failing);
+    await addMember(issuingInvitations(repo, sent), group.id, { name: "Dev", email: "dev@example.com" }, GUEST, failing);
     expect(sent).toEqual([]);
     await addMember(
       issuingInvitations(repo, sent),
       group.id,
       { name: "Eve", email: "eve@example.com" },
+      GUEST,
       recordingNotifier().notifier,
     );
     expect(sent).toEqual(["tok_1"]);
@@ -256,8 +261,8 @@ describe("addMember", () => {
     const { repo, group } = await flatWithDebt();
     const { notifier, invited } = recordingNotifier();
 
-    await addMember(issuingInvitations(repo), group.id, { name: "Eve", email: "" }, notifier);
-    await addMember(repo, group.id, { name: "Dev", email: "dev@example.com" }, notifier);
+    await addMember(issuingInvitations(repo), group.id, { name: "Eve", email: "" }, GUEST, notifier);
+    await addMember(repo, group.id, { name: "Dev", email: "dev@example.com" }, GUEST, notifier);
 
     expect(invited).toEqual([]);
     expect((await repo.getGroup(group.id))!.members.at(-1)).toMatchObject({ email: "dev@example.com" });
@@ -270,7 +275,7 @@ describe("addMember", () => {
 
     // Answered at once, so the Member adding them hears it wasn't sent.
     expect(
-      await addMember(issuingInvitations(repo), group.id, { name: "Dev", email: "dev@example.com" }, failing),
+      await addMember(issuingInvitations(repo), group.id, { name: "Dev", email: "dev@example.com" }, GUEST, failing),
     ).toEqual({ ok: true, name: "Dev", invitationSent: false });
     expect((await repo.getGroup(group.id))!.members.at(-1)).toMatchObject({ name: "Dev", email: "dev@example.com" });
     expect(console.error).toHaveBeenCalled();
@@ -279,7 +284,7 @@ describe("addMember", () => {
   it("treats malformed input as empty fields", async () => {
     const { repo, group } = await flatWithDebt();
 
-    expect(await addMember(repo, group.id, 42)).toEqual({
+    expect(await addMember(repo, group.id, 42, GUEST)).toEqual({
       ok: false,
       errors: { name: "Enter the Member's name." },
     });
@@ -290,7 +295,7 @@ describe("setMemberEmail", () => {
   it("gives a Name-only Member an email, keeping their Balance", async () => {
     const { repo, group, chloe } = await flatWithDebt();
 
-    expect(await setMemberEmail(repo, group.id, chloe.id, "chloe@example.com")).toEqual({ ok: true });
+    expect(await setMemberEmail(repo, group.id, chloe.id, "chloe@example.com", GUEST)).toEqual({ ok: true });
     const after = await repo.getGroup(group.id);
     expect(after?.members.find((m) => m.id === chloe.id)?.email).toBe("chloe@example.com");
     expect(after?.expenses).toHaveLength(1);
@@ -299,11 +304,11 @@ describe("setMemberEmail", () => {
   it("requires an email, and a valid one", async () => {
     const { repo, group, chloe } = await flatWithDebt();
 
-    expect(await setMemberEmail(repo, group.id, chloe.id, " ")).toEqual({
+    expect(await setMemberEmail(repo, group.id, chloe.id, " ", GUEST)).toEqual({
       ok: false,
       errors: { email: "Enter the Member's email address." },
     });
-    expect(await setMemberEmail(repo, group.id, chloe.id, "chloe")).toEqual({
+    expect(await setMemberEmail(repo, group.id, chloe.id, "chloe", GUEST)).toEqual({
       ok: false,
       errors: { email: "Enter an email address like name@example.com." },
     });
@@ -313,7 +318,7 @@ describe("setMemberEmail", () => {
     const { repo, group, chloe } = await flatWithDebt();
     const { notifier, added } = recordingNotifier();
 
-    expect(await setMemberEmail(linkingAll(repo), group.id, chloe.id, "chloe@example.com", notifier)).toEqual({
+    expect(await setMemberEmail(linkingAll(repo), group.id, chloe.id, "chloe@example.com", GUEST, notifier)).toEqual({
       ok: true,
     });
     expect(added).toEqual([
@@ -325,7 +330,7 @@ describe("setMemberEmail", () => {
     const { repo, group, chloe } = await flatWithDebt();
     const { notifier, added } = recordingNotifier();
 
-    await setMemberEmail(repo, group.id, chloe.id, "chloe@example.com", notifier);
+    await setMemberEmail(repo, group.id, chloe.id, "chloe@example.com", GUEST, notifier);
 
     expect(added).toEqual([]);
   });
@@ -335,7 +340,7 @@ describe("setMemberEmail", () => {
     const { notifier, invited } = recordingNotifier();
 
     expect(
-      await setMemberEmail(issuingInvitations(repo), group.id, chloe.id, "chloe@example.com", notifier),
+      await setMemberEmail(issuingInvitations(repo), group.id, chloe.id, "chloe@example.com", GUEST, notifier),
     ).toEqual({ ok: true, invitationSent: true });
     expect(invited).toEqual([
       {
@@ -352,7 +357,7 @@ describe("setMemberEmail", () => {
     vi.spyOn(console, "error").mockImplementation(() => {});
 
     expect(
-      await setMemberEmail(issuingInvitations(repo), group.id, chloe.id, "chloe@example.com", failingNotifier("invited")),
+      await setMemberEmail(issuingInvitations(repo), group.id, chloe.id, "chloe@example.com", GUEST, failingNotifier("invited")),
     ).toEqual({ ok: true, invitationSent: false });
     expect((await repo.getGroup(group.id))?.members.find((m) => m.id === chloe.id)?.email).toBe("chloe@example.com");
   });
@@ -362,7 +367,7 @@ describe("setMemberEmail", () => {
     const dev = (await repo.addMember(group.id, { name: "Dev" }))!;
     await repo.removeMember(group.id, dev.id);
 
-    expect(await setMemberEmail(repo, group.id, dev.id, "dev@example.com")).toEqual({
+    expect(await setMemberEmail(repo, group.id, dev.id, "dev@example.com", GUEST)).toEqual({
       ok: false,
       errors: { form: "Dev has been removed from this Group." },
     });
@@ -384,7 +389,7 @@ describe("resendInvitation", () => {
     const { repo, group, dev, sent } = await withPendingDev();
     const { notifier, invited } = recordingNotifier();
 
-    expect(await resendInvitation(repo, group.id, dev.id, notifier)).toEqual({ ok: true });
+    expect(await resendInvitation(repo, group.id, dev.id, GUEST, notifier)).toEqual({ ok: true });
 
     expect(invited).toEqual([
       {
@@ -402,7 +407,7 @@ describe("resendInvitation", () => {
     const failing = failingNotifier("invited");
     vi.spyOn(console, "error").mockImplementation(() => {});
 
-    expect(await resendInvitation(repo, group.id, dev.id, failing)).toEqual({
+    expect(await resendInvitation(repo, group.id, dev.id, GUEST, failing)).toEqual({
       ok: false,
       errors: { form: "The Invitation couldn't be sent. Try again in a moment." },
     });
@@ -413,11 +418,11 @@ describe("resendInvitation", () => {
     const { repo, group, chloe } = await withPendingDev();
     const { notifier, invited } = recordingNotifier();
 
-    expect(await resendInvitation(repo, group.id, chloe.id, notifier)).toEqual({
+    expect(await resendInvitation(repo, group.id, chloe.id, GUEST, notifier)).toEqual({
       ok: false,
       errors: { form: "Only a Pending Member is sent an Invitation." },
     });
-    expect(await resendInvitation(repo, "grp_missing", chloe.id, notifier)).toEqual({
+    expect(await resendInvitation(repo, "grp_missing", chloe.id, GUEST, notifier)).toEqual({
       ok: false,
       errors: { form: "This Group is no longer available." },
     });
@@ -429,7 +434,7 @@ describe("removeMember", () => {
   it("refuses to remove a Member whose Balance isn't zero", async () => {
     const { repo, group, chloe } = await flatWithDebt();
 
-    expect(await removeMember(repo, group.id, chloe.id)).toEqual({
+    expect(await removeMember(repo, group.id, chloe.id, GUEST)).toEqual({
       ok: false,
       errors: { form: "Chloe can't be removed until their Balance is zero." },
     });
@@ -440,7 +445,7 @@ describe("removeMember", () => {
     const { repo, group } = await flatWithDebt();
     const dev = (await repo.addMember(group.id, { name: "Dev" }))!;
 
-    expect(await removeMember(repo, group.id, dev.id)).toEqual({ ok: true });
+    expect(await removeMember(repo, group.id, dev.id, GUEST)).toEqual({ ok: true });
     expect((await repo.getGroup(group.id))?.members.find((m) => m.id === dev.id)?.former).toBe(true);
   });
 });
@@ -495,5 +500,77 @@ describe("setEditingMode", () => {
       errors: { form: "Choose an Editing Mode." },
     });
     expect((await repo.getGroup(group.id))!.editingMode).toBe("open");
+  });
+});
+
+describe("Group management by Editing Mode", () => {
+  /** Alex created the Group; Sam is a Linked Member, Kim Name-only, Pat Pending. */
+  function flatOf(editingMode: EditingMode) {
+    const group: GroupSnapshot = {
+      id: "grp_flat",
+      name: "Flat",
+      description: "",
+      currency: "USD",
+      creatorUserId: "user_alex",
+      editingMode,
+      members: [
+        { id: "mem_alex", name: "Alex", userId: "user_alex", avatarColor: "#3B82F6" },
+        { id: "mem_sam", name: "Sam", userId: "user_sam", avatarColor: "#10B981" },
+        { id: "mem_kim", name: "Kim", avatarColor: "#F59E0B" },
+        { id: "mem_pat", name: "Pat", email: "pat@example.com", avatarColor: "#EF4444" },
+      ],
+      expenses: [],
+      settlements: [],
+    };
+    return issuingInvitations(createSessionStorageRepository(memoryStorage(), () => [group]));
+  }
+  const alex = { userId: "user_alex" };
+  const sam = { userId: "user_sam" };
+
+  const ACTIONS: [string, (repo: GroupRepository, visitor: Visitor) => Promise<{ ok: boolean }>][] = [
+    [
+      "updateGroupDetails",
+      (repo, visitor) =>
+        updateGroupDetails(repo, "grp_flat", { name: "Flat 3B", description: "Bills", currency: "USD" }, visitor),
+    ],
+    ["addMember", (repo, visitor) => addMember(repo, "grp_flat", { name: "Dev", email: "" }, visitor)],
+    ["setMemberEmail", (repo, visitor) => setMemberEmail(repo, "grp_flat", "mem_kim", "kim@example.com", visitor)],
+    [
+      "resendInvitation",
+      (repo, visitor) => resendInvitation(repo, "grp_flat", "mem_pat", visitor, recordingNotifier().notifier),
+    ],
+    ["removeMember", (repo, visitor) => removeMember(repo, "grp_flat", "mem_kim", visitor)],
+  ];
+
+  it.each(ACTIONS)("%s: in Own Records Only, refuses a Member who isn't the Group Creator", async (_name, act) => {
+    const repo = flatOf("own-records-only");
+    const before = await repo.getGroup("grp_flat");
+
+    expect(await act(repo, sam)).toEqual({
+      ok: false,
+      errors: {
+        form: expect.stringMatching(/^This Group is set to Own Records Only: only the Group Creator, Alex, can /),
+      },
+    });
+    expect(await repo.getGroup("grp_flat")).toEqual(before);
+  });
+
+  it.each(ACTIONS)("%s: in Own Records Only, lets the Group Creator", async (_name, act) => {
+    expect(await act(flatOf("own-records-only"), alex)).toMatchObject({ ok: true });
+  });
+
+  it.each(ACTIONS)("%s: in Open, lets any Member", async (_name, act) => {
+    expect(await act(flatOf("open"), sam)).toMatchObject({ ok: true });
+    expect(await act(flatOf("open"), alex)).toMatchObject({ ok: true });
+  });
+
+  it("still keeps deleting the Group and changing the Editing Mode to the Group Creator in Open", async () => {
+    const repo = flatOf("open");
+    expect(await setEditingMode(repo, "grp_flat", "own-records-only", sam)).toMatchObject({ ok: false });
+    expect(await deleteGroup(repo, "grp_flat", sam)).toEqual({
+      ok: false,
+      errors: { form: "Only the Group Creator, Alex, can delete this Group." },
+    });
+    expect(await repo.getGroup("grp_flat")).not.toBeNull();
   });
 });

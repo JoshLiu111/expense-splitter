@@ -118,4 +118,23 @@ test("in Own Records Only, a second Member can't edit the first Member's Expense
   await expect(seen.getByRole("radio", { name: "Own Records Only" })).toBeChecked();
   await expect(seen.getByRole("radio", { name: "Open" })).toBeDisabled();
   await expect(seen).toContainText("Only the Group Creator, Maya Chen, can change the Editing Mode.");
+
+  // In Own Records Only, only the Group Creator manages the Group.
+  const details = page.getByRole("region", { name: "Details" });
+  await expect(details).toContainText(
+    "This Group is set to Own Records Only: only the Group Creator, Maya Chen, can change the Group's details.",
+  );
+  await expect(field(page, "Name")).toBeDisabled();
+  await expect(details.getByRole("button", { name: "Save changes" })).toHaveCount(0);
+  const categories = page.getByRole("region", { name: "Categories" });
+  await expect(categories).toContainText(
+    "This Group is set to Own Records Only: only the Group Creator, Maya Chen, can add, rename or delete Categories.",
+  );
+  await expect(categories.getByRole("button", { name: "Add Category" })).toHaveCount(0);
+  const members = page.getByRole("region", { name: "Members" });
+  await expect(members).toContainText(
+    "This Group is set to Own Records Only: only the Group Creator, Maya Chen, can add, remove or invite Members, or give them an email.",
+  );
+  await expect(members.getByRole("button", { name: "Add Member" })).toHaveCount(0);
+  await expect(members.getByRole("button", { name: /^Remove / })).toHaveCount(0);
 });

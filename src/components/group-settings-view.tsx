@@ -4,7 +4,14 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
 import { ArrowLeft } from "lucide-react";
-import { editingModeBlock, groupDeletionBlock, isGroupCreator, type GroupSnapshot, type Visitor } from "@/domain";
+import {
+  editingModeBlock,
+  groupDeletionBlock,
+  groupManagementBlock,
+  type GroupSnapshot,
+  type ManagementAction,
+  type Visitor,
+} from "@/domain";
 import type { CategoryManagement } from "@/categories/manage-categories";
 import type { GroupManagement } from "@/groups/manage-group";
 import { CategoriesSection } from "@/components/categories-section";
@@ -36,13 +43,18 @@ export function GroupSettingsView({
   afterDeleteHref: string;
   manage: GroupManagement;
   categories: CategoryManagement;
-  /** Who is looking: only the Group Creator may change the Editing Mode or delete the Group. */
+  /**
+   * Who is looking: only the Group Creator may change the Editing Mode or
+   * delete the Group, and in Own Records Only manage it.
+   */
   visitor: Visitor;
 }) {
   const router = useRouter();
   const [news, setNewsState] = useState<{ text: string; tone?: NewsTone }>({ text: "" });
   const setNews = (text: string, tone?: NewsTone) => setNewsState({ text, tone });
   const membersHeading = useRef<HTMLHeadingElement>(null);
+  // Every action in a section has the same rule and reason, so one stands for all.
+  const managing = (action: ManagementAction) => groupManagementBlock(group, visitor, action);
 
   return (
     <div className="mx-auto flex max-w-content flex-col gap-8">
@@ -66,6 +78,7 @@ export function GroupSettingsView({
 
       <GroupDetailsSection
         group={group}
+        block={managing("edit-details")}
         onSave={manage.updateDetails}
         onSaved={() => setNews("Group details saved.")}
       />
@@ -79,10 +92,16 @@ export function GroupSettingsView({
         onSaved={() => setNews("Editing Mode saved.")}
       />
 
-      <CategoriesSection group={group} categories={categories} onNews={setNews} />
+      <CategoriesSection
+        group={group}
+        block={managing("add-category")}
+        categories={categories}
+        onNews={setNews}
+      />
 
       <MembersSection
         group={group}
+        block={managing("add-member")}
         headingRef={membersHeading}
         onAdd={manage.addMember}
         onSetEmail={manage.setMemberEmail}
@@ -93,7 +112,7 @@ export function GroupSettingsView({
 
       <DeleteGroupSection
         group={group}
-        block={groupDeletionBlock(group, { isCreator: isGroupCreator(group, visitor) })}
+        block={groupDeletionBlock(group, visitor)}
         onDelete={manage.deleteGroup}
         onDeleted={() => router.replace(afterDeleteHref)}
       />
