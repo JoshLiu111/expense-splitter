@@ -5,6 +5,8 @@ import {
   formatMoney,
   SPLIT_TYPE_LABELS,
   changedExpenseFields,
+  EDITING_MODE_LABELS,
+  groupCurrenciesThen,
   type ActivityChange,
   type ActivityEntry,
   type Expense,
@@ -36,15 +38,19 @@ export interface ActivityItem {
   actorMember?: Member;
   /** What kind of change it was. */
   kind: ActivityChange["kind"];
-  /** The Expense, Settlement or Member changed. */
-  subject: { kind: "expense" | "settlement" | "member"; id: string };
+  /** What was changed: an Expense, Settlement, Member or Custom Category, or the Group itself. */
+  subject: { kind: "expense" | "settlement" | "member" | "category" | "group"; id: string };
   /**
    * The entry as one sentence: the actor, `action`, the `title` (shown
    * strong; empty when there is none) and then `rest`, e.g. "Alex added the
    * Expense Dinner" or "Alex removed Sam from the Group".
    */
   action: string;
-  /** The Expense's description, who paid whom for a Settlement, or the Member's name as it was. */
+  /**
+   * The Expense's description, who paid whom for a Settlement, the Member's
+   * or Custom Category's name as it was, or the new Group Currency or
+   * Editing Mode.
+   */
   title: string;
   /** What follows the title, if anything. */
   rest?: string;
@@ -66,6 +72,12 @@ const SENTENCES: { [K in ActivityChange["kind"]]: (change: Extract<ActivityChang
   "member-joined": () => ["joined the Group"],
   "member-email-set": (c) => ["gave", `the email ${c.email}`],
   "member-removed": () => ["removed", "from the Group"],
+  "group-details-edited": () => ["edited the Group’s details"],
+  "currency-changed": (c) => [`changed the Group Currency from ${c.from} to`, `at 1 ${c.from} = ${c.rate} ${c.to}`],
+  "category-added": () => ["added the Category"],
+  "category-renamed": (c) => ["renamed the Category", `to ${c.after.name}`],
+  "category-deleted": () => ["deleted the Category"],
+  "editing-mode-changed": (c) => [`changed the Editing Mode from ${EDITING_MODE_LABELS[c.before]} to`],
 };
 
 function sentence(change: ActivityChange): { action: string; rest?: string } {
@@ -76,15 +88,22 @@ function sentence(change: ActivityChange): { action: string; rest?: string } {
 /** Who made the Guest's own changes. */
 const GUEST_ACTOR = "You";
 
-/** Shows Activity entries, in the order given. */
-export function activityItems(entries: readonly ActivityEntry[], group: GroupSnapshot): ActivityItem[] {
+/**
+ * Shows Activity entries, given newest first as `listActivity` lists them.
+ * Each entry's amounts are read in the Group Currency it was recorded in,
+ * which a later Group Currency change doesn't rewrite (ADR 0010).
+ */
+export function activityItems(entries: readonly ActivityEntry[], current: GroupSnapshot): ActivityItem[] {
   const actorOf = (memberId: string | undefined) => {
     if (memberId === undefined) return { actor: GUEST_ACTOR };
-    const member = group.members.find((m) => m.id === memberId);
+    const member = current.members.find((m) => m.id === memberId);
     return member ? { actor: memberLabel(member), actorMember: member } : { actor: "Unknown member" };
   };
-  return entries.map((entry): ActivityItem => {
+  const currencies = groupCurrenciesThen(entries, current.currency);
+  return entries.map((entry, index): ActivityItem => {
     const { change } = entry;
+    // The Group as this entry's Locked Rates convert into.
+    const group = { ...current, currency: currencies[index] };
     const shown = {
       id: entry.id,
       at: entry.at,
@@ -144,6 +163,37 @@ export function activityItems(entries: readonly ActivityEntry[], group: GroupSna
           details: [],
           changes: [],
         };
+      case "group-details-edited":
+        return {
+          ...shown,
+          subject: { kind: "group", id: group.id },
+          title: "",
+          details: [],
+          changes: [
+            ...(change.before.name !== change.after.name
+              ? [{ label: "Name", before: change.before.name, after: change.after.name }]
+              : []),
+            ...(change.before.description !== change.after.description
+              ? [{ label: "Description", before: change.before.description || "None", after: change.after.description || "None" }]
+              : []),
+          ],
+        };
+      case "currency-changed":
+        return { ...shown, subject: { kind: "group", id: group.id }, title: change.to, details: [], changes: [] };
+      case "editing-mode-changed":
+        return {
+          ...shown,
+          subject: { kind: "group", id: group.id },
+          title: EDITING_MODE_LABELS[change.after],
+          details: [],
+          changes: [],
+        };
+      case "category-added":
+      case "category-deleted":
+        return { ...shown, subject: { kind: "category", id: change.category.id }, title: change.category.name, details: [], changes: [] };
+      case "category-renamed":
+        // Named as it was, then as it became: a later rename doesn't rewrite either.
+        return { ...shown, subject: { kind: "category", id: change.before.id }, title: change.before.name, details: [], changes: [] };
     }
   });
 }

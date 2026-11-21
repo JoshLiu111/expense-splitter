@@ -2,6 +2,7 @@ import { and, asc, desc, eq, exists, inArray, isNotNull, isNull, max, ne, notExi
 import {
   computeLedger,
   convertedRate,
+  groupCurrenciesThen,
   isPendingMember,
   isSameExpense,
   type ActivityChange,
@@ -183,8 +184,8 @@ function toSettlement(s: SettlementRow): Settlement {
 
 /**
  * Settlement Activity recorded before Settlements had a Settlement Currency
- * holds Settlements without one: they were in the Group Currency, at 1
- * (ADR 0009). The rows stay as recorded; they are only read that way.
+ * holds Settlements without one: they were in the Group Currency of the
+ * time, at 1 (ADR 0009). The rows stay as recorded; they are only read that way.
  */
 function withSettlementCurrency(change: ActivityChange, groupCurrency: CurrencyCode): ActivityChange {
   if (change.kind !== "settlement-added" && change.kind !== "settlement-deleted") return change;
@@ -493,10 +494,17 @@ export function createPostgresGroupRepository(
     },
     async updateGroup(id, details) {
       if (!(await canChange(id))) return null;
-      await db
-        .update(groups)
-        .set({ name: details.name, description: details.description })
-        .where(eq(groups.id, id));
+      await db.transaction(async (tx) => {
+        const [before] = await tx
+          .select({ name: groups.name, description: groups.description })
+          .from(groups)
+          .where(eq(groups.id, id))
+          .for("update");
+        if (!before || (before.name === details.name && before.description === details.description)) return;
+        const after = { name: details.name, description: details.description };
+        await tx.update(groups).set(after).where(eq(groups.id, id));
+        await record(tx, id, { kind: "group-details-edited", before, after });
+      });
       const [group] = await load(id);
       return group ?? null;
     },
@@ -531,6 +539,8 @@ export function createPostgresGroupRepository(
             await tx.update(table).set({ lockedRate, manualRate }).where(inArray(table.id, ids));
           }
         }
+        const { from, to, rate } = change;
+        await record(tx, id, { kind: "currency-changed", from, to, rate });
         return true;
       });
       if (!changed) return null;
@@ -540,12 +550,20 @@ export function createPostgresGroupRepository(
     async setEditingMode(id, mode) {
       // Only the Group Creator may, and only while they are a Linked Member.
       if (!(await canChange(id))) return null;
-      const rows = await db
-        .update(groups)
-        .set({ editingMode: mode })
-        .where(and(eq(groups.id, id), eq(groups.creatorUserId, currentUser.id)))
-        .returning({ id: groups.id });
-      if (rows.length === 0) return null;
+      const set = await db.transaction(async (tx) => {
+        const [group] = await tx
+          .select({ editingMode: groups.editingMode })
+          .from(groups)
+          .where(and(eq(groups.id, id), eq(groups.creatorUserId, currentUser.id)))
+          .for("update");
+        if (!group) return false;
+        const before = group.editingMode as EditingMode;
+        if (before === mode) return true;
+        await tx.update(groups).set({ editingMode: mode }).where(eq(groups.id, id));
+        await record(tx, id, { kind: "editing-mode-changed", before, after: mode });
+        return true;
+      });
+      if (!set) return null;
       const [group] = await load(id);
       return group ?? null;
     },
@@ -665,38 +683,52 @@ export function createPostgresGroupRepository(
     },
     async addCategory(groupId, name) {
       if (!(await canChange(groupId))) return null;
-      const id = `cat_${newId()}`;
-      await db.insert(customCategories).values({ id, groupId, name });
-      return { id, name };
+      const category = { id: `cat_${newId()}`, name };
+      await db.transaction(async (tx) => {
+        await tx.insert(customCategories).values({ ...category, groupId });
+        await record(tx, groupId, { kind: "category-added", category });
+      });
+      return category;
     },
     async renameCategory(groupId, categoryId, name) {
       if (!(await canChange(groupId))) return null;
-      const rows = await db
-        .update(customCategories)
-        .set({ name })
-        .where(and(eq(customCategories.id, categoryId), eq(customCategories.groupId, groupId)))
-        .returning({ id: customCategories.id });
-      return rows.length > 0 ? { id: categoryId, name } : null;
+      return db.transaction(async (tx) => {
+        const [before] = await tx
+          .select({ id: customCategories.id, name: customCategories.name })
+          .from(customCategories)
+          .where(and(eq(customCategories.id, categoryId), eq(customCategories.groupId, groupId)))
+          .for("update");
+        if (!before) return null;
+        const after = { id: categoryId, name };
+        if (before.name === name) return after;
+        await tx.update(customCategories).set({ name }).where(eq(customCategories.id, categoryId));
+        await record(tx, groupId, { kind: "category-renamed", before, after });
+        return after;
+      });
     },
     async deleteCategory(groupId, categoryId) {
       if (!(await canChange(groupId))) return false;
-      // Never delete a Category an Expense uses, even one recorded a moment ago.
-      const rows = await db
-        .delete(customCategories)
-        .where(
-          and(
-            eq(customCategories.id, categoryId),
-            eq(customCategories.groupId, groupId),
-            notExists(
-              db
-                .select({ one: expenses.id })
-                .from(expenses)
-                .where(and(eq(expenses.groupId, groupId), eq(expenses.category, categoryId))),
+      return db.transaction(async (tx) => {
+        // Never delete a Category an Expense uses, even one recorded a moment ago.
+        const [row] = await tx
+          .delete(customCategories)
+          .where(
+            and(
+              eq(customCategories.id, categoryId),
+              eq(customCategories.groupId, groupId),
+              notExists(
+                tx
+                  .select({ one: expenses.id })
+                  .from(expenses)
+                  .where(and(eq(expenses.groupId, groupId), eq(expenses.category, categoryId))),
+              ),
             ),
-          ),
-        )
-        .returning({ id: customCategories.id });
-      return rows.length > 0;
+          )
+          .returning({ id: customCategories.id, name: customCategories.name });
+        if (!row) return false;
+        await record(tx, groupId, { kind: "category-deleted", category: row });
+        return true;
+      });
     },
     async listActivity(groupId) {
       const [group] = await load(groupId);
@@ -706,11 +738,12 @@ export function createPostgresGroupRepository(
         .from(activity)
         .where(eq(activity.groupId, groupId))
         .orderBy(desc(activity.seq));
-      return rows.map((r) => ({
+      const currencies = groupCurrenciesThen(rows, group.currency);
+      return rows.map((r, i) => ({
         id: r.id,
         at: r.at.toISOString(),
         actorMemberId: r.actorMemberId,
-        change: withSettlementCurrency(r.change, group.currency),
+        change: withSettlementCurrency(r.change, currencies[i]),
       }));
     },
     async deleteGroup(id) {

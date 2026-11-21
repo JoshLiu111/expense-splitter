@@ -98,9 +98,9 @@ export interface GroupRepository {
   deleteCategory(groupId: string, categoryId: string): Promise<boolean>;
   /**
    * The Group's Activity, newest first; `null` if the Group isn't visible
-   * here. Every change above to an Expense, Settlement or Member records an
-   * entry in the same transaction, an Invitation once `recordInvitationSent`
-   * records it sent; one refused or that changes nothing records none.
+   * here. Every change above records an entry in the same transaction (an
+   * Invitation once `recordInvitationSent` records it sent); one refused or
+   * that changes nothing records none.
    */
   listActivity(groupId: string): Promise<ActivityEntry[] | null>;
   /** Deletes a Group and everything in it, Activity too; `false` if it isn't visible here. */

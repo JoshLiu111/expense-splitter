@@ -94,6 +94,13 @@ test("S1: Guest, as Group Creator, changes the Group Currency at an overridden r
   // Guest changes last the session.
   await page.reload();
   await expect(balance(page, "Priya Sharma")).toContainText("€48.57");
+
+  // Activity records the change, and reads what came before it in dollars.
+  await page.getByRole("link", { name: "Activity" }).click();
+  const entries = page.getByRole("main").getByRole("listitem");
+  await expect(entries.first()).toContainText("You changed the Group Currency from USD to EUR at 1 USD = 0.9 EUR");
+  const sushi = entries.filter({ hasText: "Priya Sharma edited the Expense Sushi lunch" });
+  await expect(sushi).toContainText("Mia Torres’s Sharechanged from $22.30→ to $26.76");
 });
 
 test("S1: Guest changes the Group Currency of a Group with nothing recorded, with no rate to choose", async ({

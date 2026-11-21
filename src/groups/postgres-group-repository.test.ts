@@ -243,8 +243,9 @@ describe.skipIf(!url)("Postgres GroupRepository", () => {
     expect(await theosRepo.deleteCategory(group.id, category.id)).toBe(false);
     expect(await theosRepo.deleteGroup(group.id)).toBe(false);
     expect(await mayasRepo.getGroup(group.id)).toEqual(theosView);
-    // Adding and removing Theo, the Expense and the two Settlements; nothing refused.
-    expect(await mayasRepo.listActivity(group.id)).toHaveLength(6);
+    // Adding and removing Theo, the Expense, the two Settlements and the
+    // Category, and deleting a Settlement; nothing refused.
+    expect(await mayasRepo.listActivity(group.id)).toHaveLength(7);
 
     // Once the reopened Balance is settled, the Group is gone again.
     await mayasRepo.addSettlement(group.id, settlement);
@@ -442,6 +443,34 @@ describe.skipIf(!url)("Postgres GroupRepository", () => {
     ]);
     const [row] = await db.select({ change: activity.change }).from(activity).where(eq(activity.id, "act_legacy"));
     expect(row.change).toEqual(change);
+
+    // After a Group Currency change, it was still in the Group Currency of its time.
+    await repo.changeGroupCurrency(group.id, { from: "EUR", to: "USD", rate: "1.08" });
+    expect((await repo.listActivity(group.id))?.map((a) => a.change)).toEqual([
+      { kind: "currency-changed", from: "EUR", to: "USD", rate: "1.08" },
+      { kind: "settlement-added", settlement: { ...legacy, currency: "EUR", lockedRate: "1" } },
+    ]);
+  });
+
+  it("records nothing for deleting a Custom Category an Expense uses", async () => {
+    const repo = createPostgresGroupRepository(db, await aUser());
+    const group = await repo.createGroup({ name: "Flat", description: "", currency: "USD" });
+    const me = group.members[0].id;
+    const cleaning = (await repo.addCategory(group.id, "Cleaning"))!;
+    await repo.addExpense(group.id, {
+      description: "Mop",
+      amount: 1200,
+      currency: "USD",
+      lockedRate: "1",
+      payerId: me,
+      splitType: "equal",
+      shares: [{ memberId: me, amount: 1200 }],
+      date: "2026-03-01",
+      category: cleaning.id,
+    });
+
+    expect(await repo.deleteCategory(group.id, cleaning.id)).toBe(false);
+    expect((await repo.listActivity(group.id))?.map((a) => a.change.kind)).toEqual(["expense-added", "category-added"]);
   });
 
   it("shows every Linked Member all of a Group's Activity, each change under the Member who made it", async () => {

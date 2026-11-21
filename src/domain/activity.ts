@@ -1,4 +1,7 @@
-import type { Expense, Settlement } from "./types";
+import type { CurrencyChange } from "./change-currency";
+import type { EditingMode } from "./editing-mode";
+import type { GroupDetails } from "./manage-group";
+import type { CurrencyCode, CustomCategory, Expense, Settlement } from "./types";
 
 /**
  * A Member as an Activity entry names them: the name they were shown under
@@ -10,9 +13,11 @@ export interface ActivityMember {
 }
 
 /**
- * One change to a Group's Expenses, Settlements or Members. Edits keep the
- * Expense as it was before and after; nothing here is a Balance or Suggested
- * Settlement (ADR 0004), which are always derived from the Group.
+ * One change to a Group: to its Expenses, Settlements or Members, its name
+ * and description, Group Currency, Custom Categories or Editing Mode. Edits
+ * keep what was changed as it was before and after; nothing here is a
+ * Balance or Suggested Settlement (ADR 0004), which are always derived from
+ * the Group.
  */
 export type ActivityChange =
   | { kind: "expense-added"; expense: Expense }
@@ -26,7 +31,15 @@ export type ActivityChange =
   /** A Pending Member claimed: recorded under that Member, as the User who claimed it. */
   | { kind: "member-joined"; member: ActivityMember }
   | { kind: "member-email-set"; member: ActivityMember; email: string }
-  | { kind: "member-removed"; member: ActivityMember };
+  | { kind: "member-removed"; member: ActivityMember }
+  /** The Group's name or description, or both, changed. */
+  | { kind: "group-details-edited"; before: GroupDetails; after: GroupDetails }
+  /** Every Locked Rate was converted from `from` to `to` at `rate` (ADR 0010). */
+  | ({ kind: "currency-changed" } & CurrencyChange)
+  | { kind: "category-added"; category: CustomCategory }
+  | { kind: "category-renamed"; before: CustomCategory; after: CustomCategory }
+  | { kind: "category-deleted"; category: CustomCategory }
+  | { kind: "editing-mode-changed"; before: EditingMode; after: EditingMode };
 
 /** An Activity entry: read-only once recorded. */
 export interface ActivityEntry {
@@ -78,4 +91,22 @@ export function changedExpenseFields(before: Expense, after: Expense): ExpenseFi
  */
 export function isSameExpense(a: Expense, b: Expense): boolean {
   return changedExpenseFields(a, b).length === 0;
+}
+
+/**
+ * The Group Currency each entry was recorded in, given entries newest first
+ * and the Group Currency now: an entry older than a Group Currency change
+ * was recorded in that change's old one, so its Locked Rates convert into
+ * it (ADR 0010). Entries themselves are never rewritten.
+ */
+export function groupCurrenciesThen(
+  entries: readonly Pick<ActivityEntry, "change">[],
+  current: CurrencyCode,
+): CurrencyCode[] {
+  let then = current;
+  return entries.map(({ change }) => {
+    const recordedIn = then;
+    if (change.kind === "currency-changed") then = change.from;
+    return recordedIn;
+  });
 }
