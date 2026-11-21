@@ -223,4 +223,91 @@ describe("activityItems", () => {
       expect(item).toMatchObject({ subject: { kind: "member", id: "mem_drew" }, details: [], changes: [] });
     }
   });
+
+  it("shows each change to the Group, its Custom Categories and Editing Mode as one sentence, an edit's details before → after", () => {
+    const at = "2024-02-01T10:00:00.000Z";
+    const cleaning = { id: "cat_cleaning", name: "Cleaning" };
+    const entries: ActivityEntry[] = [
+      { id: "act_7", at, actorMemberId: "mem_riley", change: { kind: "editing-mode-changed", before: "open", after: "own-records-only" } },
+      { id: "act_6", at, actorMemberId: "mem_riley", change: { kind: "currency-changed", from: "EUR", to: "USD", rate: "1.08" } },
+      { id: "act_5", at, actorMemberId: "mem_casey", change: { kind: "category-deleted", category: { ...cleaning, name: "Cleaning supplies" } } },
+      { id: "act_4", at, actorMemberId: "mem_casey", change: { kind: "category-renamed", before: cleaning, after: { ...cleaning, name: "Cleaning supplies" } } },
+      { id: "act_3", at, change: { kind: "category-added", category: cleaning } },
+      {
+        id: "act_2",
+        at,
+        actorMemberId: "mem_drew",
+        change: { kind: "group-details-edited", before: { name: "Apt 4B", description: "" }, after: { name: "Apartment 4B", description: "Bills" } },
+      },
+      {
+        id: "act_1",
+        at,
+        actorMemberId: "mem_drew",
+        change: { kind: "group-details-edited", before: { name: "Apt 4B", description: "Rent" }, after: { name: "Apt 4B", description: "" } },
+      },
+    ];
+
+    const items = activityItems(entries, apartment);
+
+    expect(items.map((i) => [i.actor, i.action, i.title, i.rest].filter(Boolean).join(" "))).toEqual([
+      "Riley Morgan changed the Editing Mode from Open to Own Records Only",
+      "Riley Morgan changed the Group Currency from EUR to USD at 1 EUR = 1.08 USD",
+      "Casey Brooks deleted the Category Cleaning supplies",
+      "Casey Brooks renamed the Category Cleaning to Cleaning supplies",
+      "You added the Category Cleaning",
+      "Drew Patel edited the Group’s details",
+      "Drew Patel edited the Group’s details",
+    ]);
+    expect(items.map((i) => i.subject)).toEqual([
+      ...Array(2).fill({ kind: "group", id: apartment.id }),
+      ...Array(3).fill({ kind: "category", id: "cat_cleaning" }),
+      ...Array(2).fill({ kind: "group", id: apartment.id }),
+    ]);
+    // Only what the edit changed; a cleared description reads as None.
+    expect(items.map((i) => i.changes)).toEqual([
+      ...Array(5).fill([]),
+      [
+        { label: "Name", before: "Apt 4B", after: "Apartment 4B" },
+        { label: "Description", before: "None", after: "Bills" },
+      ],
+      [{ label: "Description", before: "Rent", after: "None" }],
+    ]);
+    expect(items.every((i) => i.details.length === 0)).toBe(true);
+  });
+
+  it("reads each entry in the Group Currency it was recorded in, older ones before a Group Currency change in the old one", () => {
+    // Japan's Group Currency is now EUR; it was JPY, and USD before that.
+    const euros = { ...japan, currency: "EUR" as const };
+    const at = "2024-03-01T10:00:00.000Z";
+    const repaid = { id: "stl_x", fromId: "mem_sam", toId: "mem_alex", amount: 1000, date: "2024-03-01", createdAt: at };
+    const entries: ActivityEntry[] = [
+      { id: "act_5", at, change: { kind: "settlement-added", settlement: { ...repaid, currency: "USD", lockedRate: "0.925" } } },
+      { id: "act_4", at, change: { kind: "currency-changed", from: "JPY", to: "EUR", rate: "0.0062" } },
+      { id: "act_3", at, change: { kind: "settlement-deleted", settlement: { ...repaid, currency: "USD", lockedRate: "150" } } },
+      { id: "act_2", at, change: { kind: "currency-changed", from: "USD", to: "JPY", rate: "150" } },
+      { id: "act_1", at, change: { kind: "settlement-added", settlement: { ...repaid, currency: "USD", lockedRate: "1" } } },
+      { id: "act_0", at, change: { kind: "expense-edited", before: { ...hotel, lockedRate: "0.0068" }, after: hotel } },
+    ];
+
+    const items = activityItems(entries, euros);
+
+    expect(items.map((i) => i.details.find((d) => d.label === "Amount")?.value)).toEqual([
+      "$10.00 ≈ €9.25",
+      undefined,
+      "$10.00 ≈ ¥1,500",
+      undefined,
+      "$10.00",
+      undefined,
+    ]);
+    expect(items[0].details.find((d) => d.label === "Locked Rate")).toEqual({ label: "Locked Rate", value: "0.925" });
+    expect(items[4].details.find((d) => d.label === "Locked Rate")).toBeUndefined();
+    // ¥21,000 each at 0.0068 then 0.0067 USD per yen.
+    expect(items[5].changes).toContainEqual({
+      label: "Alex Chen’s Share",
+      before: "$142.80",
+      after: "$140.70",
+      money: true,
+      memberId: "mem_alex",
+    });
+  });
 });

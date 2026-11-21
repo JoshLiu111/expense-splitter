@@ -3,14 +3,28 @@ import type { ActivityEntry, CalendarDate, GroupSnapshot } from "@/domain";
 /**
  * Activity for the sample Groups, newest first: changes their Members made
  * once Activity started, after recording the rest. Each edit's "after" is
- * the Expense as `data/sample-groups.json` has it now, each deleted Expense
- * is one no longer there, and each change to a Member leaves them as the
- * seed data has them; a test holds all of it to the seed data.
+ * the Expense or Group as `data/sample-groups.json` has it now, each deleted
+ * Expense is one no longer there, each change to a Member leaves them as the
+ * seed data has them, and the Custom Categories added, renamed and deleted
+ * leave the ones it has; a test holds all of it to the seed data.
  */
 export const SAMPLE_ACTIVITY: Record<string, { startedOn: CalendarDate; entries: ActivityEntry[] }> = {
   grp_japan_2024: {
     startedOn: "2024-03-23",
     entries: [
+      {
+        id: "act_japan_4",
+        at: "2024-03-27T08:10:00.000Z",
+        actorMemberId: "mem_taylor",
+        change: {
+          kind: "group-details-edited",
+          before: { name: "Trip to Japan", description: "Two weeks in Tokyo, Kyoto, and Osaka." },
+          after: {
+            name: "Trip to Japan",
+            description: "Two weeks in Tokyo, Kyoto, and Osaka. Cherry blossom season 2024.",
+          },
+        },
+      },
       {
         id: "act_japan_3",
         at: "2024-03-26T19:02:00.000Z",
@@ -356,6 +370,28 @@ export const SAMPLE_ACTIVITY: Record<string, { startedOn: CalendarDate; entries:
   grp_camping: {
     startedOn: "2024-03-09",
     entries: [
+      {
+        id: "act_camping_5",
+        at: "2024-03-10T18:30:00.000Z",
+        actorMemberId: "mem_jake",
+        change: { kind: "category-deleted", category: { id: "cat_camping_gear", name: "Gear rental" } },
+      },
+      {
+        id: "act_camping_4",
+        at: "2024-03-09T16:05:00.000Z",
+        actorMemberId: "mem_lily",
+        change: {
+          kind: "category-renamed",
+          before: { id: "cat_camping_gear", name: "Gear" },
+          after: { id: "cat_camping_gear", name: "Gear rental" },
+        },
+      },
+      {
+        id: "act_camping_3",
+        at: "2024-03-09T16:00:00.000Z",
+        actorMemberId: "mem_jake",
+        change: { kind: "category-added", category: { id: "cat_camping_gear", name: "Gear" } },
+      },
       {
         id: "act_camping_2",
         at: "2024-03-09T13:00:00.000Z",

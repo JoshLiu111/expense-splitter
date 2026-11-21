@@ -63,7 +63,7 @@ test("View changes on an Expense from before Activity started says so", async ({
   await expect(page).toHaveURL(/\/guest\/groups\/grp_apt_4b\/activity$/);
 });
 
-test("a signed-in User's changes, to Expenses and Members, are recorded under their Member, and a new Group has no launch note", async ({
+test("a signed-in User's changes, to Expenses, Members, Categories and the Editing Mode, are recorded under their Member, and a new Group has no launch note", async ({
   page,
 }) => {
   const email = `e2e-${Date.now()}-${Math.random().toString(36).slice(2, 8)}@example.test`;
@@ -93,12 +93,31 @@ test("a signed-in User's changes, to Expenses and Members, are recorded under th
   await field(page, "Add a Member by name").fill("Dev Shah");
   await page.getByRole("button", { name: "Add Member" }).click();
   await expect(page.getByText("Added Dev Shah.")).toBeVisible();
+
+  const categories = page.getByRole("region", { name: "Categories" });
+  await field(page, "Add a Category").fill("Cleaning");
+  await categories.getByRole("button", { name: "Add Category" }).click();
+  await expect(page.getByText("Added the Category Cleaning.")).toBeVisible();
+  await categories.getByRole("button", { name: "Rename Cleaning" }).click();
+  await page.getByRole("dialog").getByLabel("Name").fill("Cleaning supplies");
+  await page.getByRole("button", { name: "Save name" }).click();
+  await expect(page.getByText("Renamed Cleaning to Cleaning supplies.")).toBeVisible();
+
+  const editingMode = page.getByRole("region", { name: "Editing Mode" });
+  await editingMode.getByText("Own Records Only", { exact: true }).click();
+  await editingMode.getByRole("button", { name: "Save Editing Mode" }).click();
+  await expect(page.getByText("Editing Mode saved.")).toBeVisible();
   await page.getByRole("link", { name: "Back to Flat 3B" }).click();
 
   await page.getByRole("link", { name: "Activity" }).click();
-  await expect(activityEntries(page)).toHaveCount(3);
-  await expect(activityEntries(page).first()).toContainText("Maya Chen added Dev Shah to the Group");
-  await expect(activityEntries(page).nth(1)).toContainText("Maya Chen deleted the Expense Milk");
-  await expect(activityEntries(page).nth(2)).toContainText("Maya Chen added the Expense Milk");
+  await expect(activityEntries(page)).toHaveCount(6);
+  await expect(activityEntries(page).first()).toContainText(
+    "Maya Chen changed the Editing Mode from Open to Own Records Only",
+  );
+  await expect(activityEntries(page).nth(1)).toContainText("Maya Chen renamed the Category Cleaning to Cleaning supplies");
+  await expect(activityEntries(page).nth(2)).toContainText("Maya Chen added the Category Cleaning");
+  await expect(activityEntries(page).nth(3)).toContainText("Maya Chen added Dev Shah to the Group");
+  await expect(activityEntries(page).nth(4)).toContainText("Maya Chen deleted the Expense Milk");
+  await expect(activityEntries(page).nth(5)).toContainText("Maya Chen added the Expense Milk");
   await expect(page.getByText(/Activity starts on/)).toHaveCount(0);
 });

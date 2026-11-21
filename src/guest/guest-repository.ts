@@ -1,5 +1,7 @@
 import {
+  changedGroupDetails,
   changeGroupCurrency,
+  editingModeOf,
   isSameExpense,
   type ActivityChange,
   type ActivityEntry,
@@ -240,15 +242,28 @@ export function createSessionStorageRepository(
       return true;
     },
     async updateGroup(id, { name, description }) {
-      return changeGroup(id, (g) => ({ ...g, name, description }));
+      const after = { name, description };
+      return changeGroup(
+        id,
+        (g) => ({ ...g, ...after }),
+        (g) => {
+          const before = { name: g.name, description: g.description };
+          return changedGroupDetails(before, after).length === 0 ? null : { kind: "group-details-edited", before, after };
+        },
+      );
     },
     // The Guest is the Group Creator of every session Group, so may make both.
     async setEditingMode(id, mode) {
-      return changeGroup(id, (g) => ({ ...g, editingMode: mode }));
+      return changeGroup(
+        id,
+        (g) => ({ ...g, editingMode: mode }),
+        (g) => (editingModeOf(g) === mode ? null : { kind: "editing-mode-changed", before: editingModeOf(g), after: mode }),
+      );
     },
     async changeGroupCurrency(id, change) {
       if (read().find((g) => g.id === id)?.currency !== change.from) return null;
-      return changeGroup(id, (g) => changeGroupCurrency(g, change));
+      const { from, to, rate } = change;
+      return changeGroup(id, (g) => changeGroupCurrency(g, change), () => ({ kind: "currency-changed", from, to, rate }));
     },
     // Guests have no Users, so a Member with an email stays a Pending Member.
     async addMember(groupId, { name, email }) {
@@ -287,29 +302,37 @@ export function createSessionStorageRepository(
     },
     async addCategory(groupId, name) {
       const category: CustomCategory = { id: `cat_${newId()}`, name };
-      const changed = changeGroup(groupId, (g) => ({
-        ...g,
-        customCategories: [...(g.customCategories ?? []), category],
-      }));
+      const changed = changeGroup(
+        groupId,
+        (g) => ({ ...g, customCategories: [...(g.customCategories ?? []), category] }),
+        () => ({ kind: "category-added", category }),
+      );
       return changed ? category : null;
     },
     async renameCategory(groupId, categoryId, name) {
-      const group = read().find((g) => g.id === groupId);
-      if (!group?.customCategories?.some((c) => c.id === categoryId)) return null;
+      const before = read()
+        .find((g) => g.id === groupId)
+        ?.customCategories?.find((c) => c.id === categoryId);
+      if (!before) return null;
       const category: CustomCategory = { id: categoryId, name };
-      changeGroup(groupId, (g) => ({
-        ...g,
-        customCategories: g.customCategories?.map((c) => (c.id === categoryId ? category : c)),
-      }));
+      if (before.name === name) return category;
+      changeGroup(
+        groupId,
+        (g) => ({ ...g, customCategories: g.customCategories?.map((c) => (c.id === categoryId ? category : c)) }),
+        () => ({ kind: "category-renamed", before, after: category }),
+      );
       return category;
     },
     async deleteCategory(groupId, categoryId) {
       const group = read().find((g) => g.id === groupId);
-      if (!group?.customCategories?.some((c) => c.id === categoryId)) return false;
-      changeGroup(groupId, (g) => ({
-        ...g,
-        customCategories: g.customCategories?.filter((c) => c.id !== categoryId),
-      }));
+      const category = group?.customCategories?.find((c) => c.id === categoryId);
+      // Never delete a Category an Expense uses.
+      if (!category || group!.expenses.some((e) => e.category === categoryId)) return false;
+      changeGroup(
+        groupId,
+        (g) => ({ ...g, customCategories: g.customCategories?.filter((c) => c.id !== categoryId) }),
+        () => ({ kind: "category-deleted", category }),
+      );
       return true;
     },
     async deleteGroup(id) {

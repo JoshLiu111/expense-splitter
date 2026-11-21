@@ -322,19 +322,32 @@ export function groupRepositoryContract<U extends { id: string; email: string }>
       await repo.addMember(group.id, { name: "Theo", email: theo.email });
       const before = await repo.getGroup(group.id);
 
+      const activity = await repo.listActivity(group.id);
+
       const theirs = await users!.repositoryOf(theo);
       expect(await theirs.changeGroupCurrency(group.id, { from: "USD", to: "JPY", rate: "150" })).toBeNull();
       expect(await repo.getGroup(group.id)).toEqual(before);
+      expect(await repo.listActivity(group.id)).toEqual(activity);
     });
 
-    it("leaves every record's Activity as it was recorded", async () => {
+    it("records the change, old and new Group Currency and the rate, leaving every earlier entry as it was recorded", async () => {
       const repo = await makeRepository();
       const group = await trip(repo);
       const before = await repo.listActivity(group.id);
 
       await repo.changeGroupCurrency(group.id, { from: "USD", to: "JPY", rate: "150" });
+      // Refused: the Group Currency is no longer USD.
+      await repo.changeGroupCurrency(group.id, { from: "USD", to: "EUR", rate: "0.925" });
 
-      expect(await repo.listActivity(group.id)).toEqual(before);
+      expect(await repo.listActivity(group.id)).toEqual([
+        {
+          id: expect.any(String),
+          at: expect.any(String),
+          ...(actorOf(group) ? { actorMemberId: actorOf(group) } : {}),
+          change: { kind: "currency-changed", from: "USD", to: "JPY", rate: "150" },
+        },
+        ...before!,
+      ]);
     });
   });
 
@@ -676,6 +689,91 @@ export function groupRepositoryContract<U extends { id: string; email: string }>
   });
 
   describe("Activity", () => {
+    it("records editing a Group's name and description, before and after, and nothing for a save that changes nothing", async () => {
+      const repo = await makeRepository();
+      const group = await repo.createGroup({ name: "Flat", description: "", currency: "USD" });
+
+      await repo.updateGroup(group.id, { name: "Flat 3B", description: "" });
+      await repo.updateGroup(group.id, { name: "Flat 3B", description: "" });
+      await repo.updateGroup(group.id, { name: "Flat 3B", description: "Rent and bills" });
+      await repo.updateGroup("grp_missing", { name: "Elsewhere", description: "" });
+
+      const activity = await repo.listActivity(group.id);
+      expect(activity?.map((a) => a.change)).toEqual([
+        {
+          kind: "group-details-edited",
+          before: { name: "Flat 3B", description: "" },
+          after: { name: "Flat 3B", description: "Rent and bills" },
+        },
+        { kind: "group-details-edited", before: { name: "Flat", description: "" }, after: { name: "Flat 3B", description: "" } },
+      ]);
+      expect(activity?.map((a) => a.actorMemberId)).toEqual(Array(2).fill(actorOf(group)));
+    });
+
+    it("records adding, renaming and deleting a Custom Category by the names it had, and nothing for changes that change nothing or are refused", async () => {
+      const repo = await makeRepository();
+      const group = await repo.createGroup({ name: "Flat", description: "", currency: "USD" });
+      const other = await repo.createGroup({ name: "Trip", description: "", currency: "USD" });
+      const theirs = (await repo.addCategory(other.id, "Souvenirs"))!;
+
+      const cleaning = (await repo.addCategory(group.id, "Cleaning"))!;
+      await repo.renameCategory(group.id, cleaning.id, "Cleaning supplies");
+      await repo.renameCategory(group.id, cleaning.id, "Cleaning supplies");
+      await repo.renameCategory(group.id, theirs.id, "Mine");
+      await repo.deleteCategory(group.id, theirs.id);
+      await repo.deleteCategory(group.id, cleaning.id);
+      await repo.deleteCategory(group.id, cleaning.id);
+      await repo.addCategory("grp_missing", "Pets");
+
+      const activity = await repo.listActivity(group.id);
+      expect(activity?.map((a) => a.change)).toEqual([
+        { kind: "category-deleted", category: { id: cleaning.id, name: "Cleaning supplies" } },
+        { kind: "category-renamed", before: cleaning, after: { id: cleaning.id, name: "Cleaning supplies" } },
+        { kind: "category-added", category: cleaning },
+      ]);
+      expect(activity?.map((a) => a.actorMemberId)).toEqual(Array(3).fill(actorOf(group)));
+      expect((await repo.listActivity(other.id))?.map((a) => a.change)).toEqual([{ kind: "category-added", category: theirs }]);
+    });
+
+    it("refuses to delete a Custom Category an Expense uses, recording nothing", async () => {
+      const repo = await makeRepository();
+      const group = await repo.createGroup({ name: "Flat", description: "", currency: "USD" });
+      const cleaning = (await repo.addCategory(group.id, "Cleaning"))!;
+      await repo.addExpense(group.id, lunch(group, { category: cleaning.id }));
+
+      expect(await repo.deleteCategory(group.id, cleaning.id)).toBe(false);
+      expect((await repo.getGroup(group.id))?.customCategories).toEqual([cleaning]);
+      expect((await repo.listActivity(group.id))?.map((a) => a.change.kind)).toEqual(["expense-added", "category-added"]);
+    });
+
+    it("records an Editing Mode change, before and after, and nothing for setting the one it has", async () => {
+      const repo = await makeRepository();
+      const group = await repo.createGroup({ name: "Flat", description: "", currency: "USD" });
+
+      await repo.setEditingMode(group.id, "open");
+      await repo.setEditingMode(group.id, "own-records-only");
+      await repo.setEditingMode(group.id, "own-records-only");
+      await repo.setEditingMode(group.id, "open");
+
+      const activity = await repo.listActivity(group.id);
+      expect(activity?.map((a) => a.change)).toEqual([
+        { kind: "editing-mode-changed", before: "own-records-only", after: "open" },
+        { kind: "editing-mode-changed", before: "open", after: "own-records-only" },
+      ]);
+      expect(activity?.map((a) => a.actorMemberId)).toEqual(Array(2).fill(actorOf(group)));
+    });
+
+    it.skipIf(!users)("records nothing for an Editing Mode change by a Linked Member who isn't the Group Creator", async () => {
+      const repo = await makeRepository();
+      const group = await repo.createGroup({ name: "Flat", description: "", currency: "USD" });
+      const theo = await users!.aUser();
+      await repo.addMember(group.id, { name: "Theo", email: theo.email });
+      const activity = await repo.listActivity(group.id);
+
+      expect(await (await users!.repositoryOf(theo)).setEditingMode(group.id, "own-records-only")).toBeNull();
+      expect(await repo.listActivity(group.id)).toEqual(activity);
+    });
+
     it("records adding an Expense: who added it, when, and the Expense", async () => {
       const repo = await makeRepository();
       const group = await repo.createGroup({ name: "Flat", description: "", currency: "USD" });

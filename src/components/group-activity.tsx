@@ -10,8 +10,8 @@ import { formatCalendarDate } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 /**
- * A Group's Activity: every change to its Expenses, Settlements and Members, newest
- * first and unfiltered. Read-only: entries can't be edited, deleted or
+ * A Group's Activity: every change to the Group, newest first and
+ * unfiltered. Read-only: entries can't be edited, deleted or
  * restored. With `focusExpenseId` (from "View changes"), that Expense's
  * entries are marked and the newest is scrolled to.
  */
@@ -56,7 +56,7 @@ export function GroupActivity({
         </Link>
         <h1 className="mt-2 text-2xl font-extrabold">Activity</h1>
         <p className="mt-1 text-sm text-text-secondary">
-          Every change to this Group’s Expenses, Settlements and Members, newest first.
+          Every change to this Group, newest first.
         </p>
       </div>
 

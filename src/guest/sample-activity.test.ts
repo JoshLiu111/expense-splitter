@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import sampleData from "../../data/sample-groups.json";
-import { importSampleGroups, isSameExpense } from "@/domain";
+import { importSampleGroups, isSameExpense, type CustomCategory } from "@/domain";
 import { SAMPLE_ACTIVITY, seedGuestSession } from "./sample-activity";
 
 const groups = importSampleGroups(sampleData);
@@ -15,6 +15,28 @@ describe("the sample Groups' Activity", () => {
   it.each(groups.map((g) => [g.name, g] as const))("%s's entries agree with its seed data", (_, group) => {
     const { startedOn, entries } = SAMPLE_ACTIVITY[group.id];
     const memberIds = group.members.map((m) => m.id);
+    // The Custom Categories as Activity leaves them, from none before it started.
+    let categories: CustomCategory[] = [];
+    for (const entry of [...entries].reverse()) {
+      const { change } = entry;
+      if (change.kind === "category-added") {
+        expect(categories.map((c) => c.id)).not.toContain(change.category.id);
+        categories = [...categories, change.category];
+      } else if (change.kind === "category-renamed") {
+        expect(categories).toContainEqual(change.before);
+        expect(change.after.name).not.toBe(change.before.name);
+        categories = categories.map((c) => (c.id === change.before.id ? change.after : c));
+      } else if (change.kind === "category-deleted") {
+        expect(categories).toContainEqual(change.category);
+        categories = categories.filter((c) => c.id !== change.category.id);
+      }
+    }
+    expect(categories).toEqual(group.customCategories ?? []);
+    const detailsEdits = entries.flatMap((e) => (e.change.kind === "group-details-edited" ? [e.change] : []));
+    if (detailsEdits.length > 0) {
+      // The newest edit left the Group as the seed data has it now.
+      expect(detailsEdits[0].after).toEqual({ name: group.name, description: group.description });
+    }
     for (const entry of entries) {
       expect(memberIds).toContain(entry.actorMemberId);
       expect(entry.at.slice(0, 10) >= startedOn).toBe(true);
@@ -46,10 +68,21 @@ describe("the sample Groups' Activity", () => {
           expect(member?.former ?? false).toBe(change.kind === "member-removed");
           break;
         }
+        case "group-details-edited":
+          expect(change.after).not.toEqual(change.before);
+          break;
+        // Checked above, in order.
+        case "category-added":
+        case "category-renamed":
+        case "category-deleted":
+          break;
         // The sample Groups' Members have no Users, so none is sent an
-        // Invitation or joins.
+        // Invitation or joins; nor is any the Group Creator, who alone
+        // changes the Group Currency or Editing Mode.
         case "member-invited":
         case "member-joined":
+        case "currency-changed":
+        case "editing-mode-changed":
           expect.unreachable(`${change.kind} in a sample Group`);
       }
     }
@@ -57,9 +90,11 @@ describe("the sample Groups' Activity", () => {
     expect(times).toEqual([...times].sort().reverse());
   });
 
-  it("includes a change to a Member", () => {
+  it("includes a change to a Member, to a Group's details and to each kind of Custom Category change", () => {
     const kinds = Object.values(SAMPLE_ACTIVITY).flatMap((a) => a.entries.map((e) => e.change.kind));
-    expect(kinds).toContain("member-email-set");
+    expect(kinds).toEqual(
+      expect.arrayContaining(["member-email-set", "group-details-edited", "category-added", "category-renamed", "category-deleted"]),
+    );
   });
 
   it("seeds each sample Group with the day its Activity started", () => {
