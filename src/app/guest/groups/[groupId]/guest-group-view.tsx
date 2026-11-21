@@ -87,17 +87,17 @@ export function GuestGroupSettingsView() {
           groupHref={`/guest/groups/${group.id}`}
           afterDeleteHref="/guest"
           manage={{
-            updateDetails: (fields) => updateGroupDetails(guestRepository(), group.id, fields),
+            updateDetails: (fields) => updateGroupDetails(guestRepository(), group.id, fields, GUEST),
             // Guests have no Users to link, so they add Name-only Members.
-            addMember: ({ name }) => addMember(guestRepository(), group.id, { name }),
-            removeMember: (memberId) => removeMember(guestRepository(), group.id, memberId),
+            addMember: ({ name }) => addMember(guestRepository(), group.id, { name }, GUEST),
+            removeMember: (memberId) => removeMember(guestRepository(), group.id, memberId, GUEST),
             setEditingMode: (mode) => setEditingMode(guestRepository(), group.id, mode, GUEST),
             deleteGroup: () => deleteGroup(guestRepository(), group.id, GUEST),
           }}
           categories={{
-            add: (fields) => addCategory(guestRepository(), group.id, fields),
-            rename: (categoryId, fields) => renameCategory(guestRepository(), group.id, categoryId, fields),
-            delete: (categoryId) => deleteCategory(guestRepository(), group.id, categoryId),
+            add: (fields) => addCategory(guestRepository(), group.id, fields, GUEST),
+            rename: (categoryId, fields) => renameCategory(guestRepository(), group.id, categoryId, fields, GUEST),
+            delete: (categoryId) => deleteCategory(guestRepository(), group.id, categoryId, GUEST),
           }}
           // A Guest made, or was handed, every Group in their session.
           visitor={GUEST}

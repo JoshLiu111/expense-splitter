@@ -1,8 +1,8 @@
 import {
   editingModeBlock,
   groupDeletionBlock,
+  groupManagementBlock,
   isEditingMode,
-  isGroupCreator,
   isPendingMember,
   memberEmailBlock,
   memberRemovalBlock,
@@ -89,9 +89,12 @@ export async function updateGroupDetails(
   repo: GroupRepository,
   groupId: string,
   input: unknown,
+  visitor: Visitor,
 ): Promise<ManageResult> {
   const group = await repo.getGroup(groupId);
   if (!group) return formError(GROUP_GONE);
+  const block = groupManagementBlock(group, visitor, "edit-details");
+  if (block) return formError(block);
   const fields = { name: text(input, "name"), description: text(input, "description"), currency: text(input, "currency") };
   const parsed = parseGroupDetails(fields, group);
   if (!parsed.ok) return parsed;
@@ -122,10 +125,13 @@ export async function addMember(
   repo: GroupRepository,
   groupId: string,
   input: unknown,
+  visitor: Visitor,
   notify?: MemberNotifier,
 ): Promise<AddMemberResult> {
   const group = await repo.getGroup(groupId);
   if (!group) return formError(GROUP_GONE);
+  const block = groupManagementBlock(group, visitor, "add-member");
+  if (block) return formError(block);
   const name = parseNewMember(text(input, "name"), group);
   const email = parseMemberEmail(text(input, "email"), group);
   if (!name.ok || !email.ok)
@@ -153,11 +159,12 @@ export async function setMemberEmail(
   groupId: string,
   memberId: string,
   rawEmail: unknown,
+  visitor: Visitor,
   notify?: MemberNotifier,
 ): Promise<SetMemberEmailResult> {
   const group = await repo.getGroup(groupId);
   if (!group) return formError(GROUP_GONE);
-  const block = memberEmailBlock(group, memberId);
+  const block = groupManagementBlock(group, visitor, "set-member-email") ?? memberEmailBlock(group, memberId);
   if (block) return formError(block);
   const email = parseMemberEmail(typeof rawEmail === "string" ? rawEmail : "", group, memberId);
   if (!email.ok) return { ok: false, errors: { email: email.error } };
@@ -177,10 +184,13 @@ export async function resendInvitation(
   repo: GroupRepository,
   groupId: string,
   memberId: string,
+  visitor: Visitor,
   notify: MemberNotifier,
 ): Promise<ManageResult> {
   const group = await repo.getGroup(groupId);
   if (!group) return formError(GROUP_GONE);
+  const block = groupManagementBlock(group, visitor, "resend-invitation");
+  if (block) return formError(block);
   const member = group.members.find((m) => m.id === memberId);
   if (!member || !isPendingMember(member)) return formError("Only a Pending Member is sent an Invitation.");
   return (await invite(repo, notify, group, member))
@@ -193,10 +203,11 @@ export async function removeMember(
   repo: GroupRepository,
   groupId: string,
   memberId: string,
+  visitor: Visitor,
 ): Promise<ManageResult> {
   const group = await repo.getGroup(groupId);
   if (!group) return formError(GROUP_GONE);
-  const block = memberRemovalBlock(group, memberId);
+  const block = groupManagementBlock(group, visitor, "remove-member") ?? memberRemovalBlock(group, memberId);
   if (block) return formError(block);
   return (await repo.removeMember(groupId, memberId)) ? { ok: true } : formError(GROUP_GONE);
 }
@@ -209,7 +220,7 @@ export async function deleteGroup(
 ): Promise<ManageResult> {
   const group = await repo.getGroup(groupId);
   if (!group) return formError(GROUP_GONE);
-  const block = groupDeletionBlock(group, { isCreator: isGroupCreator(group, visitor) });
+  const block = groupDeletionBlock(group, visitor);
   if (block) return formError(block);
   return (await repo.deleteGroup(groupId)) ? { ok: true } : formError(GROUP_GONE);
 }

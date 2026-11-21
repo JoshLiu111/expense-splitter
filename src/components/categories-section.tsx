@@ -12,6 +12,7 @@ import {
 import type { CategoryFields, CategoryManagement, CategoryResult } from "@/categories/manage-categories";
 import { attempt } from "@/components/attempt";
 import { Field } from "@/components/form";
+import { SectionBlock } from "@/components/group-settings";
 import { Button } from "@/components/ui/button";
 
 const dialogClass =
@@ -19,14 +20,18 @@ const dialogClass =
 
 /**
  * The Group's Custom Categories, visible only in this Group: add one,
- * rename it, or delete it once no Expense uses it.
+ * rename it, or delete it once no Expense uses it. With a `block`, they are
+ * only listed, with the reason.
  */
 export function CategoriesSection({
   group,
+  block,
   categories,
   onNews,
 }: {
   group: GroupSnapshot;
+  /** Why the visitor can't add, rename or delete Categories, or `null`. */
+  block: string | null;
   categories: CategoryManagement;
   onNews: (news: string) => void;
 }) {
@@ -56,6 +61,7 @@ export function CategoriesSection({
         The nine standard Categories are always available. Categories you add here exist only in
         this Group.
       </p>
+      <SectionBlock block={block} />
       {error && (
         <p role="alert" className="mt-2 text-sm font-semibold text-error">
           {error}
@@ -64,7 +70,7 @@ export function CategoriesSection({
       {custom.length > 0 && (
         <ul className="mt-3 divide-y divide-border-subtle rounded-lg border border-border bg-surface">
           {custom.map((category) => {
-            const block = categoryDeletionBlock(group, category.id);
+            const inUse = categoryDeletionBlock(group, category.id);
             return (
               <li
                 key={category.id}
@@ -74,24 +80,28 @@ export function CategoriesSection({
                   <Tag aria-hidden className="size-4 shrink-0 text-text-secondary" />
                   {category.name}
                 </span>
-                <span className="flex flex-wrap items-center gap-1">
-                  <RenameCategory
-                    category={category}
-                    onRename={(fields) => categories.rename(category.id, fields)}
-                    onRenamed={(name) => onNews(`Renamed ${category.name} to ${name}.`)}
-                  />
-                  {block ? (
-                    <span className="text-sm text-text-secondary">{block}</span>
-                  ) : (
-                    <ConfirmDeleteCategory category={category} onConfirm={() => remove(category)} />
-                  )}
-                </span>
+                {block === null && (
+                  <span className="flex flex-wrap items-center gap-1">
+                    <RenameCategory
+                      category={category}
+                      onRename={(fields) => categories.rename(category.id, fields)}
+                      onRenamed={(name) => onNews(`Renamed ${category.name} to ${name}.`)}
+                    />
+                    {inUse ? (
+                      <span className="text-sm text-text-secondary">{inUse}</span>
+                    ) : (
+                      <ConfirmDeleteCategory category={category} onConfirm={() => remove(category)} />
+                    )}
+                  </span>
+                )}
               </li>
             );
           })}
         </ul>
       )}
-      <AddCategoryForm onAdd={categories.add} onAdded={(name) => onNews(`Added the Category ${name}.`)} />
+      {block === null && (
+        <AddCategoryForm onAdd={categories.add} onAdded={(name) => onNews(`Added the Category ${name}.`)} />
+      )}
     </section>
   );
 }

@@ -1,9 +1,11 @@
 import type { GroupSnapshot } from "./types";
+import { groupCreatorPhrase, isGroupCreator, type Visitor } from "./visitor";
 
 /**
- * Who may edit or delete a Group's Expenses and Settlements. Open: any
- * Member. Own Records Only: their Recorder and the Group Creator; records
- * with no Recorder, the Group Creator alone. Adding is never restricted.
+ * Who may edit or delete a Group's Expenses and Settlements, and manage the
+ * Group. Open: any Member. Own Records Only: a record's Recorder and the
+ * Group Creator; records with no Recorder, and managing the Group, the
+ * Group Creator alone. Adding records is never restricted.
  */
 export type EditingMode = "open" | "own-records-only";
 
@@ -21,19 +23,6 @@ export const isEditingMode = (value: unknown): value is EditingMode =>
 export const editingModeOf = (group: Pick<GroupSnapshot, "editingMode">): EditingMode =>
   group.editingMode ?? "open";
 
-/** Who is acting: a signed-in User, or a Guest (`userId` undefined). */
-export interface Visitor {
-  userId: string | undefined;
-}
-
-/**
- * The Group Creator is the User who created the Group. A Guest's session
- * Groups have no Group Creator User, so the Guest counts as theirs.
- */
-export function isGroupCreator(group: { creatorUserId?: string }, visitor: Visitor): boolean {
-  return group.creatorUserId === visitor.userId;
-}
-
 /** A change to an existing record that the Editing Mode may restrict. */
 export type RecordAction = "edit-expense" | "delete-expense" | "delete-settlement";
 
@@ -42,15 +31,6 @@ const ACTION_WORDS: Record<RecordAction, { verb: string; record: string }> = {
   "delete-expense": { verb: "delete", record: "Expense" },
   "delete-settlement": { verb: "delete", record: "Settlement" },
 };
-
-/**
- * "the Group Creator, Alex," (the closing comma ends the aside), or just
- * "the Group Creator" if no Member is theirs.
- */
-function groupCreatorPhrase(group: GroupSnapshot): string {
-  const creator = group.members.find((m) => m.userId && m.userId === group.creatorUserId);
-  return creator ? `the Group Creator, ${creator.name},` : "the Group Creator";
-}
 
 /**
  * Why the visitor can't make `action` on a record with `target`'s Recorder,
@@ -81,4 +61,42 @@ export function recordChangeBlock(
 export function editingModeBlock(group: GroupSnapshot, visitor: Visitor): string | null {
   if (isGroupCreator(group, visitor)) return null;
   return `Only ${groupCreatorPhrase(group)} can change the Editing Mode.`;
+}
+
+/**
+ * A change to the Group itself, its Members or its Custom Categories that
+ * the Editing Mode may restrict to the Group Creator.
+ */
+export type ManagementAction =
+  | "edit-details"
+  | "add-member"
+  | "remove-member"
+  | "set-member-email"
+  | "resend-invitation"
+  | "add-category"
+  | "rename-category"
+  | "delete-category";
+
+// One phrase per Group settings section, so the reason a section shows
+// reads right for every control it hides.
+const MANAGEMENT_WORDS: Record<ManagementAction, string> = {
+  "edit-details": "change the Group's details",
+  "add-member": "add, remove or invite Members, or give them an email",
+  "remove-member": "add, remove or invite Members, or give them an email",
+  "set-member-email": "add, remove or invite Members, or give them an email",
+  "resend-invitation": "add, remove or invite Members, or give them an email",
+  "add-category": "add, rename or delete Categories",
+  "rename-category": "add, rename or delete Categories",
+  "delete-category": "add, rename or delete Categories",
+};
+
+/**
+ * Why the visitor can't make `action`, or `null` if they can: in Own
+ * Records Only, only the Group Creator manages the Group. The one rule
+ * behind both the Group management and Custom Category use cases, which
+ * re-check it against the Group as stored now, and the controls shown.
+ */
+export function groupManagementBlock(group: GroupSnapshot, visitor: Visitor, action: ManagementAction): string | null {
+  if (editingModeOf(group) === "open" || isGroupCreator(group, visitor)) return null;
+  return `This Group is set to Own Records Only: only ${groupCreatorPhrase(group)} can ${MANAGEMENT_WORDS[action]}.`;
 }
