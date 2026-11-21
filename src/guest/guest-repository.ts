@@ -1,4 +1,5 @@
 import {
+  changeGroupCurrency,
   isSameExpense,
   type ActivityChange,
   type ActivityEntry,
@@ -238,8 +239,13 @@ export function createSessionStorageRepository(
       );
       return true;
     },
-    async updateGroup(id, details) {
-      return changeGroup(id, (g) => ({ ...g, ...details }));
+    async updateGroup(id, { name, description }) {
+      return changeGroup(id, (g) => ({ ...g, name, description }));
+    },
+    // The Guest is the Group Creator of every session Group.
+    async changeGroupCurrency(id, change) {
+      if (read().find((g) => g.id === id)?.currency !== change.from) return null;
+      return changeGroup(id, (g) => changeGroupCurrency(g, change));
     },
     // The Guest is the Group Creator of every session Group.
     async setEditingMode(id, mode) {

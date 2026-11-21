@@ -1,4 +1,5 @@
 import {
+  currencyChangeBlock,
   editingModeBlock,
   groupDeletionBlock,
   groupManagementBlock,
@@ -6,19 +7,23 @@ import {
   isPendingMember,
   memberEmailBlock,
   memberRemovalBlock,
+  parseCurrencyChange,
   parseGroupDetails,
   parseMemberEmail,
   parseNewMember,
   type NewGroupFields,
 } from "@/domain";
-import type { EditingMode, Member, Visitor } from "@/domain";
+import type { CurrencyChangeFields, EditingMode, GroupDetails, Member, Visitor } from "@/domain";
 import type { GroupRepository } from "./group-repository";
 import type { MemberNotifier } from "./member-notifier";
 
 /** What a Group management control shows after it acts. */
 export type ManageResult =
   | { ok: true }
-  | { ok: false; errors: Partial<Record<keyof NewGroupFields | keyof NewMemberFields | "form", string>> };
+  | {
+      ok: false;
+      errors: Partial<Record<keyof NewGroupFields | keyof NewMemberFields | "to" | "rate" | "form", string>>;
+    };
 
 /** What the Add Member form sends; a blank email adds a Name-only Member. */
 export interface NewMemberFields {
@@ -84,7 +89,7 @@ async function notifyAdded(
   }
 }
 
-/** Edits name, description and (while nothing is recorded) Group Currency. */
+/** Edits the Group's name and description. */
 export async function updateGroupDetails(
   repo: GroupRepository,
   groupId: string,
@@ -95,10 +100,34 @@ export async function updateGroupDetails(
   if (!group) return formError(GROUP_GONE);
   const block = groupManagementBlock(group, visitor, "edit-details");
   if (block) return formError(block);
-  const fields = { name: text(input, "name"), description: text(input, "description"), currency: text(input, "currency") };
-  const parsed = parseGroupDetails(fields, group);
+  const parsed = parseGroupDetails({ name: text(input, "name"), description: text(input, "description") });
   if (!parsed.ok) return parsed;
   return (await repo.updateGroup(groupId, parsed.value)) ? { ok: true } : formError(GROUP_GONE);
+}
+
+/**
+ * Changes the Group Currency, for its Group Creator only, converting every
+ * Expense and Settlement at the one rate given: the rate the preview of the
+ * new Balances was worked out with, so what is confirmed is what was shown.
+ */
+export async function changeCurrency(
+  repo: GroupRepository,
+  groupId: string,
+  input: unknown,
+  visitor: Visitor,
+): Promise<ManageResult> {
+  const group = await repo.getGroup(groupId);
+  if (!group) return formError(GROUP_GONE);
+  const block = currencyChangeBlock(group, visitor);
+  if (block) return formError(block);
+  const fields: CurrencyChangeFields = { from: text(input, "from"), to: text(input, "to"), rate: text(input, "rate") };
+  const parsed = parseCurrencyChange(fields, group);
+  if (!parsed.ok) return parsed;
+  if (await repo.changeGroupCurrency(groupId, parsed.value)) return { ok: true };
+  // Someone changed it in the meantime, or the Group has gone.
+  const now = await repo.getGroup(groupId);
+  const stale = now && parseCurrencyChange(fields, now);
+  return stale && !stale.ok ? stale : formError(GROUP_GONE);
 }
 
 /**
@@ -245,7 +274,8 @@ export async function setEditingMode(
 
 /** The Group management operations a Group page can call, bound to one Group. */
 export interface GroupManagement {
-  updateDetails(fields: NewGroupFields): Promise<ManageResult>;
+  updateDetails(fields: GroupDetails): Promise<ManageResult>;
+  changeCurrency(fields: CurrencyChangeFields): Promise<ManageResult>;
   addMember(fields: NewMemberFields): Promise<AddMemberResult>;
   /** Absent for Guests, who have no Users to link Members to by email. */
   setMemberEmail?: (memberId: string, email: string) => Promise<SetMemberEmailResult>;

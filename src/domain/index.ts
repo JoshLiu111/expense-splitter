@@ -62,7 +62,6 @@ export type {
   ParseExpenseResult,
 } from "./new-expense";
 export {
-  currencyLock,
   currentMembers,
   groupDeletionBlock,
   isPendingMember,
@@ -78,7 +77,16 @@ export {
   parseNewMember,
   selectableMembers,
 } from "./manage-group";
-export type { ParseEmailResult, ParseMemberResult } from "./manage-group";
+export type { GroupDetails, ParseEmailResult, ParseGroupDetailsResult, ParseMemberResult } from "./manage-group";
+export {
+  changeGroupCurrency,
+  convertedRate,
+  currencyChangeBlock,
+  hasRecords,
+  multiplyRates,
+  parseCurrencyChange,
+} from "./change-currency";
+export type { CurrencyChange, CurrencyChangeFields, ParseCurrencyChangeResult } from "./change-currency";
 export {
   EDITING_MODE_LABELS,
   EDITING_MODES,

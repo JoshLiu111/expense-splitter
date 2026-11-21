@@ -233,7 +233,7 @@ describe.skipIf(!url)("Postgres GroupRepository", () => {
     expect(await theosRepo.updateExpense(group.id, expense.id, { ...dinner, amount: 1 })).toBeNull();
     expect(await theosRepo.deleteExpense(group.id, expense.id)).toBe(false);
     expect(await theosRepo.addSettlement(group.id, settlement)).toBeNull();
-    expect(await theosRepo.updateGroup(group.id, { name: "Mine", description: "", currency: "USD" })).toBeNull();
+    expect(await theosRepo.updateGroup(group.id, { name: "Mine", description: "" })).toBeNull();
     expect(await theosRepo.addMember(group.id, { name: "Zoe" })).toBeNull();
     expect(await theosRepo.setMemberEmail(group.id, theoMember, "x@example.test")).toBeNull();
     expect(await theosRepo.removeMember(group.id, mayaMember)).toBe(false);
@@ -290,7 +290,8 @@ describe.skipIf(!url)("Postgres GroupRepository", () => {
     const chloe = await mayasRepo.addMember(group.id, { name: "Chloe" });
 
     const theosRepo = createPostgresGroupRepository(db, await aUser());
-    expect(await theosRepo.updateGroup(group.id, { name: "Mine", description: "", currency: "EUR" })).toBeNull();
+    expect(await theosRepo.updateGroup(group.id, { name: "Mine", description: "" })).toBeNull();
+    expect(await theosRepo.changeGroupCurrency(group.id, { from: "USD", to: "EUR", rate: "0.925" })).toBeNull();
     expect(await theosRepo.addMember(group.id, { name: "Theo" })).toBeNull();
     expect(await theosRepo.removeMember(group.id, chloe!.id)).toBe(false);
     expect(await theosRepo.deleteGroup(group.id)).toBe(false);
@@ -317,7 +318,7 @@ describe.skipIf(!url)("Postgres GroupRepository", () => {
     });
     const theosRepo = createPostgresGroupRepository(db, theo);
     expect((await theosRepo.listGroups()).map((g) => g.id)).toEqual([group.id]);
-    expect(await theosRepo.updateGroup(group.id, { name: "Ours", description: "", currency: "USD" })).not.toBeNull();
+    expect(await theosRepo.updateGroup(group.id, { name: "Ours", description: "" })).not.toBeNull();
     expect((await mayasRepo.getGroup(group.id))?.name).toBe("Ours");
   });
 

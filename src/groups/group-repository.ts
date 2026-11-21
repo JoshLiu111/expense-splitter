@@ -1,8 +1,10 @@
 import type {
   ActivityEntry,
+  CurrencyChange,
   CustomCategory,
   EditingMode,
   Expense,
+  GroupDetails,
   GroupSnapshot,
   Member,
   NewExpense,
@@ -42,8 +44,16 @@ export interface GroupRepository {
   addSettlement(groupId: string, settlement: NewSettlement): Promise<Settlement | null>;
   /** Deletes a Settlement; `false` if it isn't in that visible Group. */
   deleteSettlement(groupId: string, settlementId: string): Promise<boolean>;
-  /** Replaces a Group's name, description and Group Currency; `null` if not visible. */
-  updateGroup(id: string, details: NewGroup): Promise<GroupSnapshot | null>;
+  /** Replaces a Group's name and description; `null` if not visible. */
+  updateGroup(id: string, details: GroupDetails): Promise<GroupSnapshot | null>;
+  /**
+   * Changes the Group Currency, converting every Expense's and Settlement's
+   * Locked Rate as `changeGroupCurrency` does, all at once or not at all;
+   * `null` if the Group isn't visible here, the visitor isn't its Group
+   * Creator, or its Group Currency is no longer `change.from`, so a change
+   * made twice converts only once.
+   */
+  changeGroupCurrency(id: string, change: CurrencyChange): Promise<GroupSnapshot | null>;
   /**
    * Sets the Group's Editing Mode; `null` if the Group isn't visible here or
    * the visitor isn't its Group Creator (a Guest is, of every session Group).

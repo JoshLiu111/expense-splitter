@@ -57,44 +57,20 @@ const group = (overrides: Partial<GroupSnapshot> = {}): GroupSnapshot => ({
 });
 
 describe("parseGroupDetails", () => {
-  it("changes the name, description and Group Currency of a Group with no Expenses or Settlements", () => {
-    expect(
-      parseGroupDetails({ name: " Flat 3B ", description: " Rent ", currency: "EUR" }, group()),
-    ).toEqual({ ok: true, value: { name: "Flat 3B", description: "Rent", currency: "EUR" } });
-  });
-
-  it("refuses to change the Group Currency once the Group has an Expense, saying why", () => {
-    const withExpense = group({ expenses: [expense("mem_ana", [["mem_ben", 500]])] });
-
-    expect(
-      parseGroupDetails({ name: "Flat", description: "", currency: "EUR" }, withExpense),
-    ).toEqual({
-      ok: false,
-      errors: {
-        currency:
-          "The Group Currency can't change once the Group has Expenses or Settlements.",
-      },
+  it("edits a Group's name and description, trimmed", () => {
+    expect(parseGroupDetails({ name: " Flat 3B ", description: " Rent " })).toEqual({
+      ok: true,
+      value: { name: "Flat 3B", description: "Rent" },
     });
   });
 
-  it("refuses to change the Group Currency once the Group has a Settlement", () => {
-    const withSettlement = group({ settlements: [settlement("mem_ana", "mem_ben", 500)] });
-
-    expect(
-      parseGroupDetails({ name: "Flat", description: "", currency: "GBP" }, withSettlement).ok,
-    ).toBe(false);
-  });
-
-  it("still edits the name of a Group with Expenses when the Group Currency is unchanged", () => {
-    const withExpense = group({ expenses: [expense("mem_ana", [["mem_ben", 500]])] });
-
-    expect(
-      parseGroupDetails({ name: "Flat 4C", description: "", currency: "USD" }, withExpense),
-    ).toEqual({ ok: true, value: { name: "Flat 4C", description: "", currency: "USD" } });
+  it("never changes the Group Currency, which changes apart", () => {
+    const fields = { name: "Flat", description: "", currency: "EUR" };
+    expect(parseGroupDetails(fields)).toEqual({ ok: true, value: { name: "Flat", description: "" } });
   });
 
   it("reports name problems the same way as creating a Group", () => {
-    expect(parseGroupDetails({ name: " ", description: "", currency: "USD" }, group())).toEqual({
+    expect(parseGroupDetails({ name: " ", description: "" })).toEqual({
       ok: false,
       errors: { name: "Enter a name for the Group." },
     });

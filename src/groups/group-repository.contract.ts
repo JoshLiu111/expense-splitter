@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { GroupSnapshot, NewExpense } from "@/domain";
+import { computeLedger, type GroupSnapshot, type NewExpense } from "@/domain";
 import type { GroupRepository } from "./group-repository";
 
 /** An Equal Expense paid and shared by the Group's first Member. */
@@ -235,18 +235,107 @@ export function groupRepositoryContract<U extends { id: string; email: string }>
     expect((await repo.getGroup(other.id))?.expenses).toEqual([expense]);
   });
 
-  it("edits a Group's name, description and Group Currency", async () => {
+  it("edits a Group's name and description", async () => {
     const repo = await makeRepository();
     const group = await repo.createGroup({ name: "Flat", description: "", currency: "USD" });
 
-    const edited = await repo.updateGroup(group.id, {
-      name: "Flat 3B",
-      description: "Rent and bills",
-      currency: "EUR",
+    const edited = await repo.updateGroup(group.id, { name: "Flat 3B", description: "Rent and bills" });
+
+    expect(edited).toEqual({ ...group, name: "Flat 3B", description: "Rent and bills" });
+    expect(await repo.getGroup(group.id)).toEqual(edited);
+  });
+
+  describe("Group Currency change", () => {
+    /** A USD Group where Chloe owes for a dollar lunch and a yen dinner, and repaid some in euros. */
+    async function trip(repo: GroupRepository) {
+      const group = await repo.createGroup({ name: "Trip", description: "", currency: "USD" });
+      const chloe = (await repo.addMember(group.id, { name: "Chloe" }))!;
+      const me = group.members[0].id;
+      const owes = (amount: number) => [{ memberId: chloe.id, amount }];
+      await repo.addExpense(group.id, lunch(group, { shares: owes(2450) }));
+      await repo.addExpense(
+        group.id,
+        lunch(group, { currency: "JPY", amount: 8400, lockedRate: "0.0067", manualRate: true, shares: owes(8400) }),
+      );
+      await repo.addSettlement(group.id, {
+        fromId: chloe.id,
+        toId: me,
+        amount: 1000,
+        currency: "EUR",
+        lockedRate: "1.08",
+        date: "2026-03-02",
+      });
+      return (await repo.getGroup(group.id))!;
+    }
+
+    it("converts every Expense's and Settlement's Locked Rate at the one rate, with the new Group Currency", async () => {
+      const repo = await makeRepository();
+      const group = await trip(repo);
+
+      const euros = await repo.changeGroupCurrency(group.id, { from: "USD", to: "EUR", rate: "0.925" });
+
+      const [dollarLunch, yenDinner] = [...group.expenses].sort((a, b) => a.amount - b.amount);
+      expect(euros).toEqual({
+        ...group,
+        currency: "EUR",
+        // Stored records come back in no particular order.
+        expenses: expect.arrayContaining([
+          { ...dollarLunch, lockedRate: "0.925" },
+          { ...yenDinner, lockedRate: "0.0061975", manualRate: true },
+        ]),
+        // In the new Group Currency, so exactly 1.
+        settlements: [{ ...group.settlements[0], lockedRate: "1" }],
+      });
+      expect(euros!.expenses).toHaveLength(2);
+      expect(await repo.getGroup(group.id)).toEqual(euros);
+      // $24.50 → €22.66, ¥8,400 → €52.06, less the €10.00 repaid.
+      expect(computeLedger(euros!).balances.map((b) => b.amount)).toEqual([2266 + 5206 - 1000, -(2266 + 5206 - 1000)]);
     });
 
-    expect(edited).toEqual({ ...group, name: "Flat 3B", description: "Rent and bills", currency: "EUR" });
-    expect(await repo.getGroup(group.id)).toEqual(edited);
+    it("converts once when the same change is made twice at the same moment", async () => {
+      const repo = await makeRepository();
+      const group = await trip(repo);
+      const change = { from: "USD", to: "JPY", rate: "150" } as const;
+
+      const results = await Promise.all([repo.changeGroupCurrency(group.id, change), repo.changeGroupCurrency(group.id, change)]);
+
+      expect(results.filter((r) => r !== null)).toHaveLength(1);
+      const yen = (await repo.getGroup(group.id))!;
+      expect(yen.currency).toBe("JPY");
+      expect(yen.expenses.map((e) => e.lockedRate).sort()).toEqual(["1", "150"]);
+      expect(yen.settlements.map((s) => s.lockedRate)).toEqual(["162"]);
+    });
+
+    it("changes nothing when the Group Currency is no longer the one the change was worked out from", async () => {
+      const repo = await makeRepository();
+      const group = await trip(repo);
+
+      expect(await repo.changeGroupCurrency(group.id, { from: "EUR", to: "JPY", rate: "160" })).toBeNull();
+      expect(await repo.changeGroupCurrency("grp_missing", { from: "USD", to: "JPY", rate: "150" })).toBeNull();
+      expect(await repo.getGroup(group.id)).toEqual({ ...group, expenses: expect.arrayContaining(group.expenses) });
+    });
+
+    it.skipIf(!users)("changes nothing for a Linked Member who isn't the Group Creator", async () => {
+      const repo = await makeRepository();
+      const group = await trip(repo);
+      const theo = await users!.aUser();
+      await repo.addMember(group.id, { name: "Theo", email: theo.email });
+      const before = await repo.getGroup(group.id);
+
+      const theirs = await users!.repositoryOf(theo);
+      expect(await theirs.changeGroupCurrency(group.id, { from: "USD", to: "JPY", rate: "150" })).toBeNull();
+      expect(await repo.getGroup(group.id)).toEqual(before);
+    });
+
+    it("leaves every record's Activity as it was recorded", async () => {
+      const repo = await makeRepository();
+      const group = await trip(repo);
+      const before = await repo.listActivity(group.id);
+
+      await repo.changeGroupCurrency(group.id, { from: "USD", to: "JPY", rate: "150" });
+
+      expect(await repo.listActivity(group.id)).toEqual(before);
+    });
   });
 
   it("starts a Group Open and lets its Group Creator set its Editing Mode", async () => {
@@ -462,7 +551,7 @@ export function groupRepositoryContract<U extends { id: string; email: string }>
     const group = await repo.createGroup({ name: "Flat", description: "", currency: "USD" });
     const other = await repo.createGroup({ name: "Other", description: "", currency: "USD" });
 
-    expect(await repo.updateGroup("grp_missing", { name: "X", description: "", currency: "USD" })).toBeNull();
+    expect(await repo.updateGroup("grp_missing", { name: "X", description: "" })).toBeNull();
     expect(await repo.addMember("grp_missing", { name: "Chloe" })).toBeNull();
     expect(await repo.removeMember(group.id, other.members[0].id)).toBe(false);
     expect(await repo.deleteGroup("grp_missing")).toBe(false);

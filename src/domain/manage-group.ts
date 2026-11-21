@@ -1,27 +1,28 @@
 import { computeLedger } from "./ledger";
-import { parseNewGroup, type NewGroupFields, type ParseResult } from "./new-group";
+import { DEFAULT_GROUP_CURRENCY, parseNewGroup, type NewGroup, type NewGroupFields } from "./new-group";
 import type { Expense, GroupSnapshot, Member } from "./types";
 import { groupCreatorPhrase, isGroupCreator, type Visitor } from "./visitor";
 
 export const MAX_MEMBER_NAME_LENGTH = 60;
 
-/** Why the Group Currency can't change, or `null` while it still can. */
-export function currencyLock(group: GroupSnapshot): string | null {
-  return group.expenses.length > 0 || group.settlements.length > 0
-    ? "The Group Currency can't change once the Group has Expenses or Settlements."
-    : null;
-}
+/** A Group's name and description, which Group settings edits together. */
+export type GroupDetails = Omit<NewGroup, "currency">;
+
+export type ParseGroupDetailsResult =
+  | { ok: true; value: GroupDetails }
+  | { ok: false; errors: Partial<Record<keyof GroupDetails, string>> };
 
 /**
- * Validates edits to a Group's name, description and Group Currency. The
- * Group Currency is fixed once the Group has any Expense or Settlement.
+ * Validates edits to a Group's name and description. The Group Currency is
+ * changed apart, by `changeGroupCurrency`, since it converts every record.
  */
-export function parseGroupDetails(fields: NewGroupFields, group: GroupSnapshot): ParseResult {
-  const parsed = parseNewGroup(fields);
-  const lock = currencyLock(group);
-  const currencyChanged = (parsed.ok ? parsed.value.currency : fields.currency.trim()) !== group.currency;
-  if (!lock || !currencyChanged) return parsed;
-  return { ok: false, errors: { ...(parsed.ok ? {} : parsed.errors), currency: lock } };
+export function parseGroupDetails(fields: Pick<NewGroupFields, "name" | "description">): ParseGroupDetailsResult {
+  const parsed = parseNewGroup({ ...fields, currency: DEFAULT_GROUP_CURRENCY });
+  if (!parsed.ok) {
+    const { name, description } = parsed.errors;
+    return { ok: false, errors: { ...(name ? { name } : {}), ...(description ? { description } : {}) } };
+  }
+  return { ok: true, value: { name: parsed.value.name, description: parsed.value.description } };
 }
 
 /** What follows a Former Member's name wherever it is shown. */

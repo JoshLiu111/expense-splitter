@@ -12,6 +12,7 @@ import {
 import { deleteExpense, saveExpense, type ExpenseResult } from "@/expenses/save-expense";
 import {
   addMember,
+  changeCurrency,
   deleteGroup,
   removeMember,
   resendInvitation,
@@ -67,6 +68,14 @@ export async function updateUserGroup(groupId: string, fields: unknown): Promise
   const user = await requireUser(`/groups/${groupId}`);
   if (typeof groupId !== "string") return INVALID;
   const result = await updateGroupDetails(userGroupRepository(user), groupId, fields, { userId: user.id });
+  if (result.ok) refresh();
+  return result;
+}
+
+export async function changeUserGroupCurrency(groupId: string, fields: unknown): Promise<ManageResult> {
+  const user = await requireUser(`/groups/${groupId}/settings`);
+  if (typeof groupId !== "string") return INVALID;
+  const result = await changeCurrency(userGroupRepository(user), groupId, fields, { userId: user.id });
   if (result.ok) refresh();
   return result;
 }
