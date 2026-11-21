@@ -1,10 +1,11 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createSessionStorageRepository } from "@/guest/guest-repository";
 import { memoryStorage } from "@/lib/memory-storage";
-import type { EditingMode, GroupSnapshot, Visitor } from "@/domain";
+import { computeLedger, type EditingMode, type GroupSnapshot, type Visitor } from "@/domain";
 import type { GroupRepository } from "./group-repository";
 import {
   addMember,
+  changeCurrency,
   deleteGroup,
   removeMember,
   resendInvitation,
@@ -102,17 +103,12 @@ describe("updateGroupDetails", () => {
     expect(await repo.getGroup(group.id)).toMatchObject({ name: "Flat 3B", description: "Bills" });
   });
 
-  it("refuses a Group Currency change once there are Expenses, whatever the caller sends", async () => {
+  it("never changes the Group Currency, whatever the caller sends", async () => {
     const { repo, group } = await flatWithDebt();
 
     expect(
       await updateGroupDetails(repo, group.id, { name: "Flat", description: "", currency: "EUR" }, GUEST),
-    ).toEqual({
-      ok: false,
-      errors: {
-        currency: "The Group Currency can't change once the Group has Expenses or Settlements.",
-      },
-    });
+    ).toEqual({ ok: true });
     expect((await repo.getGroup(group.id))?.currency).toBe("USD");
   });
 
@@ -123,6 +119,67 @@ describe("updateGroupDetails", () => {
       ok: false,
       errors: { name: "Enter a name for the Group." },
     });
+  });
+});
+
+describe("changeCurrency", () => {
+  it("converts every Expense at the rate given, so Balances scale by it", async () => {
+    const { repo, group, you, chloe } = await flatWithDebt();
+
+    expect(await changeCurrency(repo, group.id, { from: "USD", to: "JPY", rate: "150" }, GUEST)).toEqual({ ok: true });
+
+    const yen = (await repo.getGroup(group.id))!;
+    expect(yen.currency).toBe("JPY");
+    expect(computeLedger(yen).balances).toEqual([
+      { memberId: you.id, amount: 1500 },
+      { memberId: chloe.id, amount: -1500 },
+    ]);
+  });
+
+  it("refuses anyone but the Group Creator, in any Editing Mode, leaving the Group unchanged", async () => {
+    const { repo, group } = await flatWithDebt();
+    const before = await repo.getGroup(group.id);
+
+    expect(await changeCurrency(repo, group.id, { from: "USD", to: "JPY", rate: "150" }, { userId: "usr_theo" })).toEqual({
+      ok: false,
+      errors: { form: "Only the Group Creator can change the Group Currency." },
+    });
+    expect(await repo.getGroup(group.id)).toEqual(before);
+  });
+
+  it("converts only once when the same change is sent twice", async () => {
+    const { repo, group } = await flatWithDebt();
+    const change = { from: "USD", to: "JPY", rate: "150" };
+
+    const [first, second] = await Promise.all([
+      changeCurrency(repo, group.id, change, GUEST),
+      changeCurrency(repo, group.id, change, GUEST),
+    ]);
+
+    expect([first, second]).toContainEqual({ ok: true });
+    expect((await repo.getGroup(group.id))!.expenses[0].lockedRate).toBe("150");
+  });
+
+  it("says the Group Currency changed since, when another change got there first", async () => {
+    const { repo, group } = await flatWithDebt();
+    await changeCurrency(repo, group.id, { from: "USD", to: "EUR", rate: "0.925" }, GUEST);
+
+    expect(await changeCurrency(repo, group.id, { from: "USD", to: "JPY", rate: "150" }, GUEST)).toEqual({
+      ok: false,
+      errors: { form: "The Group Currency has changed since this page loaded. Check the new Balances again." },
+    });
+    expect((await repo.getGroup(group.id))!.currency).toBe("EUR");
+  });
+
+  it("explains a missing rate and treats malformed input as empty fields", async () => {
+    const { repo, group } = await flatWithDebt();
+
+    expect(await changeCurrency(repo, group.id, { from: "USD", to: "JPY", rate: 150 }, GUEST)).toEqual({
+      ok: false,
+      errors: { rate: "Enter the rate as a number, like 0.0067." },
+    });
+    expect(await changeCurrency(repo, group.id, null, GUEST)).toMatchObject({ ok: false });
+    expect((await repo.getGroup(group.id))!.currency).toBe("USD");
   });
 });
 
@@ -541,6 +598,17 @@ describe("Group management by Editing Mode", () => {
     ],
     ["removeMember", (repo, visitor) => removeMember(repo, "grp_flat", "mem_kim", visitor)],
   ];
+
+  it("keeps changing the Group Currency to the Group Creator in either Editing Mode", async () => {
+    const change = { from: "USD", to: "EUR", rate: "" };
+    for (const mode of ["open", "own-records-only"] as const) {
+      expect(await changeCurrency(flatOf(mode), "grp_flat", change, sam)).toEqual({
+        ok: false,
+        errors: { form: "Only the Group Creator, Alex, can change the Group Currency." },
+      });
+      expect(await changeCurrency(flatOf(mode), "grp_flat", change, alex)).toEqual({ ok: true });
+    }
+  });
 
   it.each(ACTIONS)("%s: in Own Records Only, refuses a Member who isn't the Group Creator", async (_name, act) => {
     const repo = flatOf("own-records-only");

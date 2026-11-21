@@ -39,6 +39,7 @@ export function guestRepository(): GuestGroupRepository {
       addSettlement: notifying(inner.addSettlement),
       deleteSettlement: notifying(inner.deleteSettlement),
       updateGroup: notifying(inner.updateGroup),
+      changeGroupCurrency: notifying(inner.changeGroupCurrency),
       addMember: notifying(inner.addMember),
       removeMember: notifying(inner.removeMember),
       addCategory: notifying(inner.addCategory),

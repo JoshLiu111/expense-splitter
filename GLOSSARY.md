@@ -38,7 +38,7 @@ A Member removed from a Group at zero Balance; no longer selectable for new Expe
 _Avoid_: Deleted member, ex-member
 
 **Group Creator**:
-The User who created the Group; the only one allowed to delete it or change its Editing Mode. In Own Records Only, also the only one who may edit or delete every Expense and Settlement, and who manages the Group: adds, removes, invites or resends to Members, gives a Member an email, renames or describes the Group, and adds, renames or deletes Custom Categories. A Guest is the Group Creator of every session Group. Otherwise all Linked Members have equal editing rights.
+The User who created the Group; the only one allowed to delete it or change its Group Currency or Editing Mode. In Own Records Only, also the only one who may edit or delete every Expense and Settlement, and who manages the Group: adds, removes, invites or resends to Members, gives a Member an email, renames or describes the Group, and adds, renames or deletes Custom Categories. A Guest is the Group Creator of every session Group. Otherwise all Linked Members have equal editing rights.
 _Avoid_: Owner, admin
 
 **Editing Mode**:
@@ -84,7 +84,7 @@ _Avoid_: Rounding error, penny
 ### Money and currency
 
 **Group Currency**:
-The single currency in which a Group's Balances and Settlements are measured; fixed once the Group has any Expense or Settlement.
+The single currency in which a Group's Balances and Settlements are measured. Only the Group Creator can change it, at any time, after seeing the new Balances: one rate (Today's Rate unless they type another) converts every Expense and Settlement by multiplying its Locked Rate, so every Balance scales by that rate, except that one in the new Group Currency gets a Locked Rate of exactly 1 (ADR 0010).
 _Avoid_: Base currency, home currency, default currency
 
 **Expense Currency**:
@@ -96,7 +96,7 @@ The currency a Settlement was actually paid in: the Group Currency unless the Me
 _Avoid_: Payment currency, original currency
 
 **Locked Rate**:
-The exchange rate from an Expense Currency or Settlement Currency to the Group Currency, fixed on an Expense or Settlement when it is recorded (or overridden by a Member), so past Balances never change; 1 in the Group Currency.
+The exchange rate from an Expense Currency or Settlement Currency to the Group Currency, fixed on an Expense or Settlement when it is recorded (or overridden by a Member), so past Balances never change; 1 in the Group Currency. Only a change of Group Currency changes it, converting it with every other at one rate (ADR 0010).
 _Avoid_: Current rate, live rate
 
 **Today's Rate**:
@@ -142,7 +142,7 @@ Reducing the Suggested Settlements to as few payments as possible, using only Ba
 _Avoid_: Netting, optimisation
 
 **Activity**:
-The record of each change to a Group's Expenses, Settlements and Members (adding, editing or deleting an Expense; adding or deleting a Settlement; adding a Member, sending one an Invitation or a new one, giving one an email, or removing one; a Pending Member joining when claimed): who made it (a Linked Member, still named if later a Former Member, or the Guest; a joining is the joiner's own), when, and for edits the values before and after. An entry about a Member names them as they were named then. A change that is refused or changes nothing, or an Invitation whose email wasn't sent, records nothing. No one can edit or remove an entry, and it holds no Balances or Suggested Settlements.
+The record of each change to a Group's Expenses, Settlements and Members (adding, editing or deleting an Expense; adding or deleting a Settlement; adding a Member, sending one an Invitation or a new one, giving one an email, or removing one; a Pending Member joining when claimed): who made it (a Linked Member, still named if later a Former Member, or the Guest; a joining is the joiner's own), when, and for edits the values before and after. An entry about a Member names them as they were named then. A change that is refused or changes nothing, or an Invitation whose email wasn't sent, records nothing; nor, yet, does a change of Group Currency, though it changes every Locked Rate. No one can edit or remove an entry, and it holds no Balances or Suggested Settlements.
 _Avoid_: History, change log, audit log, feed
 
 ### Access

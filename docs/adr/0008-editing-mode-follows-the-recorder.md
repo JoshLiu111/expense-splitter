@@ -1,5 +1,7 @@
 # Editing Mode decides edits by the Recorder, checked in one pure rule
 
+Amended by [ADR 0010](0010-group-currency-change-rewrites-locked-rates.md): the Group Currency is no longer one of the Group's details, and only the Group Creator changes it, in every Editing Mode.
+
 A Group's Editing Mode is Open (any Member edits or deletes any Expense or Settlement, as before) or Own Records Only. In Own Records Only, a Member may edit or delete an Expense, or delete a Settlement, only if they are its Recorder; the Group Creator may change everything; a record with no Recorder (recorded before Recorders existed, with no Activity to tell) is the Group Creator's alone. Adding Expenses and Settlements is never restricted. Only the Group Creator changes the Editing Mode, and every Member sees it. Existing Groups, and Guest sample Groups that predate it, are Open. The Guest counts as Group Creator of every session Group, so Own Records Only never restricts a Guest.
 
 Who may change a record follows its Recorder, who never changes, rather than the Payer, who an edit can change: otherwise a Member could make a record theirs by editing it, or lose it to someone else's edit. Records with no Recorder go to the Group Creator rather than to everyone, so Own Records Only has no loophole, and rather than to no one, so nothing is left that can never be corrected.

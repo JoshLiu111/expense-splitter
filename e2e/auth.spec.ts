@@ -56,7 +56,7 @@ test("sign up, create a Group, sign out, sign in: the Group is still listed", as
   // The creator is the Group's first Member.
   await expect(page.getByText("1 member", { exact: true })).toBeVisible();
   await page.getByRole("link", { name: "Group settings" }).click();
-  await expect(field(page, "Group Currency")).toHaveValue("GBP");
+  await expect(page.getByRole("region", { name: "Group Currency" })).toContainText("measured in GBP.");
   await expect(page.getByRole("region", { name: "Members" }).getByText("Maya Chen", { exact: true })).toBeVisible();
 
   await signOut(page);

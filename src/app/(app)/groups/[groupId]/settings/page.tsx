@@ -6,6 +6,7 @@ import { userGroupRepository } from "@/groups/user-groups";
 import {
   addUserCategory,
   addUserMember,
+  changeUserGroupCurrency,
   deleteUserCategory,
   deleteUserGroup,
   removeUserMember,
@@ -45,6 +46,7 @@ async function UserGroupSettings({ params }: Pick<PageProps<"/groups/[groupId]/s
       afterDeleteHref="/dashboard"
       manage={{
         updateDetails: updateUserGroup.bind(null, groupId),
+        changeCurrency: changeUserGroupCurrency.bind(null, groupId),
         addMember: addUserMember.bind(null, groupId),
         setMemberEmail: setUserMemberEmail.bind(null, groupId),
         resendInvitation: resendUserInvitation.bind(null, groupId),

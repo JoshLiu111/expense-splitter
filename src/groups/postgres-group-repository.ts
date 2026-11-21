@@ -1,6 +1,7 @@
 import { and, asc, desc, eq, exists, inArray, isNotNull, isNull, max, ne, notExists, sql } from "drizzle-orm";
 import {
   computeLedger,
+  convertedRate,
   isPendingMember,
   isSameExpense,
   type ActivityChange,
@@ -494,8 +495,45 @@ export function createPostgresGroupRepository(
       if (!(await canChange(id))) return null;
       await db
         .update(groups)
-        .set({ name: details.name, description: details.description, currency: details.currency })
+        .set({ name: details.name, description: details.description })
         .where(eq(groups.id, id));
+      const [group] = await load(id);
+      return group ?? null;
+    },
+    async changeGroupCurrency(id, change) {
+      // Only the Group Creator may, and only while they are a Linked Member.
+      if (!(await canChange(id))) return null;
+      const changed = await db.transaction(async (tx) => {
+        // Locking the Group makes a second change wait, then find it changed.
+        const [group] = await tx
+          .select({ currency: groups.currency })
+          .from(groups)
+          .where(and(eq(groups.id, id), eq(groups.creatorUserId, currentUser.id)))
+          .for("update");
+        if (group?.currency !== change.from) return false;
+        await tx.update(groups).set({ currency: change.to }).where(eq(groups.id, id));
+        for (const table of [expenses, settlements]) {
+          const rows = await tx
+            .select({ id: table.id, currency: table.currency, lockedRate: table.lockedRate, manualRate: table.manualRate })
+            .from(table)
+            .where(eq(table.groupId, id))
+            .for("update");
+          // One update per converted rate: records sharing a rate share one.
+          const byRate = new Map<string, { lockedRate: string; manualRate: boolean; ids: string[] }>();
+          for (const row of rows) {
+            const converted = convertedRate({ ...row, currency: row.currency as CurrencyCode }, change);
+            const key = `${converted.lockedRate} ${converted.manualRate}`;
+            const batch = byRate.get(key) ?? { ...converted, ids: [] };
+            batch.ids.push(row.id);
+            byRate.set(key, batch);
+          }
+          for (const { lockedRate, manualRate, ids } of byRate.values()) {
+            await tx.update(table).set({ lockedRate, manualRate }).where(inArray(table.id, ids));
+          }
+        }
+        return true;
+      });
+      if (!changed) return null;
       const [group] = await load(id);
       return group ?? null;
     },

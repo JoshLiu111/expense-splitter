@@ -209,7 +209,7 @@ export function lockRate({
 }
 
 /** Reads a typed rate as a plain decimal string, e.g. " 0.00670 " → "0.0067". */
-function parseRate(text: string): { ok: true; rate: string } | { ok: false; error: string } {
+export function parseRate(text: string): { ok: true; rate: string } | { ok: false; error: string } {
   const match = /^(\d*)(?:\.(\d*))?$/.exec(text.replace(/[\s,]/g, ""));
   if (!match || (match[1] === "" && !match[2])) {
     return { ok: false, error: "Enter the rate as a number, like 0.0067." };
@@ -224,7 +224,7 @@ function parseRate(text: string): { ok: true; rate: string } | { ok: false; erro
   return { ok: true, rate: fraction ? `${whole}.${fraction}` : whole };
 }
 
-const MAX_RATE_DECIMALS = 12;
+export const MAX_RATE_DECIMALS = 12;
 const MAX_RATE_WHOLE_DIGITS = 9;
 
 /** A real `YYYY-MM-DD` calendar date (rejects 2026-02-30). */

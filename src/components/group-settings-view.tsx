@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
 import { ArrowLeft } from "lucide-react";
 import {
+  currencyChangeBlock,
   editingModeBlock,
   groupDeletionBlock,
   groupManagementBlock,
@@ -15,6 +16,7 @@ import {
 import type { CategoryManagement } from "@/categories/manage-categories";
 import type { GroupManagement } from "@/groups/manage-group";
 import { CategoriesSection } from "@/components/categories-section";
+import { GroupCurrencySection } from "@/components/group-currency-section";
 import {
   DeleteGroupSection,
   EditingModeSection,
@@ -24,8 +26,8 @@ import {
 } from "@/components/group-settings";
 
 /**
- * Everything a Member changes rarely: the Group's details, its Editing
- * Mode, its Categories, its Members, exporting it as CSV, and deleting it.
+ * Everything a Member changes rarely: the Group's details, its Group
+ * Currency, its Editing Mode, its Categories, its Members, and deleting it.
  * Reached from the Group page.
  */
 export function GroupSettingsView({
@@ -44,8 +46,8 @@ export function GroupSettingsView({
   manage: GroupManagement;
   categories: CategoryManagement;
   /**
-   * Who is looking: only the Group Creator may change the Editing Mode or
-   * delete the Group, and in Own Records Only manage it.
+   * Who is looking: only the Group Creator may change the Group Currency or
+   * Editing Mode or delete the Group, and in Own Records Only manage it.
    */
   visitor: Visitor;
 }) {
@@ -81,6 +83,13 @@ export function GroupSettingsView({
         block={managing("edit-details")}
         onSave={manage.updateDetails}
         onSaved={() => setNews("Group details saved.")}
+      />
+
+      <GroupCurrencySection
+        group={group}
+        block={currencyChangeBlock(group, visitor)}
+        onChange={manage.changeCurrency}
+        onChanged={(currency) => setNews(`Group Currency changed to ${currency}. Every Balance is now in ${currency}.`)}
       />
 
       <EditingModeSection

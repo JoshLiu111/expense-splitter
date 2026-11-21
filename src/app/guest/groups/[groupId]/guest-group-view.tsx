@@ -9,7 +9,14 @@ import { GroupActivity } from "@/components/group-activity";
 import { GroupDetail } from "@/components/group-detail";
 import { GroupSettingsView } from "@/components/group-settings-view";
 import { deleteExpense, saveExpense } from "@/expenses/save-expense";
-import { addMember, deleteGroup, removeMember, setEditingMode, updateGroupDetails } from "@/groups/manage-group";
+import {
+  addMember,
+  changeCurrency,
+  deleteGroup,
+  removeMember,
+  setEditingMode,
+  updateGroupDetails,
+} from "@/groups/manage-group";
 import { clearSmallChange, deleteSettlement, recordSettlement } from "@/settlements/settle-up";
 import { GUEST_MEMBER_NAME } from "@/guest/guest-repository";
 import { guestRepository, useGuestActivity, useGuestGroups } from "@/guest/use-guest-groups";
@@ -88,6 +95,7 @@ export function GuestGroupSettingsView() {
           afterDeleteHref="/guest"
           manage={{
             updateDetails: (fields) => updateGroupDetails(guestRepository(), group.id, fields, GUEST),
+            changeCurrency: (fields) => changeCurrency(guestRepository(), group.id, fields, GUEST),
             // Guests have no Users to link, so they add Name-only Members.
             addMember: ({ name }) => addMember(guestRepository(), group.id, { name }, GUEST),
             removeMember: (memberId) => removeMember(guestRepository(), group.id, memberId, GUEST),

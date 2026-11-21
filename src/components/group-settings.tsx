@@ -4,8 +4,6 @@ import { useId, useRef, useState, useTransition, type FormEvent, type RefObject 
 import { AlertDialog, Dialog } from "radix-ui";
 import { Mail, Trash2, UserPlus, X } from "lucide-react";
 import {
-  CURRENCY_CODES,
-  currencyLock,
   EDITING_MODE_LABELS,
   EDITING_MODES,
   editingModeOf,
@@ -17,8 +15,8 @@ import {
   memberRemovalBlock,
   type EditingMode,
   type GroupSnapshot,
+  type GroupDetails,
   type Member,
-  type NewGroupFields,
 } from "@/domain";
 import type {
   AddMemberResult,
@@ -42,9 +40,8 @@ const dialogClass =
 const dangerClass = "bg-error text-white hover:bg-error/90";
 
 /**
- * Edit a Group's name, description and Group Currency. The Group Currency is
- * locked, with the reason shown, once anything has been recorded. With a
- * `block`, the details are shown read-only with the reason.
+ * Edit a Group's name and description. With a `block`, the details are
+ * shown read-only with the reason.
  */
 export function GroupDetailsSection({
   group,
@@ -55,7 +52,7 @@ export function GroupDetailsSection({
   group: GroupSnapshot;
   /** Why the visitor can't change the Group's details, or `null`. */
   block: string | null;
-  onSave: (fields: NewGroupFields) => Promise<ManageResult>;
+  onSave: (fields: GroupDetails) => Promise<ManageResult>;
   onSaved: () => void;
 }) {
   return (
@@ -84,25 +81,16 @@ function GroupDetailsForm({
 }: {
   group: GroupSnapshot;
   block: string | null;
-  onSave: (fields: NewGroupFields) => Promise<ManageResult>;
+  onSave: (fields: GroupDetails) => Promise<ManageResult>;
   onSaved: () => void;
 }) {
-  const [fields, setFields] = useState<NewGroupFields>({
-    name: group.name,
-    description: group.description,
-    currency: group.currency,
-  });
+  const [fields, setFields] = useState<GroupDetails>({ name: group.name, description: group.description });
   const [failure, setFailure] = useState<Failure>();
   const [pending, startTransition] = useTransition();
   const formId = useId();
-  const ids = {
-    name: `${formId}-name`,
-    description: `${formId}-description`,
-    currency: `${formId}-currency`,
-  };
+  const ids = { name: `${formId}-name`, description: `${formId}-description` };
   const errors = failure?.errors;
-  const lock = currencyLock(group);
-  const set = (key: keyof NewGroupFields, value: string) => setFields((f) => ({ ...f, [key]: value }));
+  const set = (key: keyof GroupDetails, value: string) => setFields((f) => ({ ...f, [key]: value }));
 
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -145,30 +133,6 @@ function GroupDetailsForm({
               aria-describedby={describedBy}
               className={className}
             />
-          )}
-        </Field>
-        <Field
-          id={ids.currency}
-          label="Group Currency"
-          hint={lock ?? "Balances and Settlements are measured in this currency."}
-          error={errors?.currency}
-        >
-          {(describedBy, className) => (
-            <select
-              id={ids.currency}
-              value={fields.currency}
-              disabled={lock !== null}
-              onChange={(e) => set("currency", e.target.value)}
-              aria-invalid={errors?.currency ? true : undefined}
-              aria-describedby={describedBy}
-              className={`${className} min-h-11 disabled:opacity-60`}
-            >
-              {CURRENCY_CODES.map((code) => (
-                <option key={code} value={code}>
-                  {code}
-                </option>
-              ))}
-            </select>
           )}
         </Field>
         {block === null && (

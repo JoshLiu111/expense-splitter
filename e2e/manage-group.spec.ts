@@ -44,16 +44,9 @@ test("the Group page links to Group settings and no longer manages the Group its
   await backToGroup(page, "Sarah's Birthday Present");
 });
 
-test("S1: Guest edits a Group's details; the Group Currency is locked once anything is recorded", async ({
-  page,
-}) => {
+test("S1: Guest edits a Group's details", async ({ page }) => {
   await page.goto("/guest/groups/grp_birthday");
   await openSettings(page);
-
-  await expect(field(page, "Group Currency")).toBeDisabled();
-  await expect(page.getByRole("region", { name: "Details" })).toContainText(
-    "The Group Currency can't change once the Group has Expenses or Settlements.",
-  );
 
   await field(page, "Name").fill("Sarah's 30th");
   await field(page, "Description (optional)").fill("Gift and dinner");
@@ -67,12 +60,52 @@ test("S1: Guest edits a Group's details; the Group Currency is locked once anyth
   await backToGroup(page, "Sarah's 30th");
 });
 
-test("S1: Guest changes the Group Currency of a Group with nothing recorded", async ({ page }) => {
+const balance = (page: Page, name: string) =>
+  page.locator('[data-testid^="balance-"]').filter({ hasText: name }).filter({ visible: true });
+
+test("S1: Guest, as Group Creator, changes the Group Currency at an overridden rate after previewing the new Balances", async ({
+  page,
+}) => {
+  await page.goto("/guest/groups/grp_office_lunch");
+  await expect(balance(page, "Priya Sharma")).toContainText("$53.98");
+  await openSettings(page);
+  const section = page.getByRole("region", { name: "Group Currency" });
+  await expect(section).toContainText("Balances and Settlements are measured in USD.");
+
+  await field(page, "New Group Currency").selectOption("EUR");
+  // Today's Rate (fixed in e2e: €0.925 per $1) until another is typed.
+  await expect(section).toContainText("1 USD = 0.925 EUR.");
+  const preview = section.getByRole("table", { name: "New Balances" });
+  const priya = preview.getByRole("row", { name: /Priya Sharma/ });
+  await expect(priya).toContainText("$53.98");
+  await expect(priya).toContainText("€49.93");
+
+  await field(page, "Conversion rate (EUR per 1 USD)").fill("0.9");
+  await expect(section).toContainText("1 USD = 0.9 EUR (manual).");
+  await expect(priya).toContainText("€48.57");
+
+  await section.getByRole("button", { name: "Change to EUR" }).click();
+  await expect(page.getByText("Group Currency changed to EUR.")).toBeVisible();
+  await expect(section).toContainText("Balances and Settlements are measured in EUR.");
+
+  await backToGroup(page, "Office Lunch Crew");
+  await expect(balance(page, "Priya Sharma")).toContainText("€48.57");
+  await expect(balance(page, "Noah Williams")).toContainText("€32.12");
+  // Guest changes last the session.
+  await page.reload();
+  await expect(balance(page, "Priya Sharma")).toContainText("€48.57");
+});
+
+test("S1: Guest changes the Group Currency of a Group with nothing recorded, with no rate to choose", async ({
+  page,
+}) => {
   await createGuestGroup(page, "Picnic");
   await openSettings(page);
-  await field(page, "Group Currency").selectOption("EUR");
-  await page.getByRole("button", { name: "Save changes" }).click();
-  await expect(page.getByText("Group details saved.")).toBeVisible();
+  await field(page, "New Group Currency").selectOption("EUR");
+  await expect(page.getByText("Nothing is recorded yet, so there is nothing to convert.")).toBeVisible();
+  await expect(field(page, "Conversion rate (EUR per 1 USD)")).toHaveCount(0);
+  await page.getByRole("button", { name: "Change to EUR" }).click();
+  await expect(page.getByText("Group Currency changed to EUR.")).toBeVisible();
 
   await backToGroup(page, "Picnic");
   await page.getByRole("button", { name: "Add the first Expense" }).click();
@@ -171,12 +204,12 @@ test("a signed-in User manages their Group's details and Members, then deletes i
   await expect(page.getByRole("heading", { level: 1, name: "Book club" })).toBeVisible();
 
   await openSettings(page);
-  await field(page, "Group Currency").selectOption("GBP");
+  await field(page, "Description (optional)").fill("Monthly picks");
   await page.getByRole("button", { name: "Save changes" }).click();
   await expect(page.getByText("Group details saved.")).toBeVisible();
   await backToGroup(page, "Book club");
   await openSettings(page);
-  await expect(field(page, "Group Currency")).toHaveValue("GBP");
+  await expect(field(page, "Description (optional)")).toHaveValue("Monthly picks");
 
   await field(page, "Add a Member by name").fill("Sam Rivera");
   await page.getByRole("button", { name: "Add Member" }).click();
@@ -192,4 +225,45 @@ test("a signed-in User manages their Group's details and Members, then deletes i
   await page.getByRole("alertdialog").getByRole("button", { name: "Delete Group" }).click();
   await expect(page).toHaveURL(/\/dashboard$/);
   await expect(page.getByRole("heading", { name: "No Groups yet" })).toBeVisible();
+});
+
+test("a signed-in Group Creator changes the Group Currency of a Group with Expenses, converting its Balances", async ({
+  page,
+}) => {
+  const email = `e2e-${Date.now()}-${Math.random().toString(36).slice(2, 8)}@example.test`;
+  await page.goto("/sign-up");
+  await field(page, "Name").fill("Maya Chen");
+  await field(page, "Email").fill(email);
+  await field(page, "Password").fill("correct-horse-battery");
+  await page.getByRole("button", { name: "Sign up", exact: true }).click();
+  await expect(page).toHaveURL(/\/dashboard$/);
+  await page.getByRole("link", { name: "New Group" }).click();
+  await field(page, "Name").fill("Tokyo trip");
+  await page.getByRole("button", { name: "Create Group" }).click();
+  await expect(page.getByRole("heading", { level: 1, name: "Tokyo trip" })).toBeVisible();
+  await openSettings(page);
+  await field(page, "Add a Member by name").fill("Sam Rivera");
+  await page.getByRole("button", { name: "Add Member" }).click();
+  await expect(members(page).getByText("Sam Rivera", { exact: true })).toBeVisible();
+  await backToGroup(page, "Tokyo trip");
+
+  // $30.00 split equally: Sam owes Maya $15.00.
+  await page.getByRole("button", { name: /^Add (the first )?Expense$/ }).filter({ visible: true }).first().click();
+  await field(page, "Amount (USD)").fill("30");
+  await field(page, "Description").fill("Ramen");
+  await page.getByRole("button", { name: "Add Expense", exact: true }).filter({ visible: true }).last().click();
+  await expect(balance(page, "Sam Rivera")).toContainText("$15.00");
+
+  await openSettings(page);
+  const section = page.getByRole("region", { name: "Group Currency" });
+  await field(page, "New Group Currency").selectOption("JPY");
+  await expect(section).toContainText("1 USD = 150 JPY.");
+  await expect(section.getByRole("row", { name: /Sam Rivera/ })).toContainText("¥2,250");
+  await section.getByRole("button", { name: "Change to JPY" }).click();
+  await expect(page.getByText("Group Currency changed to JPY.")).toBeVisible();
+
+  await backToGroup(page, "Tokyo trip");
+  await expect(balance(page, "Sam Rivera")).toContainText("¥2,250");
+  await page.reload();
+  await expect(balance(page, "Sam Rivera")).toContainText("¥2,250");
 });
