@@ -33,7 +33,7 @@ More meticulous and more professional than consumer expense splitters. The mecha
 ## Capabilities and Constraints
 
 - Domain language is fixed in `GLOSSARY.md` (Group, Member, Expense, Payer, Split, Split Type, Share, Leftover Cent, Group Currency, Expense Currency, Locked Rate, Balance, Settlement, Suggested Settlement, Debt Simplification, Guest, and others). UI copy uses these terms and avoids the listed alternatives.
-- Decisions recorded in `docs/adr/`: integer minor units with per-line rounding; Next.js full-stack monolith; Settlements in the Group Currency only; Balances derived, never stored; Better Auth in our own Postgres.
+- Decisions recorded in `docs/adr/`: integer minor units with per-line rounding; Next.js full-stack monolith; Settlements with their own Settlement Currency and Locked Rate; Balances derived, never stored; Better Auth in our own Postgres.
 - Split Types: Equal, Exact, Percentage, Shares. Nine predefined Categories plus Custom Categories per Group.
 - Multi-currency via ExchangeRate-API, called only from the server and cached daily.
 - Insights: spending by Category, by Member and over time; Expense list filters.

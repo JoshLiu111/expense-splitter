@@ -4,8 +4,10 @@ import {
   computeLedger,
   importSampleGroups,
   parseNewSettlement,
+  settlementAmountFor,
   validateSettlement,
   type GroupSnapshot,
+  type RateSnapshot,
 } from "./index";
 
 const groups = importSampleGroups(sampleData);
@@ -29,7 +31,7 @@ function afterRecording(group: GroupSnapshot, payments: { fromId: string; toId: 
     ...group,
     settlements: [
       ...group.settlements,
-      ...payments.map((p, i) => ({ ...p, id: `stl_new_${i}`, date: "2026-11-18", createdAt: `2026-11-18T00:00:0${i}Z` })),
+      ...payments.map((p, i) => ({ ...p, currency: group.currency, lockedRate: "1", id: `stl_new_${i}`, date: "2026-11-18", createdAt: `2026-11-18T00:00:0${i}Z` })),
     ],
   };
 }
@@ -187,27 +189,105 @@ describe("Validate Settlement", () => {
 
 describe("parseNewSettlement", () => {
   const birthday = sample("grp_birthday");
-  const fields = { fromId: "mem_chloe", toId: "mem_ben", amount: "10.00", date: "2026-11-18" };
+  const fields = { fromId: "mem_chloe", toId: "mem_ben", amount: "10.00", currency: "USD", rate: "", date: "2026-11-18" };
+  const rates: RateSnapshot = { perUsd: { USD: 1, JPY: 150 }, fetchedOn: "2026-11-18", stale: false };
 
   it("reads a partial Settlement typed into the form", () => {
-    expect(parseNewSettlement(fields, birthday)).toEqual({
+    expect(parseNewSettlement(fields, birthday, null)).toEqual({
       ok: true,
-      value: { fromId: "mem_chloe", toId: "mem_ben", amount: 1000, date: "2026-11-18" },
+      value: { fromId: "mem_chloe", toId: "mem_ben", amount: 1000, currency: "USD", lockedRate: "1", date: "2026-11-18" },
+    });
+  });
+
+  it("locks Today's Rate on a Settlement in another Settlement Currency", () => {
+    expect(parseNewSettlement({ ...fields, amount: "1500", currency: "JPY" }, birthday, rates)).toEqual({
+      ok: true,
+      value: {
+        fromId: "mem_chloe",
+        toId: "mem_ben",
+        amount: 1500,
+        currency: "JPY",
+        lockedRate: "0.00666667",
+        date: "2026-11-18",
+      },
+    });
+  });
+
+  it("keeps a manual Locked Rate typed for the Settlement Currency", () => {
+    expect(parseNewSettlement({ ...fields, amount: "1000", currency: "JPY", rate: "0.007" }, birthday, null)).toEqual({
+      ok: true,
+      value: {
+        fromId: "mem_chloe",
+        toId: "mem_ben",
+        amount: 1000,
+        currency: "JPY",
+        lockedRate: "0.007",
+        manualRate: true,
+        date: "2026-11-18",
+      },
+    });
+  });
+
+  it("checks the amount converted to the Group Currency against what can be settled", () => {
+    const yen = { ...fields, currency: "JPY" };
+    // ¥2,156 at 0.00666667 is $14.37: Chloe's whole debt.
+    expect(parseNewSettlement({ ...yen, amount: "2156" }, birthday, rates)).toMatchObject({ ok: true });
+    expect(parseNewSettlement({ ...yen, amount: "2157" }, birthday, rates)).toEqual({
+      ok: false,
+      errors: { amount: "Chloe Yun can pay at most $14.37 (¥2,156 at this rate)." },
+    });
+  });
+
+  it("rejects an amount that converts to nothing in the Group Currency", () => {
+    expect(parseNewSettlement({ ...fields, amount: "1", currency: "JPY", rate: "0.001" }, birthday, null)).toEqual({
+      ok: false,
+      errors: { amount: "¥1 is less than $0.01 at this rate. Enter a larger amount." },
+    });
+  });
+
+  it("asks for a rate when Today's Rate is unavailable", () => {
+    expect(parseNewSettlement({ ...fields, amount: "1000", currency: "JPY" }, birthday, null)).toEqual({
+      ok: false,
+      errors: { rate: "Exchange rates are unavailable right now. Enter the rate yourself." },
     });
   });
 
   it("reports each problem against its field", () => {
-    expect(parseNewSettlement({ ...fields, amount: "14.38", date: "2026-02-30" }, birthday)).toEqual({
+    expect(parseNewSettlement({ ...fields, amount: "14.38", date: "2026-02-30" }, birthday, null)).toEqual({
       ok: false,
       errors: { amount: "Chloe Yun can pay at most $14.37.", date: "Enter a real date, like 2026-01-31." },
     });
-    expect(parseNewSettlement({ ...fields, amount: "abc" }, birthday)).toEqual({
+    expect(parseNewSettlement({ ...fields, amount: "abc" }, birthday, null)).toEqual({
       ok: false,
       errors: { amount: "Enter the amount as a number, like 12.50." },
     });
-    expect(parseNewSettlement({ ...fields, toId: "mem_marcus" }, birthday)).toEqual({
+    expect(parseNewSettlement({ ...fields, toId: "mem_marcus" }, birthday, null)).toEqual({
       ok: false,
       errors: { toId: "Marcus Webb isn't owed anything." },
     });
+  });
+});
+
+describe("settlementAmountFor", () => {
+  it("prefills whole yen whose conversion is the Suggested Settlement", () => {
+    // $30.00 at 0.0067: ¥4,477 and ¥4,478 both convert to $30.00; ¥4,478 is nearer ¥4,477.6.
+    expect(settlementAmountFor({ amount: 3000, max: 3000, currency: "JPY", groupCurrency: "USD", rate: "0.0067" })).toBe(
+      4478,
+    );
+  });
+
+  it("never prefills an amount that converts to more than can be settled", () => {
+    // ¥1,000 at 150 per dollar: $6.67 is ¥1,001, so $6.66 (¥999) is the closest under the cap.
+    const yen = { amount: 1000, currency: "USD", groupCurrency: "JPY", rate: "150" } as const;
+    expect(settlementAmountFor({ ...yen, max: 1000 })).toBe(666);
+    expect(settlementAmountFor({ ...yen, max: 5000 })).toBe(667);
+  });
+
+  it("prefills nothing when even the smallest amount converts to more than can be settled", () => {
+    expect(settlementAmountFor({ amount: 1, max: 1, currency: "USD", groupCurrency: "JPY", rate: "150" })).toBeNull();
+  });
+
+  it("prefills the Suggested Settlement itself in the Group Currency", () => {
+    expect(settlementAmountFor({ amount: 1437, max: 1437, currency: "USD", groupCurrency: "USD", rate: "1" })).toBe(1437);
   });
 });

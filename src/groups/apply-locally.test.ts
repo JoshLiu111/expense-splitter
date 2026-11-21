@@ -31,6 +31,8 @@ async function flatWithDebt(owed = 1000) {
 
 const balances = (group: GroupSnapshot) => computeLedger(group).balances.map((b) => b.amount);
 const noRates = async () => null;
+/** A Settlement in the Group Currency, on a date. */
+const usd = { currency: "USD", rate: "", date: "2026-03-02" };
 
 describe("applyLocally", () => {
   it("returns the Group a new Expense leaves, without changing the one passed in", async () => {
@@ -71,7 +73,7 @@ describe("applyLocally", () => {
     const { group, you, chloe } = await flatWithDebt();
 
     const { result, group: after } = await applyLocally(group, (repo, groupId) =>
-      recordSettlement(repo, groupId, { fromId: chloe.id, toId: you.id, amount: "12.00", date: "2026-03-02" }),
+      recordSettlement(repo, groupId, { ...usd, fromId: chloe.id, toId: you.id, amount: "12.00" }, noRates),
     );
 
     expect(result.ok).toBe(false);
@@ -165,7 +167,7 @@ describe("applyLocally", () => {
       const { group: after } = await applyLocally(
         group,
         (repo, groupId) =>
-          recordSettlement(repo, groupId, { fromId: chloe.id, toId: you.id, amount: "4.00", date: "2026-03-02" }),
+          recordSettlement(repo, groupId, { ...usd, fromId: chloe.id, toId: you.id, amount: "4.00" }, noRates),
         { recorderId: you.id },
       );
 
@@ -187,7 +189,7 @@ describe("applyLocally", () => {
     const { group, you, chloe } = await flatWithDebt();
 
     const recorded = await applyLocally(group, (repo, groupId) =>
-      recordSettlement(repo, groupId, { fromId: chloe.id, toId: you.id, amount: "4.00", date: "2026-03-02" }),
+      recordSettlement(repo, groupId, { ...usd, fromId: chloe.id, toId: you.id, amount: "4.00" }, noRates),
     );
     expect(balances(recorded.group)).toEqual([600, -600]);
 

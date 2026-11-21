@@ -17,7 +17,7 @@ import { ledgerDays } from "@/components/ledger-days";
 import { MemberAvatar, TransferPair } from "@/components/member-avatar";
 import { RecordedBy, recorderName } from "@/components/recorded-by";
 import { Button } from "@/components/ui/button";
-import { formatCalendarDate } from "@/lib/format";
+import { formatCalendarDate, formatSettlementAmount } from "@/lib/format";
 
 /**
  * The Group's Expenses and Settlements as a ledger on the page background:
@@ -218,8 +218,11 @@ function SettlementRow({
   deleteBlock: string | null;
   onDelete?: () => void;
 }) {
-  const amount = formatMoney(entry.settlement.amount, group.currency);
-  const recorder = recorderName(group, entry.settlement.recorderId, currentMemberId);
+  const { settlement } = entry;
+  const foreign = settlement.currency !== group.currency;
+  // Both amounts in another Settlement Currency: "¥4,478 ≈ $30.00".
+  const amount = formatSettlementAmount(settlement, group.currency);
+  const recorder = recorderName(group, settlement.recorderId, currentMemberId);
   const date = formatCalendarDate(entry.date);
   const id = useId();
   const [open, setOpen] = useState(false);
@@ -258,9 +261,17 @@ function SettlementRow({
             {saving && " · Saving…"}
           </p>
         </div>
-        <span id={`${id}-amount`} className="amount shrink-0 font-semibold text-text-secondary">
-          {amount}
-        </span>
+        <p id={`${id}-amount`} className="shrink-0 text-right">
+          <span className="amount block font-semibold text-text-secondary">
+            {formatMoney(entry.groupAmount, group.currency)}
+          </span>
+          {foreign && (
+            <span className="amount block text-xs text-text-secondary">
+              <span className="sr-only">, paid as </span>
+              {formatMoney(settlement.amount, settlement.currency)}
+            </span>
+          )}
+        </p>
       </article>
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 z-40 bg-black/50" />
@@ -281,10 +292,20 @@ function SettlementRow({
           <Dialog.Description className="mt-2">
             {from.name} paid {to.name} <span className="amount font-semibold">{amount}</span> on{" "}
             <time dateTime={entry.date}>{date}</time>.
+            {foreign && (
+              <>
+                {" "}
+                Locked Rate:{" "}
+                <span className="amount">
+                  1 {settlement.currency} = {settlement.lockedRate} {group.currency}
+                </span>
+                {settlement.manualRate && " (manual)"}.
+              </>
+            )}
           </Dialog.Description>
           <RecordedBy
             group={group}
-            recorderId={entry.settlement.recorderId}
+            recorderId={settlement.recorderId}
             currentMemberId={currentMemberId}
             className="mt-1"
           />

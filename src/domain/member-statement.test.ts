@@ -40,6 +40,8 @@ function usdGroup(expenses: Partial<Expense>[], settlements: Partial<Settlement>
       fromId: "b",
       toId: "a",
       amount: 0,
+      currency: "USD" as const,
+      lockedRate: "1",
       date: "2024-03-02",
       createdAt: `2024-03-02T00:00:0${i}.000Z`,
       ...s,

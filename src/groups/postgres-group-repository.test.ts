@@ -4,7 +4,7 @@ import { removeAvatar, setAvatar, updateDisplayName } from "@/account/account";
 import { createMemoryAvatarStore } from "@/account/avatar-store";
 import { anImage } from "@/test/images";
 import { createDatabase, type Database } from "@/db/client";
-import { groups, members, user } from "@/db/schema";
+import { activity, groups, members, user } from "@/db/schema";
 import { createInvitations } from "@/invitations/invitations";
 import { groupRepositoryContract } from "./group-repository.contract";
 import {
@@ -214,7 +214,7 @@ describe.skipIf(!url)("Postgres GroupRepository", () => {
     };
     const expense = (await mayasRepo.addExpense(group.id, dinner))!;
     // Theo pays back his $50 in two Settlements, so he can be removed at zero.
-    const repaid = { fromId: theoMember, toId: mayaMember, date: "2026-03-02" };
+    const repaid = { fromId: theoMember, toId: mayaMember, currency: "USD", lockedRate: "1", date: "2026-03-02" } as const;
     const kept = (await theosRepo.addSettlement(group.id, { ...repaid, amount: 2000 }))!;
     const paid = (await theosRepo.addSettlement(group.id, { ...repaid, amount: 3000 }))!;
     const category = (await mayasRepo.addCategory(group.id, "Utilities"))!;
@@ -228,7 +228,7 @@ describe.skipIf(!url)("Postgres GroupRepository", () => {
     expect((await theosRepo.listGroups()).map((g) => g.id)).toEqual([group.id]);
     expect(await theosRepo.listActivity(group.id)).toEqual(await mayasRepo.listActivity(group.id));
 
-    const settlement = { fromId: theoMember, toId: mayaMember, amount: 3000, date: "2026-03-03" };
+    const settlement = { fromId: theoMember, toId: mayaMember, amount: 3000, currency: "USD", lockedRate: "1", date: "2026-03-03" } as const;
     expect(await theosRepo.addExpense(group.id, dinner)).toBeNull();
     expect(await theosRepo.updateExpense(group.id, expense.id, { ...dinner, amount: 1 })).toBeNull();
     expect(await theosRepo.deleteExpense(group.id, expense.id)).toBe(false);
@@ -273,6 +273,8 @@ describe.skipIf(!url)("Postgres GroupRepository", () => {
       fromId: "mem_theo_reopened",
       toId: mayaMember,
       amount: 500,
+      currency: "USD",
+      lockedRate: "1",
       date: "2026-03-01",
     });
 
@@ -387,6 +389,23 @@ describe.skipIf(!url)("Postgres GroupRepository", () => {
     expect(linked).toHaveLength(1);
   });
 
+  it("reads Settlement Activity recorded before Settlement Currencies as in the Group Currency at 1, leaving it as recorded", async () => {
+    const maya = await aUser();
+    const repo = createPostgresGroupRepository(db, maya);
+    const group = await repo.createGroup({ name: "Old", description: "", currency: "EUR" });
+    const mayaMember = group.members[0].id;
+    // A Settlement as Activity recorded it before it had a Settlement Currency.
+    const legacy = { id: "stl_legacy", fromId: mayaMember, toId: mayaMember, amount: 700, date: "2026-01-02", createdAt: "2026-01-02T00:00:00.000Z" };
+    const change = { kind: "settlement-added", settlement: legacy };
+    await db.insert(activity).values({ id: "act_legacy", groupId: group.id, actorMemberId: mayaMember, change: change as never });
+
+    expect((await repo.listActivity(group.id))?.map((a) => a.change)).toEqual([
+      { kind: "settlement-added", settlement: { ...legacy, currency: "EUR", lockedRate: "1" } },
+    ]);
+    const [row] = await db.select({ change: activity.change }).from(activity).where(eq(activity.id, "act_legacy"));
+    expect(row.change).toEqual(change);
+  });
+
   it("shows every Linked Member all of a Group's Activity, each change under the Member who made it", async () => {
     const maya = await aUser();
     const theo = await aUser({ verified: true });
@@ -395,7 +414,7 @@ describe.skipIf(!url)("Postgres GroupRepository", () => {
     const group = await mayasRepo.createGroup({ name: "Shared", description: "", currency: "USD" });
     const mayaMember = group.members[0].id;
     const chloe = await mayasRepo.addMember(group.id, { name: "Chloe" });
-    const settlement = { fromId: chloe!.id, toId: mayaMember, amount: 100, date: "2026-03-02" };
+    const settlement = { fromId: chloe!.id, toId: mayaMember, amount: 100, currency: "USD", lockedRate: "1", date: "2026-03-02" } as const;
     await mayasRepo.addSettlement(group.id, settlement);
 
     // Theo joins after Maya's change, makes one of his own, then leaves.

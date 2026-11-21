@@ -8,12 +8,12 @@ export {
   parseCategoryName,
 } from "./categories";
 export type { CategoryOption, ParseCategoryResult } from "./categories";
-export { computeLedger, inGroupCurrency } from "./ledger";
+export { computeLedger, inGroupCurrency, settlementInGroupCurrency } from "./ledger";
 export { settleUpStatus } from "./settle-up-status";
 export type { SettleUpStatus } from "./settle-up-status";
 export type { Ledger, MemberBalance, OwingLine, TimelineEntry } from "./ledger";
 export type { SuggestedSettlement } from "./settle-up";
-export { parseNewSettlement, validateSettlement } from "./settlement";
+export { parseNewSettlement, settleableAmount, settlementAmountFor, validateSettlement } from "./settlement";
 export type {
   NewSettlement,
   NewSettlementErrors,
@@ -35,7 +35,7 @@ export { importSampleGroups } from "./sample-data";
 export { amountText, CURRENCY_CODES, formatMoney, isCurrencyCode, parseAmount } from "./currency";
 export type { ParseAmountResult } from "./currency";
 export { todaysRate } from "./exchange-rates";
-export type { RateSnapshot } from "./exchange-rates";
+export type { RateSnapshot, TodaysRates } from "./exchange-rates";
 export {
   parseNewGroup,
   DEFAULT_GROUP_CURRENCY,

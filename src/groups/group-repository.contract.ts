@@ -180,6 +180,8 @@ export function groupRepositoryContract<U extends { id: string; email: string }>
         fromId: chloe!.id,
         toId: group.members[0].id,
         amount: 1000,
+        currency: "USD",
+        lockedRate: "1",
         date: "2026-03-02",
       });
 
@@ -474,14 +476,16 @@ export function groupRepositoryContract<U extends { id: string; email: string }>
     const me = group.members[0].id;
     await repo.addExpense(group.id, lunch(group, { shares: [{ memberId: chloe!.id, amount: 2450 }] }));
 
-    const first = await repo.addSettlement(group.id, { fromId: chloe!.id, toId: me, amount: 1000, date: "2026-03-02" });
-    const second = await repo.addSettlement(group.id, { fromId: chloe!.id, toId: me, amount: 450, date: "2026-03-03" });
+    const first = await repo.addSettlement(group.id, { fromId: chloe!.id, toId: me, amount: 1000, currency: "USD", lockedRate: "1", date: "2026-03-02" });
+    const second = await repo.addSettlement(group.id, { fromId: chloe!.id, toId: me, amount: 450, currency: "USD", lockedRate: "1", date: "2026-03-03" });
 
     expect(first).toEqual({
       id: expect.any(String),
       fromId: chloe!.id,
       toId: me,
       amount: 1000,
+      currency: "USD",
+      lockedRate: "1",
       date: "2026-03-02",
       createdAt: expect.any(String),
       ...recordedIn(group),
@@ -490,6 +494,41 @@ export function groupRepositoryContract<U extends { id: string; email: string }>
 
     expect(await repo.deleteSettlement(group.id, first!.id)).toBe(true);
     expect((await repo.getGroup(group.id))?.settlements).toEqual([second]);
+  });
+
+  it("keeps a Settlement's Settlement Currency, Locked Rate and whether it was manual", async () => {
+    const repo = await makeRepository();
+    const group = await repo.createGroup({ name: "Trip", description: "", currency: "USD" });
+    const chloe = await repo.addMember(group.id, { name: "Chloe" });
+    const me = group.members[0].id;
+    await repo.addExpense(group.id, lunch(group, { shares: [{ memberId: chloe!.id, amount: 2450 }] }));
+
+    const today = await repo.addSettlement(group.id, {
+      fromId: chloe!.id,
+      toId: me,
+      amount: 1500,
+      currency: "JPY",
+      lockedRate: "0.00666667",
+      date: "2026-03-02",
+    });
+    const manual = await repo.addSettlement(group.id, {
+      fromId: chloe!.id,
+      toId: me,
+      amount: 500,
+      currency: "EUR",
+      lockedRate: "1.08",
+      manualRate: true,
+      date: "2026-03-03",
+    });
+
+    expect(today).toMatchObject({ amount: 1500, currency: "JPY", lockedRate: "0.00666667" });
+    expect(today).not.toHaveProperty("manualRate");
+    expect(manual).toMatchObject({ amount: 500, currency: "EUR", lockedRate: "1.08", manualRate: true });
+    expect((await repo.getGroup(group.id))?.settlements).toEqual(expect.arrayContaining([today, manual]));
+    expect((await repo.listActivity(group.id))?.map((a) => a.change).slice(0, 2)).toEqual([
+      { kind: "settlement-added", settlement: manual },
+      { kind: "settlement-added", settlement: today },
+    ]);
   });
 
   it("refuses to change Settlements that aren't in the Group", async () => {
@@ -501,11 +540,13 @@ export function groupRepositoryContract<U extends { id: string; email: string }>
       fromId: chloe!.id,
       toId: other.members[0].id,
       amount: 100,
+      currency: "USD",
+      lockedRate: "1",
       date: "2026-03-02",
     });
 
     expect(
-      await repo.addSettlement("grp_missing", { fromId: "a", toId: "b", amount: 100, date: "2026-03-02" }),
+      await repo.addSettlement("grp_missing", { fromId: "a", toId: "b", amount: 100, currency: "USD", lockedRate: "1", date: "2026-03-02" }),
     ).toBeNull();
     expect(await repo.deleteSettlement(group.id, settlement!.id)).toBe(false);
     expect((await repo.getGroup(other.id))?.settlements).toEqual([settlement]);
@@ -586,7 +627,7 @@ export function groupRepositoryContract<U extends { id: string; email: string }>
       const chloe = await repo.addMember(group.id, { name: "Chloe" });
       const me = group.members[0].id;
       const expense = await repo.addExpense(group.id, lunch(group, { shares: [{ memberId: chloe!.id, amount: 2450 }] }));
-      const settlement = await repo.addSettlement(group.id, { fromId: chloe!.id, toId: me, amount: 1000, date: "2026-03-02" });
+      const settlement = await repo.addSettlement(group.id, { fromId: chloe!.id, toId: me, amount: 1000, currency: "USD", lockedRate: "1", date: "2026-03-02" });
 
       await repo.deleteSettlement(group.id, settlement!.id);
       await repo.deleteExpense(group.id, expense!.id);

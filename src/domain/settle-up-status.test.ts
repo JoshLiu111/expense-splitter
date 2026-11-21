@@ -12,7 +12,7 @@ const statusOf = (group: GroupSnapshot) => settleUpStatus(computeLedger(group));
 
 /** The Group with one more Settlement recorded. */
 function withSettlement(group: GroupSnapshot, fromId: string, toId: string, amount: number): GroupSnapshot {
-  const settlement = { id: `stl_${group.settlements.length}`, fromId, toId, amount, date: "2026-11-18", createdAt: "2026-11-18T00:00:00Z" };
+  const settlement = { id: `stl_${group.settlements.length}`, fromId, toId, amount, currency: group.currency, lockedRate: "1", date: "2026-11-18", createdAt: "2026-11-18T00:00:00Z" };
   return { ...group, settlements: [...group.settlements, settlement] };
 }
 

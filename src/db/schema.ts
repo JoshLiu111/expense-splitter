@@ -200,8 +200,14 @@ export const settlements = pgTable(
     toMemberId: text("to_member_id")
       .notNull()
       .references(() => members.id),
-    /** Always in the Group Currency (ADR 0003). */
+    /** In the Settlement Currency's minor unit (ADR 0009). */
     amount: bigint("amount", { mode: "number" }).notNull(),
+    /** The Settlement Currency. */
+    currency: text("currency").notNull(),
+    /** Locked Rate as a plain decimal string; "1" in the Group Currency. */
+    lockedRate: text("locked_rate").notNull(),
+    /** True when a Member overrode the Locked Rate by hand. */
+    manualRate: boolean("manual_rate").notNull().default(false),
     date: date("date", { mode: "string" }).notNull(),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     /** The Recorder; null when unknown, as on Expenses. */

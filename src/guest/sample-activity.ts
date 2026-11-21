@@ -16,12 +16,14 @@ export const SAMPLE_ACTIVITY: Record<string, { startedOn: CalendarDate; entries:
         actorMemberId: "mem_sam",
         change: {
           kind: "settlement-added",
-          // ¥8,500 at 0.0067, converted once into the Group Currency (ADR 0003).
+          // ¥8,500 at a Locked Rate of 0.0067: $56.95 (ADR 0009).
           settlement: {
             id: "stl_002",
             fromId: "mem_sam",
             toId: "mem_taylor",
-            amount: 5695,
+            amount: 8500,
+            currency: "JPY",
+            lockedRate: "0.0067",
             date: "2024-03-26",
             createdAt: "2024-03-26T19:00:00.000Z",
           },
@@ -262,6 +264,8 @@ export const SAMPLE_ACTIVITY: Record<string, { startedOn: CalendarDate; entries:
             fromId: "mem_chloe",
             toId: "mem_olivia",
             amount: 1875,
+            currency: "USD",
+            lockedRate: "1",
             date: "2024-02-17",
             createdAt: "2024-02-17T14:30:00.000Z",
           },

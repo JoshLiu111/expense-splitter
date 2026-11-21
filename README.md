@@ -76,7 +76,7 @@ These are the product and design choices I made where the spec left room for int
 
 - **Money is integer minor units, rounded per line** ([ADR 0001](docs/adr/0001-integer-minor-units-per-line-rounding.md)), so every line on screen adds up exactly to the Balance shown.
 - **Balances are derived, never stored** ([ADR 0004](docs/adr/0004-balances-derived-never-stored.md)). One framework-free domain core runs on the server for Users and in the browser for Guests, behind one repository interface.
-- **Settlements are recorded in the Group Currency only** ([ADR 0003](docs/adr/0003-settlements-in-group-currency-only.md)), so "you can't settle a debt that doesn't exist" compares like with like.
+- **Settlements have their own Settlement Currency and Locked Rate** ([ADR 0009](docs/adr/0009-settlement-currency-with-its-own-locked-rate.md)), converted to the Group Currency like an Expense, so "you can't settle a debt that doesn't exist" still compares like with like.
 - **Landing page:** server-rendered with no images and no client JavaScript of its own. The hero's visual is a preview of the "Trip to Japan" sample Group, with Balances and Suggested Settlements computed at build time by the same domain core from the seed data, so the first thing a visitor sees is the product itself. "Try as Guest" is one click to `/guest`.
 - **Guest nudges, not gates:** one prompt above Guest pages, dismissed for the rest of the session with one click. It is server-rendered so first-time Guests see it without a layout shift; for a Guest who already dismissed it, a full page reload briefly renders it before hydration hides it.
 - **Theme:** follows the system preference, with a remembered manual toggle applied before first paint (no flash).
@@ -216,7 +216,6 @@ _To be written by the author._
 ## Known limitations
 
 - Guest data is not migrated into a new account on sign-up (by design; the sign-up prompt says so).
-- Settlements can only be recorded in the Group Currency ([ADR 0003](docs/adr/0003-settlements-in-group-currency-only.md)).
 - Without a currency API key, new foreign-currency Expenses use the last cached rates or a rate typed by hand.
 
 ---

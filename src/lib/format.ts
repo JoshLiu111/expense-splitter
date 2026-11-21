@@ -1,4 +1,11 @@
-import { formatMoney, type CalendarDate, type CurrencyCode, type MinorUnits } from "@/domain";
+import {
+  formatMoney,
+  settlementInGroupCurrency,
+  type CalendarDate,
+  type CurrencyCode,
+  type MinorUnits,
+  type Settlement,
+} from "@/domain";
 
 const dateFormatter = new Intl.DateTimeFormat("en-US", {
   month: "short",
@@ -50,4 +57,17 @@ const shortMonthFormatter = new Intl.DateTimeFormat("en-US", { month: "short", y
 /** "2024-03" → "March 2024" (or "Mar 24" when `short`). */
 export function formatMonth(month: string, { short = false } = {}): string {
   return (short ? shortMonthFormatter : monthFormatter).format(new Date(`${month}-01T00:00:00Z`));
+}
+
+/**
+ * A Settlement's amount as shown: "$30.00" in the Group Currency, or both
+ * amounts, "¥4,478 ≈ $30.00", in another Settlement Currency.
+ */
+export function formatSettlementAmount(
+  settlement: Pick<Settlement, "amount" | "currency" | "lockedRate">,
+  groupCurrency: CurrencyCode,
+): string {
+  const inGroup = formatMoney(settlementInGroupCurrency(settlement, groupCurrency), groupCurrency);
+  if (settlement.currency === groupCurrency) return inGroup;
+  return `${formatMoney(settlement.amount, settlement.currency)} ≈ ${inGroup}`;
 }

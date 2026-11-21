@@ -68,7 +68,7 @@ export function GuestGroupView() {
           }
           onDeleteExpense={(expenseId) => deleteExpense(guestRepository(), group.id, expenseId, GUEST)}
           settleUp={{
-            record: (fields) => recordSettlement(guestRepository(), group.id, fields),
+            record: (fields) => recordSettlement(guestRepository(), group.id, fields, fetchTodaysRates),
             delete: (settlementId) => deleteSettlement(guestRepository(), group.id, settlementId, GUEST),
             clearSmallChange: (date) => clearSmallChange(guestRepository(), group.id, date),
           }}

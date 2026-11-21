@@ -7,24 +7,33 @@ import { ArrowDownLeft, ArrowUpRight, Check, GitCompareArrows, Plus, X } from "l
 import {
   amountText,
   computeLedger,
+  CURRENCY_CODES,
   explainSettlements,
   formatMoney,
+  isCurrencyCode,
+  lockRate,
   memberLabel,
   membersInBalances,
   parseAmount,
+  settleableAmount,
+  settlementAmountFor,
+  settlementInGroupCurrency,
   settleUpStatus,
   validateSettlement,
+  type CurrencyCode,
   type GroupSnapshot,
   type Ledger,
   type NewSettlementFields,
   type SuggestedSettlement,
 } from "@/domain";
 import type { SettlementResult, SettleUp } from "@/settlements/settle-up";
+import { ExchangeRateField } from "@/components/exchange-rate-field";
 import { ErrorSummary, Field } from "@/components/form";
 import { AvatarStack, TransferPair } from "@/components/member-avatar";
 import { Button } from "@/components/ui/button";
 import { pluralize, todayCalendarDate } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import type { TodaysRatesState } from "@/rates/use-todays-rates";
 
 // The graph is secondary, so its code loads only when asked for.
 const WhyThesePayments = dynamic(() => import("@/components/why-these-payments"), {
@@ -65,6 +74,7 @@ const dialogClass =
  */
 export function SettleUpSection({
   group,
+  rates,
   ledger,
   currentMemberId,
   settleUp,
@@ -73,6 +83,8 @@ export function SettleUpSection({
   readOnly = false,
 }: {
   group: GroupSnapshot;
+  /** Today's exchange rates, for a Settlement in another Settlement Currency. */
+  rates: TodaysRatesState;
   ledger: Ledger;
   /** The visitor's own Member, if they have one in this Group. */
   currentMemberId: string | undefined;
@@ -118,6 +130,7 @@ export function SettleUpSection({
     readOnly ? null : (
       <RecordSettlement
         group={group}
+        rates={rates}
         suggestion={suggestion}
         label={label}
         trigger={trigger}
@@ -326,6 +339,7 @@ type RecordTrigger = { variant: "default" | "outline" | "quiet"; text: string; c
 /** A button that opens the Settlement form, prefilled from a suggestion if given. */
 function RecordSettlement({
   group,
+  rates,
   suggestion,
   label,
   trigger,
@@ -334,6 +348,7 @@ function RecordSettlement({
   returnFocus,
 }: {
   group: GroupSnapshot;
+  rates: TodaysRatesState;
   suggestion: SuggestedSettlement | null;
   /** The trigger's accessible name, e.g. "Record: Sam pays Taylor $3.03". */
   label: string;
@@ -383,6 +398,7 @@ function RecordSettlement({
           </div>
           <SettlementForm
             group={group}
+            rates={rates}
             suggestion={suggestion}
             onRecord={onRecord}
             onRecorded={(news) => {
@@ -399,11 +415,13 @@ function RecordSettlement({
 
 function SettlementForm({
   group,
+  rates,
   suggestion,
   onRecord,
   onRecorded,
 }: {
   group: GroupSnapshot;
+  rates: TodaysRatesState;
   suggestion: SuggestedSettlement | null;
   onRecord: SettleUp["record"];
   onRecorded: (news: string) => void;
@@ -412,9 +430,14 @@ function SettlementForm({
   const [fields, setFields] = useState<NewSettlementFields>({
     fromId: suggestion?.fromId ?? "",
     toId: suggestion?.toId ?? "",
-    amount: suggestion ? amountText(suggestion.amount, group.currency) : "",
+    amount: "",
+    currency: group.currency,
+    rate: "",
     date: todayCalendarDate(),
   });
+  // Opened from a Suggested Settlement, the amount follows the currency and
+  // rate until the Member types one; changing the currency follows again.
+  const [amountTyped, setAmountTyped] = useState(false);
   const [failure, setFailure] = useState<Failure>();
   const [pending, startTransition] = useTransition();
   const formId = useId();
@@ -422,31 +445,72 @@ function SettlementForm({
     fromId: `${formId}-from`,
     toId: `${formId}-to`,
     amount: `${formId}-amount`,
+    currency: `${formId}-currency`,
+    rate: `${formId}-rate`,
     date: `${formId}-date`,
   };
   const errors = failure?.errors;
   const set = (key: keyof NewSettlementFields, value: string) => setFields((f) => ({ ...f, [key]: value }));
   const nameOf = (id: string) => group.members.find((m) => m.id === id)?.name ?? "";
 
+  const currency: CurrencyCode = isCurrencyCode(fields.currency) ? fields.currency : group.currency;
+  const foreign = currency !== group.currency;
+  // The Locked Rate this Settlement would get if recorded now.
+  const lock = lockRate({ typed: fields.rate, currency, group, rates });
+  const rateError = errors?.rate && (lock.ok ? undefined : lock.error);
+
+  // The amount as shown: typed, or prefilled from the Suggested Settlement.
+  const shownAmount = (() => {
+    if (!suggestion || amountTyped) return fields.amount;
+    if (!lock.ok) return "";
+    // The Suggested Settlement in the Settlement Currency, never converting
+    // to more than can be settled.
+    const prefilled = settlementAmountFor({
+      amount: suggestion.amount,
+      max: settleableAmount(group, fields.fromId, fields.toId) || suggestion.amount,
+      currency,
+      groupCurrency: group.currency,
+      rate: lock.rate,
+    });
+    return prefilled === null ? "" : amountText(prefilled, currency);
+  })();
+
+  // The amount in the Group Currency at the rate it would be locked at.
+  const groupAmount = (() => {
+    const parsed = parseAmount(shownAmount, currency);
+    if (!parsed.ok || !lock.ok) return null;
+    return settlementInGroupCurrency({ amount: parsed.amount, currency, lockedRate: lock.rate }, group.currency);
+  })();
   // What's left for the payer after this Settlement, as a live preview.
   const remaining = (() => {
-    const amount = parseAmount(fields.amount, group.currency);
-    if (!amount.ok) return null;
-    const proposed = { fromId: fields.fromId, toId: fields.toId, amount: amount.amount };
+    if (!groupAmount) return null;
+    const proposed = { fromId: fields.fromId, toId: fields.toId, amount: groupAmount };
     if (!validateSettlement(group, proposed).ok) return null;
     const owes = -(computeLedger(group).balances.find((b) => b.memberId === fields.fromId)?.amount ?? 0);
-    return owes - amount.amount;
+    return owes - groupAmount;
   })();
   const describeRemaining = (left: number) =>
     left > 0
       ? `${nameOf(fields.fromId)} will still owe ${formatMoney(left, group.currency)}.`
       : `${nameOf(fields.fromId)} will be settled up.`;
+  const amountHint = [
+    foreign && groupAmount !== null && `${formatMoney(groupAmount, group.currency)} at this rate.`,
+    remaining !== null && `After this, ${describeRemaining(remaining)}`,
+  ]
+    .filter(Boolean)
+    .join(" ");
+
+  function changeCurrency(code: string) {
+    // A typed rate was for the previous currency.
+    setFields((f) => ({ ...f, currency: code, rate: "" }));
+    setAmountTyped(false);
+  }
 
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const left = remaining;
     startTransition(async () => {
-      const result = await attempt(() => onRecord(fields));
+      const result = await attempt(() => onRecord({ ...fields, amount: shownAmount }));
       if (!result.ok) setFailure(result);
       else onRecorded(`Settlement recorded.${left === null ? "" : ` ${describeRemaining(left)}`}`);
     });
@@ -479,29 +543,55 @@ function SettlementForm({
       <ErrorSummary errors={errors} fieldIds={ids} />
       {select("fromId", "Paid by", "Choose who paid")}
       {select("toId", "Paid to", "Choose who was paid")}
-      <Field
-        id={ids.amount}
-        label={`Amount (${group.currency})`}
-        hint={
-          remaining === null
-            ? `Settlements are always in the Group Currency. Paid in another currency? Convert it to ${group.currency} first.`
-            : `After this, ${describeRemaining(remaining)}`
-        }
-        error={errors?.amount}
-      >
-        {(describedBy, className) => (
-          <input
-            id={ids.amount}
-            inputMode="decimal"
-            autoComplete="off"
-            value={fields.amount}
-            onChange={(e) => set("amount", e.target.value)}
-            aria-invalid={errors?.amount ? true : undefined}
-            aria-describedby={describedBy}
-            className={`${className} amount`}
-          />
-        )}
-      </Field>
+      <div className="grid grid-cols-[1fr_auto] items-start gap-3">
+        <Field id={ids.amount} label={`Amount (${currency})`} hint={amountHint || undefined} error={errors?.amount}>
+          {(describedBy, className) => (
+            <input
+              id={ids.amount}
+              inputMode="decimal"
+              autoComplete="off"
+              value={shownAmount}
+              onChange={(e) => {
+                setAmountTyped(true);
+                set("amount", e.target.value);
+              }}
+              aria-invalid={errors?.amount ? true : undefined}
+              aria-describedby={describedBy}
+              className={`${className} amount`}
+            />
+          )}
+        </Field>
+        <Field id={ids.currency} label="Currency" error={errors?.currency}>
+          {(describedBy, className) => (
+            <select
+              id={ids.currency}
+              value={fields.currency}
+              onChange={(e) => changeCurrency(e.target.value)}
+              aria-invalid={errors?.currency ? true : undefined}
+              aria-describedby={describedBy}
+              className={`${className} min-h-11`}
+            >
+              {CURRENCY_CODES.map((code) => (
+                <option key={code} value={code}>
+                  {code}
+                </option>
+              ))}
+            </select>
+          )}
+        </Field>
+      </div>
+      {foreign && (
+        <ExchangeRateField
+          id={ids.rate}
+          currency={currency}
+          groupCurrency={group.currency}
+          typed={fields.rate}
+          onChange={(rate) => set("rate", rate)}
+          lock={lock}
+          rates={rates}
+          error={rateError}
+        />
+      )}
       <Field id={ids.date} label="Date" error={errors?.date}>
         {(describedBy, className) => (
           <input

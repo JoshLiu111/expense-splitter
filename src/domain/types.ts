@@ -98,8 +98,17 @@ export interface Settlement {
   id: string;
   fromId: string;
   toId: string;
-  /** Always in the Group Currency's minor unit (ADR 0003). */
+  /** In the Settlement Currency's minor unit (ADR 0009). */
   amount: MinorUnits;
+  /** The Settlement Currency: what the payment was made in. */
+  currency: CurrencyCode;
+  /**
+   * Locked Rate: Group Currency units per one unit of Settlement Currency,
+   * as a plain decimal string, as on an Expense; "1" in the Group Currency.
+   */
+  lockedRate: string;
+  /** True when a Member overrode the Locked Rate by hand. */
+  manualRate?: boolean;
   date: CalendarDate;
   createdAt: string;
   /** The Recorder: absent when unknown or recorded by the Guest, as on an Expense. */

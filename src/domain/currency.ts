@@ -76,6 +76,32 @@ export function parseAmount(text: string, currency: CurrencyCode): ParseAmountRe
 const PLAIN_DECIMAL = /^(\d+)(?:\.(\d+))?$/;
 
 /**
+ * Minor units of `to` per minor unit of `from` at a decimal rate, as an
+ * exact fraction.
+ */
+export function minorUnitRate(
+  from: CurrencyCode,
+  to: CurrencyCode,
+  rate: string,
+): { numerator: bigint; denominator: bigint } {
+  const match = PLAIN_DECIMAL.exec(rate);
+  if (!match) throw new Error(`Invalid exchange rate "${rate}"`);
+  const fraction = match[2] ?? "";
+  return {
+    numerator: BigInt(match[1] + fraction) * 10n ** BigInt(exponentOf(to)),
+    denominator: 10n ** BigInt(fraction.length) * 10n ** BigInt(exponentOf(from)),
+  };
+}
+
+/** Minor units converted at a `minorUnitRate`, rounding half up. */
+export function convertAtRate(
+  amount: bigint,
+  { numerator, denominator }: { numerator: bigint; denominator: bigint },
+): bigint {
+  return (amount * numerator * 2n + denominator) / (denominator * 2n);
+}
+
+/**
  * Converts an amount from one currency into another with a decimal rate,
  * rounding half up to the target's minor unit. Integer arithmetic only.
  */
@@ -85,16 +111,7 @@ export function convert(
   to: CurrencyCode,
   rate: string,
 ): MinorUnits {
-  const match = PLAIN_DECIMAL.exec(rate);
-  if (!match) throw new Error(`Invalid exchange rate "${rate}"`);
-  const fraction = match[2] ?? "";
-  const rateNumerator = BigInt(match[1] + fraction);
-  const numerator =
-    BigInt(Math.abs(amount)) * rateNumerator * 10n ** BigInt(exponentOf(to));
-  const denominator =
-    10n ** BigInt(fraction.length) * 10n ** BigInt(exponentOf(from));
-  const rounded = (numerator * 2n + denominator) / (denominator * 2n);
-  return Math.sign(amount) * Number(rounded);
+  return Math.sign(amount) * Number(convertAtRate(BigInt(Math.abs(amount)), minorUnitRate(from, to, rate)));
 }
 
 /** Minor units as plain text a person can edit, e.g. 6000 USD → "60.00". */

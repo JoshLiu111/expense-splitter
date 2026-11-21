@@ -1,4 +1,4 @@
-import { convert, isCurrencyCode, toMinorUnits } from "./currency";
+import { isCurrencyCode, toMinorUnits } from "./currency";
 import type {
   CalendarDate,
   CurrencyCode,
@@ -96,21 +96,19 @@ function importExpense(raw: RawExpense): Expense {
 }
 
 /**
- * Settlements are always in the Group Currency (ADR 0003); a seed
- * Settlement in another currency is converted once, here, on import.
+ * A seed Settlement keeps its own currency as its Settlement Currency, with
+ * its `exchangeRate` as the Locked Rate (1 in the Group Currency), as an
+ * Expense does (ADR 0009).
  */
 function importSettlement(raw: RawSettlement, groupCurrency: CurrencyCode): Settlement {
-  const from = currency(raw.currency);
+  const settlementCurrency = currency(raw.currency);
   return {
     id: raw.id,
     fromId: raw.from,
     toId: raw.to,
-    amount: convert(
-      toMinorUnits(raw.amount, from),
-      from,
-      groupCurrency,
-      from === groupCurrency ? "1" : rateString(raw.exchangeRate),
-    ),
+    amount: toMinorUnits(raw.amount, settlementCurrency),
+    currency: settlementCurrency,
+    lockedRate: settlementCurrency === groupCurrency ? "1" : rateString(raw.exchangeRate),
     date: calendarDate(raw.date),
     createdAt: new Date(raw.date).toISOString(),
   };

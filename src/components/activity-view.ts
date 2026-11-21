@@ -13,7 +13,7 @@ import {
   type Member,
   type Share,
 } from "@/domain";
-import { formatCalendarDate } from "@/lib/format";
+import { formatCalendarDate, formatSettlementAmount } from "@/lib/format";
 
 /** One field an edit changed, as shown. */
 export interface FieldChange {
@@ -88,8 +88,11 @@ export function activityItems(entries: readonly ActivityEntry[], group: GroupSna
           subject: { kind: "settlement", id: change.settlement.id },
           title: `${nameOf(group, change.settlement.fromId)} paid ${nameOf(group, change.settlement.toId)}`,
           details: [
-            // Always in the Group Currency (ADR 0003).
-            { label: "Amount", value: formatMoney(change.settlement.amount, group.currency), money: true },
+            // Both amounts in another Settlement Currency: "¥4,478 ≈ $30.00".
+            { label: "Amount", value: formatSettlementAmount(change.settlement, group.currency), money: true },
+            ...(change.settlement.currency !== group.currency
+              ? [{ label: "Locked Rate", value: rateText(change.settlement) }]
+              : []),
             { label: "Date", value: formatCalendarDate(change.settlement.date) },
           ],
           changes: [],
@@ -117,11 +120,16 @@ function expenseChanges(before: Expense, after: Expense, group: GroupSnapshot): 
 
 type Show = (e: Expense, group: GroupSnapshot) => string;
 
+/** A Locked Rate as shown, marked when typed by hand. */
+function rateText(record: Pick<Expense, "lockedRate" | "manualRate">): string {
+  return record.manualRate ? `${record.lockedRate} (manual)` : record.lockedRate;
+}
+
 /** How each changed field shows, keyed by the domain's list. */
 const FIELDS: Record<Exclude<ExpenseField, "shares">, [label: string, show: Show, money?: true]> = {
   description: ["Description", (e) => e.description],
   amount: ["Amount", (e) => formatMoney(e.amount, e.currency), true],
-  lockedRate: ["Locked Rate", (e) => (e.manualRate ? `${e.lockedRate} (manual)` : e.lockedRate)],
+  lockedRate: ["Locked Rate", rateText],
   payer: ["Payer", (e, group) => nameOf(group, e.payerId)],
   splitType: ["Split Type", (e) => SPLIT_TYPE_LABELS[e.splitType]],
   date: ["Date", (e) => formatCalendarDate(e.date)],

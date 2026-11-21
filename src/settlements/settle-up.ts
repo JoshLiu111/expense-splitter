@@ -6,6 +6,7 @@ import {
   type CalendarDate,
   type NewSettlementErrors,
   type NewSettlementFields,
+  type TodaysRates,
   type Visitor,
 } from "@/domain";
 import type { GroupRepository } from "@/groups/group-repository";
@@ -30,21 +31,33 @@ const formError = (form: string): SettlementResult => ({ ok: false, errors: { fo
 function settlementFields(input: unknown): NewSettlementFields {
   const record = (typeof input === "object" && input !== null ? input : {}) as Record<string, unknown>;
   const text = (key: string) => (typeof record[key] === "string" ? (record[key] as string) : "");
-  return { fromId: text("fromId"), toId: text("toId"), amount: text("amount"), date: text("date") };
+  return {
+    fromId: text("fromId"),
+    toId: text("toId"),
+    amount: text("amount"),
+    currency: text("currency"),
+    rate: text("rate"),
+    date: text("date"),
+  };
 }
 
 /**
  * Records a Settlement after Validate Settlement against the Group as
  * stored now, so a stale form can never settle a debt that's already gone.
+ * A Settlement in another Settlement Currency gets Today's Rate from `rates`
+ * as its Locked Rate, unless a rate was typed.
  */
 export async function recordSettlement(
   repo: GroupRepository,
   groupId: string,
   input: unknown,
+  rates: TodaysRates,
 ): Promise<SettlementResult> {
   const group = await repo.getGroup(groupId);
   if (!group) return formError(GROUP_GONE);
-  const parsed = parseNewSettlement(settlementFields(input), group);
+  const fields = settlementFields(input);
+  const needsRate = fields.currency !== group.currency && fields.rate.trim() === "";
+  const parsed = parseNewSettlement(fields, group, needsRate ? await rates() : null);
   if (!parsed.ok) return parsed;
   return (await repo.addSettlement(groupId, parsed.value)) ? { ok: true } : formError(GROUP_GONE);
 }
@@ -84,13 +97,20 @@ export async function clearSmallChange(
 
   for (const payment of ledger.smallChange) {
     // Each one goes through Validate Settlement against the Group as it is
-    // after the ones before it.
-    const result = await recordSettlement(repo, groupId, {
-      fromId: payment.fromId,
-      toId: payment.toId,
-      amount: amountText(payment.amount, group.currency),
-      date: typeof date === "string" ? date : "",
-    });
+    // after the ones before it. Small Change is always in the Group Currency.
+    const result = await recordSettlement(
+      repo,
+      groupId,
+      {
+        fromId: payment.fromId,
+        toId: payment.toId,
+        amount: amountText(payment.amount, group.currency),
+        currency: group.currency,
+        rate: "",
+        date: typeof date === "string" ? date : "",
+      },
+      async () => null,
+    );
     if (!result.ok) return result;
   }
   return { ok: true };

@@ -85,7 +85,7 @@ export function LiveGroupDetail({
       settleUp={{
         record: (fields) =>
           write(
-            (repo, groupId) => recordSettlement(repo, groupId, fields),
+            (repo, groupId) => recordSettlement(repo, groupId, fields, fetchTodaysRates),
             () => settleUp.record(fields),
           ),
         delete: (settlementId) =>

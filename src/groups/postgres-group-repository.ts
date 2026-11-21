@@ -134,10 +134,25 @@ function toSettlement(s: SettlementRow): Settlement {
     fromId: s.fromMemberId,
     toId: s.toMemberId,
     amount: s.amount,
+    currency: s.currency as CurrencyCode,
+    lockedRate: s.lockedRate,
+    ...(s.manualRate ? { manualRate: true } : {}),
     date: s.date,
     createdAt: s.createdAt.toISOString(),
     ...(s.recorderMemberId ? { recorderId: s.recorderMemberId } : {}),
   };
+}
+
+/**
+ * Settlement Activity recorded before Settlements had a Settlement Currency
+ * holds Settlements without one: they were in the Group Currency, at 1
+ * (ADR 0009). The rows stay as recorded; they are only read that way.
+ */
+function withSettlementCurrency(change: ActivityChange, groupCurrency: CurrencyCode): ActivityChange {
+  if (change.kind !== "settlement-added" && change.kind !== "settlement-deleted") return change;
+  const recorded: Partial<Settlement> = change.settlement;
+  if (recorded.currency) return change;
+  return { ...change, settlement: { ...change.settlement, currency: groupCurrency, lockedRate: "1" } };
 }
 
 /** One Expense of the Group, locked until the transaction ends; `null` if it isn't there. */
@@ -414,6 +429,9 @@ export function createPostgresGroupRepository(
             fromMemberId: input.fromId,
             toMemberId: input.toId,
             amount: input.amount,
+            currency: input.currency,
+            lockedRate: input.lockedRate,
+            manualRate: input.manualRate ?? false,
             date: input.date,
             recorderMemberId: myMemberId,
           })
@@ -571,7 +589,8 @@ export function createPostgresGroupRepository(
       return rows.length > 0;
     },
     async listActivity(groupId) {
-      if ((await load(groupId)).length === 0) return null;
+      const [group] = await load(groupId);
+      if (!group) return null;
       const rows = await db
         .select()
         .from(activity)
@@ -581,7 +600,7 @@ export function createPostgresGroupRepository(
         id: r.id,
         at: r.at.toISOString(),
         actorMemberId: r.actorMemberId,
-        change: r.change,
+        change: withSettlementCurrency(r.change, group.currency),
       }));
     },
     async deleteGroup(id) {

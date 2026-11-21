@@ -1,5 +1,5 @@
 import { oldestFirst, type Recorded } from "./chronology";
-import { inGroupCurrency } from "./ledger";
+import { inGroupCurrency, settlementInGroupCurrency } from "./ledger";
 import { leftoverCentMembers } from "./split";
 import type { CalendarDate, Expense, GroupSnapshot, MinorUnits, Settlement } from "./types";
 
@@ -29,7 +29,9 @@ export type StatementLine =
       direction: "made" | "received";
       /** The other Member in the Settlement. */
       counterpartId: string;
-      /** +amount when made, −amount when received. */
+      /** The Settlement in the Group Currency, at its Locked Rate. */
+      groupAmount: MinorUnits;
+      /** +groupAmount when made, −groupAmount when received. */
       net: MinorUnits;
     };
 
@@ -52,8 +54,8 @@ export interface MemberStatement {
  * Member Statement: the itemised account of one Member's Balance (a Former
  * Member's too). One line per Expense they paid for or have a Share in, and
  * per Settlement they made or received, all in the Group Currency at each
- * Expense's Locked Rate. Derived like the Ledger (ADR 0004), with the same
- * per-line rounding, so the lines total exactly the Balance.
+ * Expense's and Settlement's Locked Rate. Derived like the Ledger (ADR 0004),
+ * with the same per-line rounding, so the lines total exactly the Balance.
  */
 export function memberStatement(group: GroupSnapshot, memberId: string): MemberStatement {
   const lines: { line: StatementLine; recorded: Recorded }[] = [];
@@ -85,6 +87,7 @@ export function memberStatement(group: GroupSnapshot, memberId: string): MemberS
   for (const settlement of group.settlements) {
     const made = settlement.fromId === memberId;
     if (!made && settlement.toId !== memberId) continue;
+    const groupAmount = settlementInGroupCurrency(settlement, group.currency);
     lines.push({
       recorded: settlement,
       line: {
@@ -94,7 +97,8 @@ export function memberStatement(group: GroupSnapshot, memberId: string): MemberS
         settlement,
         direction: made ? "made" : "received",
         counterpartId: made ? settlement.toId : settlement.fromId,
-        net: made ? settlement.amount : -settlement.amount,
+        groupAmount,
+        net: made ? groupAmount : -groupAmount,
       },
     });
   }
@@ -107,9 +111,9 @@ export function memberStatement(group: GroupSnapshot, memberId: string): MemberS
       totals.paid += line.paid;
       totals.shares += line.share;
     } else if (line.direction === "made") {
-      totals.settlementsMade += line.settlement.amount;
+      totals.settlementsMade += line.groupAmount;
     } else {
-      totals.settlementsReceived += line.settlement.amount;
+      totals.settlementsReceived += line.groupAmount;
     }
   }
   return { memberId, lines: ordered, totals, balance: ordered.reduce((sum, line) => sum + line.net, 0) };

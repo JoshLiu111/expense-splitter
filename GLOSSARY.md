@@ -91,8 +91,12 @@ _Avoid_: Base currency, home currency, default currency
 The currency an Expense was actually paid in, which may differ from the Group Currency.
 _Avoid_: Original currency, foreign currency
 
+**Settlement Currency**:
+The currency a Settlement was actually paid in: the Group Currency unless the Member recording it chose another. A Settlement in another Settlement Currency counts at its Locked Rate wherever it is counted, and shows both amounts (e.g. "¥4,478 ≈ $30.00").
+_Avoid_: Payment currency, original currency
+
 **Locked Rate**:
-The exchange rate from Expense Currency to Group Currency fixed on an Expense when it is recorded (or overridden by a Member), so past Balances never change.
+The exchange rate from an Expense Currency or Settlement Currency to the Group Currency, fixed on an Expense or Settlement when it is recorded (or overridden by a Member), so past Balances never change; 1 in the Group Currency.
 _Avoid_: Current rate, live rate
 
 **Today's Rate**:
@@ -106,11 +110,11 @@ A Member's net position in a Group: total paid minus total owed, in Group Curren
 _Avoid_: Debt, total
 
 **Member Statement**:
-The itemised account of one Member's Balance (including a Former Member's): for each Expense, what they paid and their Share, and each Settlement they made or received, all in Group Currency at each Expense's Locked Rate and totalling exactly their Balance.
+The itemised account of one Member's Balance (including a Former Member's): for each Expense, what they paid and their Share, and each Settlement they made or received, all in Group Currency at each Expense's and Settlement's Locked Rate and totalling exactly their Balance.
 _Avoid_: Balance breakdown
 
 **My Calendar**:
-One month of what moved for one Member (including a Former Member), by day: the Expenses they paid for as Payer (the full amount, not their Share), the Settlements they received and the Settlements they made, with the month's three totals. Taken from their Member Statement, so in Group Currency at each Expense's Locked Rate. It never shows their Shares or other Members.
+One month of what moved for one Member (including a Former Member), by day: the Expenses they paid for as Payer (the full amount, not their Share), the Settlements they received and the Settlements they made, with the month's three totals. Taken from their Member Statement, so in Group Currency at each Expense's and Settlement's Locked Rate. It never shows their Shares or other Members.
 _Avoid_: Activity calendar, spending calendar
 
 **Debt**:
@@ -122,15 +126,15 @@ The state where every Member's Balance is exactly zero. A single Member whose ow
 _Avoid_: Closed, paid off
 
 **Settlement**:
-A recorded payment, always in Group Currency, from a Member with a negative Balance to a Member with a positive Balance. "payment" in its everyday sense is fine (as in "Why these payments?"); just never use it as the name of a Settlement.
+A recorded payment from a Member with a negative Balance to a Member with a positive Balance, in a Settlement Currency at its own Locked Rate (ADR 0009). It counts as its amount in Group Currency, which must be at least one minor unit and no more than the one owes or the other is owed. "payment" in its everyday sense is fine (as in "Why these payments?"); just never use it as the name of a Settlement.
 _Avoid_: Payment, repayment, transfer
 
 **Small Change**:
-A non-zero Balance under one unit of Group Currency (e.g. under $1) that is left once every Suggested Settlement is recorded. The payments under one unit that would clear it are never suggested, but can all be recorded in one action as real Settlements. A payment under one unit is still suggested when it involves a Member whose Balance is one unit or more and who has no suggestion of one unit or more, so such a Balance never ends up as Small Change.
+A non-zero Balance under one unit of Group Currency (e.g. under $1) that is left once every Suggested Settlement is recorded. The payments under one unit that would clear it are never suggested, but can all be recorded in one action as real Settlements in the Group Currency. Converting a Settlement in another Settlement Currency to whole minor units can leave some. A payment under one unit is still suggested when it involves a Member whose Balance is one unit or more and who has no suggestion of one unit or more, so such a Balance never ends up as Small Change.
 _Avoid_: Dust, rounding leftover
 
 **Suggested Settlement**:
-A Settlement the app proposes so that, once all are recorded, every Member is Settled Up.
+A Settlement the app proposes, in Group Currency, so that, once all are recorded, every Member is Settled Up. Recording one in another Settlement Currency starts from the amount nearest it at Today's Rate that converts to no more than can be settled.
 _Avoid_: Recommendation, IOU
 
 **Debt Simplification**:

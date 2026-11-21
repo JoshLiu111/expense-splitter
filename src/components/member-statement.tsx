@@ -153,6 +153,13 @@ function StatementRow({
           <p className="text-sm text-text-secondary">
             {date} · Settlement
           </p>
+          {line.settlement.currency !== currency && (
+            <p className="text-xs text-text-secondary">
+              <span className="sr-only">In {line.settlement.currency}: </span>
+              <span className="amount">{formatMoney(line.settlement.amount, line.settlement.currency)}</span> · 1{" "}
+              {line.settlement.currency} = <span className="amount">{line.settlement.lockedRate}</span> {currency}
+            </p>
+          )}
         </div>
         <Net amount={line.net} currency={currency} />
       </li>
