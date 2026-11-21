@@ -1,5 +1,5 @@
 import { explainNeverShared, formatMoney, type GroupSnapshot, type SuggestedSettlement } from "@/domain";
-import { pluralize } from "@/lib/format";
+import { pluralize, verbFor } from "@/lib/format";
 
 /**
  * Who reads the reason: the visitor paying or being paid, in the main
@@ -33,11 +33,11 @@ export function neverSharedReason(
       ? `You never shared an Expense with ${recipient}`
       : `${payer} and ${recipient} never shared an Expense`;
   const most = reason.owedTheMost ? ", the most in the Group" : "";
-  const owed = `${opening}; Debt Simplification goes by Balances, and ${recipient} is owed ${formatMoney(reason.recipientBalance, group.currency)}${most}.`;
+  const owed = `${opening}; Debt Simplification goes by Balances, and ${recipient} ${verbFor(recipient, "is", "are")} owed ${formatMoney(reason.recipientBalance, group.currency)}${most}.`;
   if (reason.payments >= reason.debtsWith.length) return owed;
 
   const names = reason.debtsWith.map(nameOf);
-  const who = reader === "payer" ? "you make" : `${payer} makes`;
+  const who = reader === "payer" ? "you make" : `${payer} ${verbFor(payer, "makes", "make")}`;
   return `${owed} Instead of ${pluralize(names.length, "Debt")} with ${nameList(names)}, ${who} ${pluralize(reason.payments, "payment")}.`;
 }
 

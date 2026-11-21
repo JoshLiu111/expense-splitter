@@ -18,7 +18,7 @@ import { PaymentSources } from "@/components/payment-sources";
 import { Button } from "@/components/ui/button";
 import { togglePillClass } from "@/components/ui/toggle-pill";
 import { useMediaQuery } from "@/components/use-media-query";
-import { pluralize } from "@/lib/format";
+import { pluralize, verbFor } from "@/lib/format";
 
 type Phase = "before" | "after";
 
@@ -327,7 +327,7 @@ export default function WhyThesePayments({
       {alreadySimplest ? (
         <PaymentList
           title={pluralize(after.length, "Suggested Settlement")}
-          verb="pays"
+          verb="pay"
           current={false}
           edges={after}
           nameOf={nameOf}
@@ -338,7 +338,7 @@ export default function WhyThesePayments({
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <PaymentList
             title={`Before: ${pluralize(before.length, "debt")}`}
-            verb="owes"
+            verb="owe"
             current={phase === "before"}
             edges={before}
             nameOf={nameOf}
@@ -346,7 +346,7 @@ export default function WhyThesePayments({
           />
           <PaymentList
             title={`After: ${pluralize(after.length, "Suggested Settlement")}`}
-            verb="pays"
+            verb="pay"
             note={smallChange.length > 0 ? "Plus Small Change, which is never suggested." : undefined}
             current={phase === "after"}
             edges={after}
@@ -486,8 +486,8 @@ function PaymentList<E extends DebtEdge>({
   detail,
 }: {
   title: string;
-  /** "owes" for debts, "pays" for Suggested Settlements. */
-  verb: "owes" | "pays";
+  /** "owe" for debts, "pay" for Suggested Settlements; "owes" and "pays" after most names. */
+  verb: "owe" | "pay";
   /** A line under the list, e.g. about Small Change. */
   note?: string;
   current: boolean;
@@ -508,7 +508,7 @@ function PaymentList<E extends DebtEdge>({
       <ul aria-labelledby={titleId} className={`mt-2 flex flex-col text-sm ${detail ? "gap-3" : "gap-1"}`}>
         {edges.map((e) => (
           <li key={`${e.fromId}-${e.toId}`}>
-            {nameOf(e.fromId)} {verb} {nameOf(e.toId)} <span className="amount">{money(e.amount)}</span>
+            {nameOf(e.fromId)} {verbFor(nameOf(e.fromId), `${verb}s`, verb)} {nameOf(e.toId)} <span className="amount">{money(e.amount)}</span>
             {detail?.(e)}
           </li>
         ))}

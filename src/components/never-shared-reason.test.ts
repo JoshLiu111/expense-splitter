@@ -65,6 +65,40 @@ describe("neverSharedReason", () => {
     );
   });
 
+  it("agrees with You, a Guest's own Member, in the panel", () => {
+    const guest = groupOf(
+      [
+        ["you", "You"],
+        ["tay", "Taylor"],
+        ["sam", "Sam"],
+        ["rio", "Riley"],
+      ],
+      cabin.expenses,
+    );
+    expect(neverSharedReason(guest, suggestionOf(guest, "you", "tay"), "panel")).toBe(
+      "You and Taylor never shared an Expense; Debt Simplification goes by Balances, and Taylor is owed $50.00, " +
+        "the most in the Group. Instead of 2 Debts with Sam and Riley, You make 1 payment.",
+    );
+    // The cabin again, with You in Taylor's place.
+    const owedToYou = groupOf(
+      [
+        ["jo", "Jo"],
+        ["you", "You"],
+        ["sam", "Sam"],
+        ["rio", "Riley"],
+      ],
+      [
+        expense("cabin", "you", [["you", 2500], ["sam", 2500], ["rio", 2500]]),
+        expense("fuel", "sam", [["sam", 2500], ["jo", 2500]]),
+        expense("food", "rio", [["rio", 2500], ["jo", 2500]]),
+      ],
+    );
+    expect(neverSharedReason(owedToYou, suggestionOf(owedToYou, "jo", "you"), "panel")).toBe(
+      "Jo and You never shared an Expense; Debt Simplification goes by Balances, and You are owed $50.00, " +
+        "the most in the Group. Instead of 2 Debts with Sam and Riley, Jo makes 1 payment.",
+    );
+  });
+
   it("says nothing for two Members who shared an Expense", () => {
     const shared = groupOf(
       [

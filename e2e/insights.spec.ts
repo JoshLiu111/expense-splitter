@@ -348,7 +348,22 @@ test.describe("with reduced motion", () => {
 
     // On a phone and on a desktop, long names wrap; no figure or reason runs past the panel.
     await settleUp(page).getByRole("button", { name: "Why these payments?" }).click();
-    await expect(settleUp(page).getByText(/^You and .+ never shared an Expense/)).toBeVisible();
+    await expect(settleUp(page).getByText(/^You and .+ never shared an Expense/)).toHaveText(
+      `You and ${taylor} never shared an Expense; Debt Simplification goes by Balances, and ${taylor} is owed ` +
+        "$50.00, the most in the Group. Instead of 2 Debts with Sam and Riley, You make 1 payment.",
+    );
+    // The lists agree with You, the Guest's own Member, as they do with any other name.
+    const before = settleUp(page).getByRole("list", { name: /^Before:/ });
+    await expect(before).toContainText("You owe Sam $25.00");
+    await expect(before).toContainText(`Sam owes ${taylor} $25.00`);
+    const youPay = settleUp(page)
+      .getByRole("list", { name: /^After:/ })
+      .getByRole("listitem")
+      .filter({ hasText: `You pay ${taylor}` });
+    await expect(youPay).toContainText(`You pay ${taylor} $50.00`);
+    await youPay.getByText(/^From “/).click();
+    await expect(youPay).toContainText("What You owe from these, after what they paid for others$50.00");
+    await expect(settleUp(page)).not.toContainText(/You (pays|owes|makes|is owed)/);
     for (const viewport of [
       { width: 390, height: 844 },
       { width: 1280, height: 800 },
