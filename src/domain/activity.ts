@@ -93,6 +93,11 @@ export function isSameExpense(a: Expense, b: Expense): boolean {
   return changedExpenseFields(a, b).length === 0;
 }
 
+/** What an edit changed of a Group's name and description, in Group settings' order. */
+export function changedGroupDetails(before: GroupDetails, after: GroupDetails): (keyof GroupDetails)[] {
+  return (["name", "description"] as const).filter((field) => before[field] !== after[field]);
+}
+
 /**
  * The Group Currency each entry was recorded in, given entries newest first
  * and the Group Currency now: an entry older than a Group Currency change

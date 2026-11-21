@@ -5,6 +5,7 @@ import {
   formatMoney,
   SPLIT_TYPE_LABELS,
   changedExpenseFields,
+  changedGroupDetails,
   EDITING_MODE_LABELS,
   groupCurrenciesThen,
   type ActivityChange,
@@ -169,14 +170,11 @@ export function activityItems(entries: readonly ActivityEntry[], current: GroupS
           subject: { kind: "group", id: group.id },
           title: "",
           details: [],
-          changes: [
-            ...(change.before.name !== change.after.name
-              ? [{ label: "Name", before: change.before.name, after: change.after.name }]
-              : []),
-            ...(change.before.description !== change.after.description
-              ? [{ label: "Description", before: change.before.description || "None", after: change.after.description || "None" }]
-              : []),
-          ],
+          changes: changedGroupDetails(change.before, change.after).map((field) => ({
+            label: field === "name" ? "Name" : "Description",
+            before: change.before[field] || "None",
+            after: change.after[field] || "None",
+          })),
         };
       case "currency-changed":
         return { ...shown, subject: { kind: "group", id: group.id }, title: change.to, details: [], changes: [] };

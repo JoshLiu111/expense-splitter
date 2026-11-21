@@ -735,6 +735,17 @@ export function groupRepositoryContract<U extends { id: string; email: string }>
       expect((await repo.listActivity(other.id))?.map((a) => a.change)).toEqual([{ kind: "category-added", category: theirs }]);
     });
 
+    it("refuses to delete a Custom Category an Expense uses, recording nothing", async () => {
+      const repo = await makeRepository();
+      const group = await repo.createGroup({ name: "Flat", description: "", currency: "USD" });
+      const cleaning = (await repo.addCategory(group.id, "Cleaning"))!;
+      await repo.addExpense(group.id, lunch(group, { category: cleaning.id }));
+
+      expect(await repo.deleteCategory(group.id, cleaning.id)).toBe(false);
+      expect((await repo.getGroup(group.id))?.customCategories).toEqual([cleaning]);
+      expect((await repo.listActivity(group.id))?.map((a) => a.change.kind)).toEqual(["expense-added", "category-added"]);
+    });
+
     it("records an Editing Mode change, before and after, and nothing for setting the one it has", async () => {
       const repo = await makeRepository();
       const group = await repo.createGroup({ name: "Flat", description: "", currency: "USD" });

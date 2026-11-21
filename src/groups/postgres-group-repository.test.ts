@@ -452,27 +452,6 @@ describe.skipIf(!url)("Postgres GroupRepository", () => {
     ]);
   });
 
-  it("records nothing for deleting a Custom Category an Expense uses", async () => {
-    const repo = createPostgresGroupRepository(db, await aUser());
-    const group = await repo.createGroup({ name: "Flat", description: "", currency: "USD" });
-    const me = group.members[0].id;
-    const cleaning = (await repo.addCategory(group.id, "Cleaning"))!;
-    await repo.addExpense(group.id, {
-      description: "Mop",
-      amount: 1200,
-      currency: "USD",
-      lockedRate: "1",
-      payerId: me,
-      splitType: "equal",
-      shares: [{ memberId: me, amount: 1200 }],
-      date: "2026-03-01",
-      category: cleaning.id,
-    });
-
-    expect(await repo.deleteCategory(group.id, cleaning.id)).toBe(false);
-    expect((await repo.listActivity(group.id))?.map((a) => a.change.kind)).toEqual(["expense-added", "category-added"]);
-  });
-
   it("shows every Linked Member all of a Group's Activity, each change under the Member who made it", async () => {
     const maya = await aUser();
     const theo = await aUser({ verified: true });

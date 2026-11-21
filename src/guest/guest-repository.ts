@@ -1,4 +1,5 @@
 import {
+  changedGroupDetails,
   changeGroupCurrency,
   editingModeOf,
   isSameExpense,
@@ -240,14 +241,15 @@ export function createSessionStorageRepository(
       );
       return true;
     },
-    async updateGroup(id, after) {
+    async updateGroup(id, { name, description }) {
+      const after = { name, description };
       return changeGroup(
         id,
-        (g) => ({ ...g, name: after.name, description: after.description }),
-        ({ name, description }) =>
-          name === after.name && description === after.description
-            ? null
-            : { kind: "group-details-edited", before: { name, description }, after: { name: after.name, description: after.description } },
+        (g) => ({ ...g, ...after }),
+        (g) => {
+          const before = { name: g.name, description: g.description };
+          return changedGroupDetails(before, after).length === 0 ? null : { kind: "group-details-edited", before, after };
+        },
       );
     },
     // The Guest is the Group Creator of every session Group, so may make both.
@@ -322,10 +324,10 @@ export function createSessionStorageRepository(
       return category;
     },
     async deleteCategory(groupId, categoryId) {
-      const category = read()
-        .find((g) => g.id === groupId)
-        ?.customCategories?.find((c) => c.id === categoryId);
-      if (!category) return false;
+      const group = read().find((g) => g.id === groupId);
+      const category = group?.customCategories?.find((c) => c.id === categoryId);
+      // Never delete a Category an Expense uses.
+      if (!category || group!.expenses.some((e) => e.category === categoryId)) return false;
       changeGroup(
         groupId,
         (g) => ({ ...g, customCategories: g.customCategories?.filter((c) => c.id !== categoryId) }),

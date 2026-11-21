@@ -1,5 +1,6 @@
 import { and, asc, desc, eq, exists, inArray, isNotNull, isNull, max, ne, notExists, sql } from "drizzle-orm";
 import {
+  changedGroupDetails,
   computeLedger,
   convertedRate,
   groupCurrenciesThen,
@@ -500,8 +501,8 @@ export function createPostgresGroupRepository(
           .from(groups)
           .where(eq(groups.id, id))
           .for("update");
-        if (!before || (before.name === details.name && before.description === details.description)) return;
         const after = { name: details.name, description: details.description };
+        if (!before || changedGroupDetails(before, after).length === 0) return;
         await tx.update(groups).set(after).where(eq(groups.id, id));
         await record(tx, id, { kind: "group-details-edited", before, after });
       });
@@ -550,7 +551,7 @@ export function createPostgresGroupRepository(
     async setEditingMode(id, mode) {
       // Only the Group Creator may, and only while they are a Linked Member.
       if (!(await canChange(id))) return null;
-      const set = await db.transaction(async (tx) => {
+      const allowed = await db.transaction(async (tx) => {
         const [group] = await tx
           .select({ editingMode: groups.editingMode })
           .from(groups)
@@ -563,7 +564,7 @@ export function createPostgresGroupRepository(
         await record(tx, id, { kind: "editing-mode-changed", before, after: mode });
         return true;
       });
-      if (!set) return null;
+      if (!allowed) return null;
       const [group] = await load(id);
       return group ?? null;
     },
