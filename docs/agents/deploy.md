@@ -14,13 +14,13 @@ To check: upload an avatar in Account Settings; its image URL is on `*.public.bl
 
 ## Before merging a migration, confirm Production has it
 
-Deploys never migrate. If a PR adds a file under `drizzle/`, the Production database needs that migration before the merge; otherwise the new code queries columns that don't exist yet. Apply it just before merging, since the old deployment runs against the new schema until the new one is Ready.
+Deploys never migrate. If a PR adds a file under `drizzle/`, the Production database needs that migration before the merge; otherwise the new code queries columns that don't exist yet. It must be applied just before merging, since the old deployment runs against the new schema until the new one is Ready.
 
 1. In a checkout of the PR's head, confirm it contains `main`, so it has every migration `main` has:
    ```sh
    git fetch origin && git merge-base --is-ancestor origin/main HEAD && echo up to date
    ```
-   If it prints nothing, rebase the PR onto `main` first.
+   If it prints nothing, bring the PR up to date with `main` (merge `main` in, or rebase) first.
 2. Export the Production `DATABASE_URL` (Vercel dashboard, Production) in the shell, then compare Production's migration journal with `drizzle/`:
    ```sh
    ls drizzle/*.sql | wc -l
@@ -28,14 +28,16 @@ Deploys never migrate. If a PR adds a file under `drizzle/`, the Production data
    PGSSLROOTCERT=system psql "$DATABASE_URL" -XAt -c "set default_transaction_read_only = on" \
      -c "select count(*), (select hash from drizzle.__drizzle_migrations order by id desc limit 1) from drizzle.__drizzle_migrations"
    ```
-   Production has the migration when the row count equals the file count and the last row's hash equals the latest file's SHA-256. If so, merge.
+   Production has the migration when the row count equals the file count and the last row's hash equals the latest file's SHA-256. If so, it is safe to merge. Otherwise go to step 3.
    - `PGSSLROOTCERT=system` makes psql trust the system root certificates; without it psql looks for `~/.postgresql/root.crt` and fails. It needs psql 16 or later, and `sslmode=verify-full` in the URL: with `sslmode=require`, psql refuses with `weak sslmode "require" may not be used with sslrootcert=system`.
-3. If Production is behind, stop and tell the user which migrations are missing. The user applies them; run them yourself only if the user explicitly asks. Either way, the command is, from the same checkout:
-   ```sh
-   npm run db:migrate
-   ```
-   `drizzle.config.ts` reads `DATABASE_URL` from `.env.local`, but an exported `DATABASE_URL` wins. A checkout of an older commit applies only the migrations it has, and still reports success.
-4. Run step 2 again, then merge.
+3. If they don't match, stop and tell the user; don't merge.
+   - Fewer rows than files means Production is behind: with N rows, the missing migrations are the `drizzle/*.sql` files after the first N. The user applies them; run them yourself only if the user explicitly asks. Either way, the command is, from the same checkout:
+     ```sh
+     npm run db:migrate
+     ```
+     `drizzle.config.ts` reads `DATABASE_URL` from `.env.local`, but an exported `DATABASE_URL` wins. A checkout of an older commit applies only the migrations it has, and still reports success.
+   - Any other mismatch (as many rows as files but a different last hash, or more rows than files) means a migration file changed after it was applied, or Production is ahead of this checkout. Report it; don't migrate.
+4. After a migration, run step 2 again. It is safe to merge once it matches.
 
 ## After a push or merge, confirm the deployment
 
@@ -57,7 +59,7 @@ A push is done when its deployment is Ready and its logs are clean, not when `gi
 ## Known failures
 
 - **Malformed `DATABASE_URL`**: builds fine, then fails at the first query with `getaddrinfo ENOTFOUND <host>`. The value must be the bare `postgresql://…` URL.
-- **`column "…" does not exist`** (Postgres code `42703`) after a deploy: the Production database is missing a migration. Run the check in "Before merging a migration, confirm Production has it" above, then apply the missing migration as described there.
+- **`column "…" does not exist`** (Postgres code `42703`) after a deploy: the Production database is missing a migration. Run the check in "Before merging a migration, confirm Production has it" above, then follow its step 3: tell the user which migrations are missing.
 - **Missing environment variable**: compare the dashboard against `.env.example`.
 - **pg SSL mode warning** (`SECURITY WARNING: The SSL modes 'prefer', 'require', and 'verify-ca' are treated as aliases for 'verify-full'`, logged at level `error`): `DATABASE_URL` uses `sslmode=require`. Change it to `sslmode=verify-full`; pg already behaves that way, so only the warning goes away.
   - pg doesn't read `channel_binding` from the connection string; it ignores it.
