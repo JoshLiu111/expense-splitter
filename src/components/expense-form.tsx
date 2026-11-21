@@ -122,7 +122,7 @@ export function ExpenseForm({
   onCancel,
   onSaved,
   deleteAction,
-  locked,
+  editBlock,
 }: {
   group: GroupSnapshot;
   /** The Expense being edited, or `null` to add one. */
@@ -134,8 +134,8 @@ export function ExpenseForm({
   onSaved: () => void;
   /** Deleting the Expense being edited, set apart at the end of the actions. */
   deleteAction?: ReactNode;
-  /** Why the visitor can't edit the Expense: it is shown read-only, with only Close. */
-  locked?: string;
+  /** Why the visitor can't edit the Expense, or `null`: it is then shown read-only, with only Close. */
+  editBlock?: string | null;
 }) {
   const [fields, setFields] = useState(() => initialFields(group, expense, currentMemberId));
   // Former Members appear only on Expenses they were already part of.
@@ -229,13 +229,13 @@ export function ExpenseForm({
   return (
     <form onSubmit={submit} noValidate className="flex flex-col gap-5">
       <ErrorSummary errors={summaryErrors} fieldIds={ids} />
-      {locked && (
+      {editBlock && (
         <p role="note" className="rounded-md bg-bg-secondary px-4 py-3 text-sm">
-          {locked}
+          {editBlock}
         </p>
       )}
       {/* Shown as it is, but nothing can be changed, when the visitor can't edit it. */}
-      <fieldset disabled={locked !== undefined} className="contents">
+      <fieldset disabled={Boolean(editBlock)} className="contents">
         <div className="grid grid-cols-[1fr_auto] items-start gap-3">
         <Field id={ids.amount} label={`Amount (${currency})`} error={shownErrors.amount}>
           {(describedBy, className) => (
@@ -564,7 +564,7 @@ export function ExpenseForm({
         </Field>
       </fieldset>
 
-      {locked ? (
+      {editBlock ? (
         <div>
           <Button type="button" variant="outline" onClick={onCancel}>
             Close

@@ -72,7 +72,7 @@ export function ExpenseEditor(props: ExpenseEditorProps) {
       onSave={props.onSave}
       onCancel={props.onClose}
       onSaved={props.onSaved}
-      locked={props.editBlock ?? undefined}
+      editBlock={props.editBlock}
       deleteAction={
         expense &&
         !props.deleteBlock && (

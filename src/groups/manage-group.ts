@@ -26,7 +26,6 @@ export interface NewMemberFields {
   email: string;
 }
 
-
 const GROUP_GONE = "This Group is no longer available.";
 const formError = (form: string): Extract<ManageResult, { ok: false }> => ({ ok: false, errors: { form } });
 
