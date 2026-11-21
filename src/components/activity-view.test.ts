@@ -169,6 +169,7 @@ describe("activityItems", () => {
         actorMember: expect.objectContaining({ id: "mem_riley" }),
         kind: "expense-deleted",
         subject: { kind: "expense", id: "exp_102" },
+        action: "deleted the Expense",
         title: "January electricity",
         details: [
           { label: "Amount", value: "$142.37", money: true },
@@ -184,6 +185,7 @@ describe("activityItems", () => {
         actorMember: expect.objectContaining({ id: "mem_drew" }),
         kind: "settlement-deleted",
         subject: { kind: "settlement", id: "stl_101" },
+        action: "deleted a Settlement:",
         title: "Casey Brooks paid Riley Morgan",
         details: [
           { label: "Amount", value: "$1,104.56", money: true },
@@ -192,5 +194,33 @@ describe("activityItems", () => {
         changes: [],
       },
     ]);
+  });
+
+  it("shows each change to a Member as one sentence, under the name they had then", () => {
+    const at = "2024-02-01T10:00:00.000Z";
+    const drewThen = { id: "mem_drew", name: "Drew" };
+    const entries: ActivityEntry[] = [
+      { id: "act_6", at, actorMemberId: "mem_riley", change: { kind: "member-removed", member: drewThen } },
+      { id: "act_5", at, actorMemberId: "mem_drew", change: { kind: "member-joined", member: drewThen } },
+      { id: "act_4", at, actorMemberId: "mem_riley", change: { kind: "member-invited", member: drewThen, email: "drew@example.com", resent: true } },
+      { id: "act_3", at, actorMemberId: "mem_riley", change: { kind: "member-invited", member: drewThen, email: "drew@example.com", resent: false } },
+      { id: "act_2", at, actorMemberId: "mem_riley", change: { kind: "member-email-set", member: drewThen, email: "drew@example.com" } },
+      { id: "act_1", at, change: { kind: "member-added", member: drewThen } },
+    ];
+
+    const items = activityItems(entries, apartment);
+
+    const sentences = items.map((i) => [i.actor, i.action, i.title, i.rest].filter(Boolean).join(" "));
+    expect(sentences).toEqual([
+      "Riley Morgan removed Drew from the Group",
+      "Drew Patel joined the Group",
+      "Riley Morgan sent Drew a new Invitation at drew@example.com",
+      "Riley Morgan sent Drew an Invitation at drew@example.com",
+      "Riley Morgan gave Drew the email drew@example.com",
+      "You added Drew to the Group",
+    ]);
+    for (const item of items) {
+      expect(item).toMatchObject({ subject: { kind: "member", id: "mem_drew" }, details: [], changes: [] });
+    }
   });
 });

@@ -233,27 +233,29 @@ export function createSessionStorageRepository(
     // Guests have no Users, so a Member with an email stays a Pending Member.
     async addMember(groupId, { name, email }) {
       let member: Member | null = null;
-      changeGroup(groupId, (g) => {
-        member = {
-          id: `mem_${newId()}`,
-          name,
-          ...(email ? { email } : {}),
-          avatarColor: nextAvatarColor(g.members),
-        };
-        return { ...g, members: [...g.members, member] };
-      });
+      const id = `mem_${newId()}`;
+      changeGroup(
+        groupId,
+        (g) => {
+          member = { id, name, ...(email ? { email } : {}), avatarColor: nextAvatarColor(g.members) };
+          return { ...g, members: [...g.members, member] };
+        },
+        () => ({ kind: "member-added", member: { id, name } }),
+      );
       return member;
     },
     async setMemberEmail(groupId, memberId, email) {
-      let member: Member | null = null;
-      changeGroup(groupId, (g) => ({
-        ...g,
-        members: g.members.map((m) => {
-          if (m.id !== memberId || m.userId) return m;
-          member = { ...m, email };
-          return member;
-        }),
-      }));
+      const before = read()
+        .find((g) => g.id === groupId)
+        ?.members.find((m) => m.id === memberId && !m.userId);
+      if (!before) return null;
+      if (before.email === email) return before;
+      const member: Member = { ...before, email };
+      changeGroup(
+        groupId,
+        (g) => ({ ...g, members: g.members.map((m) => (m.id === memberId ? member : m)) }),
+        () => ({ kind: "member-email-set", member: { id: memberId, name: before.name }, email }),
+      );
       return member;
     },
     async issueInvitation() {
@@ -263,12 +265,16 @@ export function createSessionStorageRepository(
       return false;
     },
     async removeMember(groupId, memberId) {
-      const group = read().find((g) => g.id === groupId);
-      if (!group?.members.some((m) => m.id === memberId)) return false;
-      changeGroup(groupId, (g) => ({
-        ...g,
-        members: g.members.map((m) => (m.id === memberId ? { ...m, former: true } : m)),
-      }));
+      const member = read()
+        .find((g) => g.id === groupId)
+        ?.members.find((m) => m.id === memberId);
+      if (!member) return false;
+      if (member.former) return true;
+      changeGroup(
+        groupId,
+        (g) => ({ ...g, members: g.members.map((m) => (m.id === memberId ? { ...m, former: true } : m)) }),
+        () => ({ kind: "member-removed", member: { id: memberId, name: member.name } }),
+      );
       return true;
     },
     async addCategory(groupId, name) {

@@ -3,8 +3,9 @@ import type { ActivityEntry, CalendarDate, GroupSnapshot } from "@/domain";
 /**
  * Activity for the sample Groups, newest first: changes their Members made
  * once Activity started, after recording the rest. Each edit's "after" is
- * the Expense as `data/sample-groups.json` has it now, and each deleted
- * Expense is one no longer there; a test holds both to the seed data.
+ * the Expense as `data/sample-groups.json` has it now, each deleted Expense
+ * is one no longer there, and each change to a Member leaves them as the
+ * seed data has them; a test holds all of it to the seed data.
  */
 export const SAMPLE_ACTIVITY: Record<string, { startedOn: CalendarDate; entries: ActivityEntry[] }> = {
   grp_japan_2024: {
@@ -177,6 +178,16 @@ export const SAMPLE_ACTIVITY: Record<string, { startedOn: CalendarDate; entries:
   grp_office_lunch: {
     startedOn: "2024-02-21",
     entries: [
+      {
+        id: "act_office_3",
+        at: "2024-03-05T09:00:00.000Z",
+        actorMemberId: "mem_mia",
+        change: {
+          kind: "member-email-set",
+          member: { id: "mem_ethan", name: "Ethan Nakamura" },
+          email: "ethan@example.com",
+        },
+      },
       {
         id: "act_office_2",
         at: "2024-03-04T15:00:00.000Z",

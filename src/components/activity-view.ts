@@ -36,14 +36,41 @@ export interface ActivityItem {
   actorMember?: Member;
   /** What kind of change it was. */
   kind: ActivityChange["kind"];
-  /** The Expense or Settlement changed. */
-  subject: { kind: "expense" | "settlement"; id: string };
-  /** The Expense's description, or who paid whom for a Settlement. */
+  /** The Expense, Settlement or Member changed. */
+  subject: { kind: "expense" | "settlement" | "member"; id: string };
+  /**
+   * The entry as one sentence: the actor, `action`, the `title` (shown
+   * strong; empty when there is none) and then `rest`, e.g. "Alex added the
+   * Expense Dinner" or "Alex removed Sam from the Group".
+   */
+  action: string;
+  /** The Expense's description, who paid whom for a Settlement, or the Member's name as it was. */
   title: string;
+  /** What follows the title, if anything. */
+  rest?: string;
   /** What an added or deleted item was. */
   details: { label: string; value: string; money?: true }[];
   /** For an edit: only the fields that changed. */
   changes: FieldChange[];
+}
+
+/** What each change reads as between the actor and the title, and after it. */
+const SENTENCES: { [K in ActivityChange["kind"]]: (change: Extract<ActivityChange, { kind: K }>) => [action: string, rest?: string] } = {
+  "expense-added": () => ["added the Expense"],
+  "expense-edited": () => ["edited the Expense"],
+  "expense-deleted": () => ["deleted the Expense"],
+  "settlement-added": () => ["recorded a Settlement:"],
+  "settlement-deleted": () => ["deleted a Settlement:"],
+  "member-added": () => ["added", "to the Group"],
+  "member-invited": (c) => ["sent", `${c.resent ? "a new" : "an"} Invitation at ${c.email}`],
+  "member-joined": () => ["joined the Group"],
+  "member-email-set": (c) => ["gave", `the email ${c.email}`],
+  "member-removed": () => ["removed", "from the Group"],
+};
+
+function sentence(change: ActivityChange): { action: string; rest?: string } {
+  const [action, rest] = (SENTENCES[change.kind] as (c: ActivityChange) => [string, string?])(change);
+  return rest ? { action, rest } : { action };
 }
 
 /** Who made the Guest's own changes. */
@@ -58,7 +85,13 @@ export function activityItems(entries: readonly ActivityEntry[], group: GroupSna
   };
   return entries.map((entry): ActivityItem => {
     const { change } = entry;
-    const shown = { id: entry.id, at: entry.at, ...actorOf(entry.actorMemberId), kind: change.kind };
+    const shown = {
+      id: entry.id,
+      at: entry.at,
+      ...actorOf(entry.actorMemberId),
+      kind: change.kind,
+      ...sentence(change),
+    };
     switch (change.kind) {
       case "expense-added":
       case "expense-deleted":
@@ -95,6 +128,21 @@ export function activityItems(entries: readonly ActivityEntry[], group: GroupSna
               : []),
             { label: "Date", value: formatCalendarDate(change.settlement.date) },
           ],
+          changes: [],
+        };
+      // Named as they were then, so a later rename doesn't rewrite the past.
+      case "member-joined":
+        // The person who joined is the actor, so the sentence names no one else.
+        return { ...shown, subject: { kind: "member", id: change.member.id }, title: "", details: [], changes: [] };
+      case "member-added":
+      case "member-invited":
+      case "member-email-set":
+      case "member-removed":
+        return {
+          ...shown,
+          subject: { kind: "member", id: change.member.id },
+          title: change.member.name,
+          details: [],
           changes: [],
         };
     }

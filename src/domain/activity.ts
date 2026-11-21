@@ -1,8 +1,17 @@
 import type { Expense, Settlement } from "./types";
 
 /**
- * One change to a Group's Expenses or Settlements. Edits keep the Expense as
- * it was before and after; nothing here is a Balance or Suggested
+ * A Member as an Activity entry names them: the name they were shown under
+ * when it was recorded, which stays even if that name later changes.
+ */
+export interface ActivityMember {
+  id: string;
+  name: string;
+}
+
+/**
+ * One change to a Group's Expenses, Settlements or Members. Edits keep the
+ * Expense as it was before and after; nothing here is a Balance or Suggested
  * Settlement (ADR 0004), which are always derived from the Group.
  */
 export type ActivityChange =
@@ -10,7 +19,14 @@ export type ActivityChange =
   | { kind: "expense-edited"; before: Expense; after: Expense }
   | { kind: "expense-deleted"; expense: Expense }
   | { kind: "settlement-added"; settlement: Settlement }
-  | { kind: "settlement-deleted"; settlement: Settlement };
+  | { kind: "settlement-deleted"; settlement: Settlement }
+  | { kind: "member-added"; member: ActivityMember }
+  /** An Invitation emailed to a Pending Member; `resent` when an earlier one was too. */
+  | { kind: "member-invited"; member: ActivityMember; email: string; resent: boolean }
+  /** A Pending Member claimed: recorded under that Member, the person who joined. */
+  | { kind: "member-joined"; member: ActivityMember }
+  | { kind: "member-email-set"; member: ActivityMember; email: string }
+  | { kind: "member-removed"; member: ActivityMember };
 
 /** An Activity entry: read-only once recorded. */
 export interface ActivityEntry {

@@ -95,6 +95,6 @@ export { memberStatement } from "./member-statement";
 export type { MemberStatement, StatementLine } from "./member-statement";
 export { groupCsv, groupCsvFileName } from "./group-csv";
 export { changedExpenseFields, isSameExpense, type ExpenseField } from "./activity";
-export type { ActivityChange, ActivityEntry } from "./activity";
+export type { ActivityChange, ActivityEntry, ActivityMember } from "./activity";
 export { myCalendar, myCalendarOpeningMonth } from "./my-calendar";
 export type { CalendarDay, CalendarTally, MyCalendar } from "./my-calendar";

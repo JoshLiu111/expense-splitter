@@ -3,23 +3,14 @@
 import Link from "next/link";
 import { useEffect, useId, useRef, useSyncExternalStore } from "react";
 import { ArrowLeft } from "lucide-react";
-import type { ActivityChange, ActivityEntry, GroupSnapshot } from "@/domain";
+import type { ActivityEntry, GroupSnapshot } from "@/domain";
 import { activityItems, type ActivityItem } from "@/components/activity-view";
 import { MemberAvatar } from "@/components/member-avatar";
 import { formatCalendarDate } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
-/** What each kind of change reads as, between the actor and the title. */
-const ACTIONS: Record<ActivityChange["kind"], string> = {
-  "expense-added": "added the Expense",
-  "expense-edited": "edited the Expense",
-  "expense-deleted": "deleted the Expense",
-  "settlement-added": "recorded a Settlement:",
-  "settlement-deleted": "deleted a Settlement:",
-};
-
 /**
- * A Group's Activity: every change to its Expenses and Settlements, newest
+ * A Group's Activity: every change to its Expenses, Settlements and Members, newest
  * first and unfiltered. Read-only: entries can't be edited, deleted or
  * restored. With `focusExpenseId` (from "View changes"), that Expense's
  * entries are marked and the newest is scrolled to.
@@ -50,8 +41,7 @@ export function GroupActivity({
 
   const launchNote = group.activityStartedOn && (
     <>
-      Activity starts on {formatCalendarDate(group.activityStartedOn)}. Earlier Expenses and Settlements aren’t
-      listed here.
+      Activity starts on {formatCalendarDate(group.activityStartedOn)}. Earlier changes aren’t listed here.
     </>
   );
 
@@ -66,7 +56,7 @@ export function GroupActivity({
         </Link>
         <h1 className="mt-2 text-2xl font-extrabold">Activity</h1>
         <p className="mt-1 text-sm text-text-secondary">
-          Every addition, edit and deletion of this Group’s Expenses and Settlements, newest first.
+          Every change to this Group’s Expenses, Settlements and Members, newest first.
         </p>
       </div>
 
@@ -126,8 +116,14 @@ function ActivityRow({
         {item.actorMember && <MemberAvatar member={item.actorMember} size="sm" />}
         <div className="min-w-0 flex-1">
           <p id={`${id}-summary`} className="break-words">
-            <span className="font-semibold">{item.actor}</span> {ACTIONS[item.kind]}{" "}
-            <span className="font-semibold">{item.title}</span>
+            <span className="font-semibold">{item.actor}</span> {item.action}
+            {item.title && (
+              <>
+                {" "}
+                <span className="font-semibold">{item.title}</span>
+              </>
+            )}
+            {item.rest && ` ${item.rest}`}
             {focused && <span className="sr-only"> (the Expense you opened)</span>}
           </p>
           <p className="mt-0.5 text-sm text-text-secondary">
