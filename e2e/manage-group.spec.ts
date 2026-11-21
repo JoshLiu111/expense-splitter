@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
+import { showSection } from "./group-page";
 
 /** A visible form field by label (hidden cached pages can share labels). */
 function field(page: Page, label: string) {
@@ -113,6 +114,7 @@ test("S1: Guest adds a Name-only Member and removes a settled-up one, who stays 
 
   // Still on the past Expense she paid for...
   await backToGroup(page, "Sarah's Birthday Present");
+  await showSection(page, "Expenses");
   const airpods = page.locator("article").filter({ hasText: "AirPods gift" });
   await expect(airpods).toContainText("Olivia Hayes paid");
 

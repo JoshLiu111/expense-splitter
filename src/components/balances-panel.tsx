@@ -5,7 +5,6 @@ import {
   ArrowDownLeft,
   ArrowUpRight,
   Check,
-  ChevronDown,
   type LucideIcon,
 } from "lucide-react";
 import {
@@ -20,7 +19,7 @@ import {
 } from "@/domain";
 import { MemberAvatar } from "@/components/member-avatar";
 import { MemberStatementDialog } from "@/components/member-statement";
-import { Button } from "@/components/ui/button";
+import { SectionToggle } from "@/components/section-toggle";
 import { describeBalance, formatSignedMoney } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
@@ -79,23 +78,13 @@ export function BalancesPanel({
         <h2 id={`${panelId}-heading`} className="text-lg font-extrabold">
           Balances
         </h2>
-        <Button
-          variant="quiet"
-          aria-expanded={open}
-          aria-controls={panelId}
-          onClick={() => setOpen((v) => !v)}
+        <SectionToggle
+          section="Balances"
+          open={open}
+          controls={panelId}
+          onToggle={() => setOpen((v) => !v)}
           className="-mr-3"
-        >
-          {open ? "Hide" : "Show"}
-          <ChevronDown
-            aria-hidden
-            className={cn(
-              "transition-transform duration-(--duration-fast)",
-              open && "rotate-180",
-            )}
-          />
-          <span className="sr-only"> Balances</span>
-        </Button>
+        />
       </div>
 
       <div id={panelId} hidden={!open} className="mt-2">

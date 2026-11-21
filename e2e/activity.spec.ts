@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
+import { showSection } from "./group-page";
 
 /** A visible form field by label (hidden cached pages can share labels). */
 function field(page: Page, label: string) {
@@ -15,6 +16,7 @@ function ledgerRow(page: Page, description: string) {
 
 test("a Guest edits an Expense and finds the change, before → after, from View changes", async ({ page }) => {
   await page.goto("/guest/groups/grp_apt_4b");
+  await showSection(page, "Expenses");
   await ledgerRow(page, "Cleaning supplies").click();
   await field(page, "Description").fill("Cleaning supplies and sponges");
   await page.getByRole("button", { name: "Save changes" }).click();
@@ -51,6 +53,7 @@ test("a Guest edits an Expense and finds the change, before → after, from View
 
 test("View changes on an Expense from before Activity started says so", async ({ page }) => {
   await page.goto("/guest/groups/grp_apt_4b");
+  await showSection(page, "Expenses");
   await ledgerRow(page, "January rent").click();
   await page.getByRole("link", { name: "View changes" }).click();
   await expect(page.getByText("“January rent” has no changes listed.")).toBeVisible();
@@ -80,6 +83,7 @@ test("a signed-in User's changes are recorded under their Member, and a new Grou
   await page.getByRole("button", { name: "Add Expense", exact: true }).click();
   await expect(page.getByText("Expense added.")).toBeVisible();
 
+  await showSection(page, "Expenses");
   await ledgerRow(page, "Milk").click();
   await page.getByRole("button", { name: "Delete Expense" }).click();
   await page.getByRole("alertdialog").getByRole("button", { name: "Delete Expense" }).click();

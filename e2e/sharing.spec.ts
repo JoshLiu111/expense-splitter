@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
+import { GROUP_PAGE_SECTIONS, showSection } from "./group-page";
 import { linkInEmail } from "./outbox";
 
 function uniqueEmail(): string {
@@ -144,6 +145,7 @@ test("S2: a removed User whose Balance reopens reads the Group until it is settl
   await page.getByRole("link", { name: "Back to Flat 3B" }).click();
 
   // Deleting his $5 Settlement reopens Theo's Balance.
+  await showSection(page, "Expenses");
   await settlementRow(page, "$5.00").getByRole("button").click();
   await page.getByRole("dialog", { name: "Settlement" }).getByRole("button", { name: "Delete Settlement" }).click();
   await page
@@ -167,7 +169,10 @@ test("S2: a removed User whose Balance reopens reads the Group until it is settl
   await expect(page.getByRole("button", { name: "Add Expense" })).toHaveCount(0);
   await expect(page.getByRole("link", { name: "Group settings" })).toHaveCount(0);
   await expect(page.getByRole("link", { name: "Activity" })).toBeVisible();
+  // The same order, collapsed, read-only.
+  await expect(page.getByRole("heading", { level: 2 })).toHaveText(GROUP_PAGE_SECTIONS);
   // Rows still state each Expense and Settlement, but change nothing.
+  await showSection(page, "Expenses");
   await expect(page.getByRole("button", { name: /Groceries/ })).toHaveCount(0);
   await settlementRow(page, "$10.00").getByRole("button").click();
   await expect(page.getByRole("dialog", { name: "Settlement" })).toContainText("Theo Brown paid Maya Chen $10.00");

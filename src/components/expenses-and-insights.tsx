@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, useRef, useState, type KeyboardEvent, type ReactNode, type Ref } from "react";
+import { useId, useRef, useState, type ReactNode, type Ref } from "react";
 import { SlidersHorizontal, X } from "lucide-react";
 import {
   computeInsights,
@@ -11,22 +11,18 @@ import {
   type TimelineEntry,
 } from "@/domain";
 import { filterChips } from "@/components/filter-chips";
+import { SectionToggle } from "@/components/section-toggle";
 import { ExpenseFilters, SpendingInsights } from "@/components/spending";
 import { Button } from "@/components/ui/button";
 import { pluralize } from "@/lib/format";
-import { cn } from "@/lib/utils";
-
-const VIEWS = [
-  { id: "expenses", label: "Expenses" },
-  { id: "insights", label: "Insights" },
-] as const;
-type View = (typeof VIEWS)[number]["id"];
 
 /**
- * Expenses and Insights as two views of one filtered set, switched by
- * underline tabs. The filters sit behind one Filter button and show as
- * removable chips; switching views keeps them. While filtering, the
- * Expenses view hides Settlements.
+ * Expenses, then Insights: two sections below the hero, each collapsed
+ * behind a Show/Hide toggle (as Balances and "Why these payments?" are)
+ * and not remembered between visits. Expenses carries the filters, behind
+ * one Filter button and as removable chips; Insights follows them. Hiding
+ * Expenses drops its filters, so Insights is never narrowed by filters out
+ * of sight. While filtering, the ledger hides Settlements.
  */
 export function ExpensesAndInsights({
   group,
@@ -36,16 +32,17 @@ export function ExpensesAndInsights({
 }: {
   group: GroupSnapshot;
   ledger: Ledger;
-  /** The Expenses view's visually hidden heading, focused after a deletion. */
+  /** The ledger's visually hidden heading, focused after a deletion. */
   headingRef: Ref<HTMLHeadingElement>;
   /** The dated ledger for these entries. */
   renderLedger: (timeline: TimelineEntry[]) => ReactNode;
 }) {
   const id = useId();
-  const [view, setView] = useState<View>("expenses");
+  const [expensesOpen, setExpensesOpen] = useState(false);
+  const [insightsOpen, setInsightsOpen] = useState(false);
   const [filter, setFilter] = useState<ExpenseFilter>({});
   const [filtersOpen, setFiltersOpen] = useState(false);
-  const tabs = useRef<Partial<Record<View, HTMLButtonElement | null>>>({});
+  const expensesToggle = useRef<HTMLButtonElement>(null);
   const filterButton = useRef<HTMLButtonElement>(null);
   const chipList = useRef<HTMLUListElement>(null);
 
@@ -53,11 +50,17 @@ export function ExpensesAndInsights({
   const filtering = isFiltering(filter);
   const chips = filterChips(group, filter);
   const timeline = filtering ? insights.expenses : ledger.timeline;
-  const tabId = (v: View) => `${id}-${v}-tab`;
-  const panelId = (v: View) => `${id}-${v}-panel`;
   const filtersId = `${id}-filters`;
-  // Nothing between the tabs and the ledger: the ledger's top rule lies on the tab row's.
-  const ledgerMeetsTabs = !filtersOpen && !filtering;
+  // Nothing between the heading row and the ledger: the ledger's top rule lies on the row's.
+  const ledgerMeetsHeading = !filtersOpen && !filtering;
+
+  function toggleExpenses() {
+    if (expensesOpen) {
+      setFilter({});
+      setFiltersOpen(false);
+    }
+    setExpensesOpen(!expensesOpen);
+  }
 
   // A removed chip takes keyboard focus with it: hand it to the chip now in
   // its place, or to the Filter button once no filter is left.
@@ -67,139 +70,96 @@ export function ExpensesAndInsights({
     requestAnimationFrame(() => {
       const target =
         left > 0 ? chipList.current?.querySelectorAll("button")[Math.min(index, left - 1)] : filterButton.current;
-      (target ?? tabs.current[view])?.focus();
+      (target ?? expensesToggle.current)?.focus();
     });
   }
 
-  // The ARIA tabs pattern: arrows, Home and End move between the tabs and select them.
-  function onTabKeyDown(event: KeyboardEvent) {
-    const index = VIEWS.findIndex((v) => v.id === view);
-    const next = {
-      ArrowRight: (index + 1) % VIEWS.length,
-      ArrowLeft: (index - 1 + VIEWS.length) % VIEWS.length,
-      Home: 0,
-      End: VIEWS.length - 1,
-    }[event.key];
-    if (next === undefined) return;
-    event.preventDefault();
-    setView(VIEWS[next].id);
-    tabs.current[VIEWS[next].id]?.focus();
-  }
-
   return (
-    <div className="flex flex-col">
-      <div className="flex items-center justify-between gap-3 border-b border-border">
-        {/* Above the ledger, whose top rule tucks under the tab row's: the underline stays whole. */}
-        <div role="tablist" aria-label="Expenses and Insights" className="relative z-10 -mb-px flex gap-6">
-          {VIEWS.map((v) => (
-            <button
-              key={v.id}
-              ref={(el) => {
-                tabs.current[v.id] = el;
-              }}
-              id={tabId(v.id)}
-              type="button"
-              role="tab"
-              aria-selected={view === v.id}
-              aria-controls={panelId(v.id)}
-              tabIndex={view === v.id ? 0 : -1}
-              onClick={() => setView(v.id)}
-              onKeyDown={onTabKeyDown}
-              className={cn(
-                "min-h-11 border-b-2 text-base font-semibold transition-colors duration-(--duration-fast) outline-none focus-visible:ring-[3px] focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
-                view === v.id
-                  ? "border-text-primary text-text-primary"
-                  : "border-transparent text-text-secondary hover:text-text-primary",
-              )}
-            >
-              {v.label}
-            </button>
-          ))}
-        </div>
-        {ledger.expenseCount > 0 && (
-          <Button
-            ref={filterButton}
-            variant="quiet"
-            aria-expanded={filtersOpen}
-            aria-controls={filtersId}
-            onClick={() => setFiltersOpen(!filtersOpen)}
-            className="-mr-3"
-          >
-            <SlidersHorizontal aria-hidden />
-            <span>
-              Filter
-              {chips.length > 0 && (
-                <>
-                  {" "}
-                  ({chips.length}
-                  <span className="sr-only"> active</span>)
-                </>
-              )}
-            </span>
-          </Button>
-        )}
-      </div>
-
-      <div id={filtersId} hidden={!filtersOpen} className="mt-3">
-        {filtersOpen && <ExpenseFilters group={group} insights={insights} filter={filter} onChange={setFilter} />}
-      </div>
-
-      {chips.length > 0 && (
-        <ul ref={chipList} aria-label="Active filters" className="mt-3 flex flex-wrap items-center gap-2">
-          {chips.map((chip, index) => (
-            <li key={chip.key}>
-              <button
-                type="button"
-                aria-label={`Remove filter: ${chip.label}`}
-                onClick={() => removeFilter(chip.without, index)}
-                className="inline-flex min-h-11 items-center gap-1.5 rounded-full border border-accent bg-accent-subtle py-1 pr-3 pl-4 text-sm font-semibold text-text-primary transition-colors duration-(--duration-fast) outline-none hover:bg-bg-tertiary focus-visible:ring-[3px] focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+    <div className="flex flex-col gap-8">
+      <section aria-labelledby={`${id}-expenses-heading`} className="flex flex-col">
+        <div className="flex items-center justify-between gap-3 border-b border-border">
+          <h2 id={`${id}-expenses-heading`} className="text-lg font-extrabold">
+            Expenses
+          </h2>
+          <div className="-mr-3 flex items-center">
+            {expensesOpen && ledger.expenseCount > 0 && (
+              <Button
+                ref={filterButton}
+                variant="quiet"
+                aria-expanded={filtersOpen}
+                aria-controls={filtersId}
+                onClick={() => setFiltersOpen(!filtersOpen)}
               >
-                {chip.label}
-                <X aria-hidden className="size-4 text-text-secondary" />
-              </button>
-            </li>
-          ))}
-          <li>
-            <Button variant="quiet" onClick={() => removeFilter({}, 0)}>
-              Clear all
-            </Button>
-          </li>
-        </ul>
-      )}
+                <SlidersHorizontal aria-hidden />
+                <span>
+                  Filter
+                  {chips.length > 0 && (
+                    <>
+                      {" "}
+                      ({chips.length}
+                      <span className="sr-only"> active</span>)
+                    </>
+                  )}
+                </span>
+              </Button>
+            )}
+            <SectionToggle
+              ref={expensesToggle}
+              section="Expenses"
+              open={expensesOpen}
+              controls={`${id}-expenses-panel`}
+              onToggle={toggleExpenses}
+            />
+          </div>
+        </div>
 
-      {/* Live, so the count is read out as filters change, in either view. */}
-      <div aria-live="polite" className="empty:hidden">
-        {filtering && (
-          <p className="mt-3 text-sm text-text-secondary">
-            Showing {pluralize(insights.expenses.length, "matching Expense")} of {ledger.expenseCount}
-            {view === "expenses" && "; Settlements are hidden while filtering"}.
-          </p>
-        )}
-      </div>
+        <div id={`${id}-expenses-panel`} hidden={!expensesOpen}>
+          {expensesOpen && (
+            <>
+              <div id={filtersId} hidden={!filtersOpen} className="mt-3">
+                {filtersOpen && (
+                  <ExpenseFilters group={group} insights={insights} filter={filter} onChange={setFilter} />
+                )}
+              </div>
 
-      {VIEWS.map((v) => (
-        <div
-          key={v.id}
-          id={panelId(v.id)}
-          role="tabpanel"
-          aria-labelledby={tabId(v.id)}
-          hidden={view !== v.id}
-          // Insights holds nothing focusable, so its panel takes focus itself.
-          tabIndex={v.id === "insights" ? 0 : undefined}
-          className={cn(
-            "outline-none focus-visible:ring-[3px] focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
-            v.id === "insights" && "mt-5",
-            v.id === "expenses" && (ledgerMeetsTabs ? "-mt-px" : "mt-3"),
-          )}
-        >
-          {/* Only the selected view renders, so the charts load when Insights is first opened. */}
-          {view === v.id &&
-            (v.id === "expenses" ? (
-              <section aria-labelledby={`${id}-ledger-heading`}>
+              {chips.length > 0 && (
+                <ul ref={chipList} aria-label="Active filters" className="mt-3 flex flex-wrap items-center gap-2">
+                  {chips.map((chip, index) => (
+                    <li key={chip.key}>
+                      <button
+                        type="button"
+                        aria-label={`Remove filter: ${chip.label}`}
+                        onClick={() => removeFilter(chip.without, index)}
+                        className="inline-flex min-h-11 items-center gap-1.5 rounded-full border border-accent bg-accent-subtle py-1 pr-3 pl-4 text-sm font-semibold text-text-primary transition-colors duration-(--duration-fast) outline-none hover:bg-bg-tertiary focus-visible:ring-[3px] focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                      >
+                        {chip.label}
+                        <X aria-hidden className="size-4 text-text-secondary" />
+                      </button>
+                    </li>
+                  ))}
+                  <li>
+                    <Button variant="quiet" onClick={() => removeFilter({}, 0)}>
+                      Clear all
+                    </Button>
+                  </li>
+                </ul>
+              )}
+
+              {/* Live, so the count is read out as filters change. */}
+              <div aria-live="polite" className="empty:hidden">
+                {filtering && (
+                  <p className="mt-3 text-sm text-text-secondary">
+                    Showing {pluralize(insights.expenses.length, "matching Expense")} of {ledger.expenseCount}; Settlements
+                    are hidden while filtering.
+                  </p>
+                )}
+              </div>
+
+              <section aria-labelledby={`${id}-ledger-heading`} className={ledgerMeetsHeading ? "-mt-px" : "mt-3"}>
                 {/* The ledger needs no visible heading; this one names the region and takes focus after a deletion. */}
-                <h2 id={`${id}-ledger-heading`} ref={headingRef} tabIndex={-1} className="sr-only">
+                <h3 id={`${id}-ledger-heading`} ref={headingRef} tabIndex={-1} className="sr-only">
                   Expenses and Settlements
-                </h2>
+                </h3>
                 {timeline.length === 0 && filtering ? (
                   <p className="rounded-lg border border-dashed border-border-input p-6 text-text-secondary">
                     No Expenses match these filters.
@@ -208,15 +168,44 @@ export function ExpensesAndInsights({
                   renderLedger(timeline)
                 )}
               </section>
-            ) : ledger.expenseCount === 0 ? (
+            </>
+          )}
+        </div>
+      </section>
+
+      <section aria-labelledby={`${id}-insights-heading`} className="flex flex-col">
+        <div className="flex items-center justify-between gap-3 border-b border-border">
+          <h2 id={`${id}-insights-heading`} className="text-lg font-extrabold">
+            Insights
+          </h2>
+          <SectionToggle
+            section="Insights"
+            open={insightsOpen}
+            controls={`${id}-insights-panel`}
+            onToggle={() => setInsightsOpen(!insightsOpen)}
+            className="-mr-3"
+          />
+        </div>
+        <div id={`${id}-insights-panel`} hidden={!insightsOpen} className="mt-5">
+          {/* Rendered only when open, so the charts load when Insights is first shown. */}
+          {insightsOpen &&
+            (ledger.expenseCount === 0 ? (
               <p className="rounded-lg border border-dashed border-border-input p-6 text-text-secondary">
                 Insights appear once there are Expenses.
               </p>
             ) : (
-              <SpendingInsights group={group} insights={insights} balances={ledger.balances} filtering={filtering} />
+              <>
+                {filtering && (
+                  <p className="mb-4 text-sm text-text-secondary">
+                    Showing {pluralize(insights.expenses.length, "matching Expense")} of {ledger.expenseCount}, filtered
+                    in Expenses.
+                  </p>
+                )}
+                <SpendingInsights group={group} insights={insights} balances={ledger.balances} filtering={filtering} />
+              </>
             ))}
         </div>
-      ))}
+      </section>
     </div>
   );
 }

@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
+import { GROUP_PAGE_SECTIONS, showSection } from "./group-page";
 
 /** A fresh email per test so runs never collide in the shared database. */
 function uniqueEmail(): string {
@@ -88,6 +89,10 @@ test("a signed-in User's Expense is saved to their Group", async ({ page }) => {
   await expect(page.getByText("Expense added.")).toBeVisible();
   await expect(page.getByText("1 member, $24.50 across 1 expense")).toBeVisible();
   await page.reload();
+  // My position first, then Expenses and Insights, collapsed.
+  await expect(page.getByRole("heading", { level: 2 })).toHaveText(GROUP_PAGE_SECTIONS);
+  await expect(page.getByRole("heading", { name: "Ramen" })).toHaveCount(0);
+  await showSection(page, "Expenses");
   await expect(page.getByRole("heading", { name: "Ramen" })).toBeVisible();
   await expect(page.getByText("1 member, $24.50 across 1 expense")).toBeVisible();
 });
@@ -110,6 +115,7 @@ test("S2: a signed-in User's yen Expense is locked at the server's rate", async 
   await expect(page.getByText("Expense added.")).toBeVisible();
   await page.reload();
   await expect(page.getByText("1 member, $30.00 across 1 expense")).toBeVisible();
+  await showSection(page, "Expenses");
   await expect(page.locator("main article").filter({ hasText: "Sushi" })).toContainText("$30.00, paid as ¥4,500");
   // The Locked Rate is kept, and shown in the editor.
   await page.getByRole("button", { name: "Sushi", exact: true }).click();
@@ -136,6 +142,7 @@ test("a signed-in User's Percentage Split reloads on edit", async ({ page }) => 
   await expect(page.getByText("Expense added.")).toBeVisible();
 
   await page.reload();
+  await showSection(page, "Expenses");
   await page.getByRole("button", { name: "Books", exact: true }).click();
   await expect(page.getByRole("radio", { name: "Percentage", exact: true })).toBeChecked();
   await expect(field(page, "Maya Chen (%)")).toHaveValue("100");
@@ -296,5 +303,6 @@ test("a signed-in User sees their own Suggested Settlement and records it", asyn
   await expect(page.getByText("Settlement recorded.")).toBeVisible();
   await page.reload();
   await expect(page.getByRole("region", { name: "Settle up" })).toContainText("Everyone is Settled Up");
+  await showSection(page, "Expenses");
   await expect(page.getByRole("heading", { name: "Settlement: Taylor paid Maya Chen" })).toBeVisible();
 });

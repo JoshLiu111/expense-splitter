@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
+import { showSection } from "./group-page";
 
 /** A visible form field by label (hidden cached pages can share labels). */
 function field(page: Page, label: string) {
@@ -50,6 +51,7 @@ test("S2: Guest adds an Equal Expense and sees Balances change", async ({ page }
     "Balances updated. Olivia Hayes gets back $40.00. Ben Gutierrez owes $5.63.",
   );
   // Today's Expense is the newest, so it heads the list.
+  await showSection(page, "Expenses");
   const newest = page.locator("main article").first();
   await expect(newest).toContainText("Cake");
   await expect(newest).toContainText("Olivia Hayes paid in Other");
@@ -85,6 +87,7 @@ test("a Guest edits and then deletes an Expense, and Balances recompute", async 
   await expect(page.getByRole("button", { name: "Delete Expense" })).toHaveCount(0);
   await page.getByRole("button", { name: "Cancel" }).click();
 
+  await showSection(page, "Expenses");
   // The row carries no buttons of its own; the whole row opens the editor.
   const row = page
     .getByRole("region", { name: "Expenses and Settlements" })

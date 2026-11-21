@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
+import { GROUP_PAGE_SECTIONS, hideSection, showSection } from "./group-page";
 import { SIMPLIFY_TIMING, simplifyDurations } from "../src/components/simplify-timing";
 
 /** A visible form field by label (hidden cached pages can share labels). */
@@ -7,8 +8,7 @@ function field(page: Page, label: string) {
 }
 
 const timeline = (page: Page) => page.locator("main article");
-const insights = (page: Page) => page.getByRole("tabpanel", { name: "Insights" });
-const tab = (page: Page, name: "Expenses" | "Insights") => page.getByRole("tab", { name });
+const insights = (page: Page) => page.getByRole("region", { name: "Insights", exact: true });
 const categories = (page: Page) => page.getByRole("region", { name: "Categories" });
 const settleUp = (page: Page) => page.getByRole("region", { name: "Settle up" });
 
@@ -33,6 +33,7 @@ test("S2: Guest adds a Custom Category, files an Expense under it, renames it, a
   await field(page, "Category").selectOption({ label: "Cleaning supplies" });
   await page.getByRole("button", { name: "Add Expense", exact: true }).click();
   await expect(page.getByText("Expense added.")).toBeVisible();
+  await showSection(page, "Expenses");
   await expect(timeline(page).first()).toContainText("paid in Cleaning supplies");
 
   await page.getByRole("link", { name: "Group settings" }).click();
@@ -41,6 +42,7 @@ test("S2: Guest adds a Custom Category, files an Expense under it, renames it, a
   await page.getByRole("button", { name: "Save name" }).click();
   await expect(categories(page)).toContainText("1 Expense uses Cleaning. Move it to another Category first.");
   await expect(categories(page).getByRole("button", { name: "Delete Cleaning" })).toHaveCount(0);
+  // Back in the same visit, Expenses is still open.
   await page.getByRole("link", { name: "Back to Apartment 4B" }).click();
   await expect(timeline(page).first().getByText(/ paid in Cleaning$/)).toBeVisible();
 
@@ -49,17 +51,36 @@ test("S2: Guest adds a Custom Category, files an Expense under it, renames it, a
   await expect(field(page, "Category").locator("option", { hasText: "Cleaning" })).toHaveCount(0);
 });
 
-test("S2: Expenses and Insights are two views over one set of filters", async ({ page }) => {
+test("S2: the Group page puts my position first, with Expenses and Insights collapsed", async ({ page }) => {
   await page.goto("/guest/groups/grp_apt_4b");
-  await expect(tab(page, "Expenses")).toHaveAttribute("aria-selected", "true");
-  await expect(page.getByRole("heading", { name: "Insights" })).toHaveCount(0);
-  // Arrow keys move between the tabs and select them.
-  await tab(page, "Expenses").focus();
-  await page.keyboard.press("ArrowRight");
-  await expect(tab(page, "Insights")).toBeFocused();
+  await expect(page.getByRole("heading", { level: 2 })).toHaveText(GROUP_PAGE_SECTIONS);
+  // Both start collapsed; Add Expense stays one tap away.
+  await expect(timeline(page)).toHaveCount(0);
+  await expect(page.getByRole("button", { name: /^Filter/ })).toHaveCount(0);
+  await expect(insights(page).getByRole("list", { name: "Spending by Category" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Add Expense", exact: true })).toBeVisible();
+
+  // The toggles are Show/Hide disclosure buttons, as Balances has, and work from the keyboard.
+  const showExpenses = page.getByRole("button", { name: "Show Expenses", exact: true });
+  await expect(showExpenses).toHaveAttribute("aria-expanded", "false");
+  await showExpenses.focus();
+  await page.keyboard.press("Enter");
+  await expect(page.getByRole("button", { name: "Hide Expenses", exact: true })).toHaveAttribute("aria-expanded", "true");
+  await expect(timeline(page)).toHaveCount(12);
+  await showSection(page, "Insights");
   await expect(insights(page)).toContainText("Housing$7,200.0086.0%");
-  await page.keyboard.press("Home");
-  await expect(tab(page, "Expenses")).toHaveAttribute("aria-selected", "true");
+  await hideSection(page, "Insights");
+  await expect(insights(page)).not.toContainText("Housing");
+
+  // Not remembered: a fresh visit starts collapsed again.
+  await page.reload();
+  await expect(page.getByRole("button", { name: "Show Expenses", exact: true })).toBeVisible();
+  await expect(timeline(page)).toHaveCount(0);
+});
+
+test("S2: once Expenses are open, its filters narrow Expenses and Insights alike", async ({ page }) => {
+  await page.goto("/guest/groups/grp_apt_4b");
+  await showSection(page, "Expenses");
 
   // The filters are collapsed behind one button.
   const filterButton = page.getByRole("button", { name: /^Filter/ });
@@ -80,10 +101,10 @@ test("S2: Expenses and Insights are two views over one set of filters", async ({
   await expect(page.getByText("Showing 2 matching Expenses of 10;")).toBeVisible();
   await expect(timeline(page)).toHaveCount(2);
 
-  // Switching views keeps the filters.
-  await tab(page, "Insights").click();
+  // Insights follows the same filters.
+  await showSection(page, "Insights");
   await expect(insights(page)).toContainText("Utilities$222.36100.0%");
-  await expect(page.getByText("Showing 2 matching Expenses of 10.")).toBeVisible();
+  await expect(insights(page).getByText("Showing 2 matching Expenses of 10, filtered in Expenses.")).toBeVisible();
 
   // Each chip removes its own filter; a month is one chip.
   const chips = page.getByRole("list", { name: "Active filters" });
@@ -93,38 +114,46 @@ test("S2: Expenses and Insights are two views over one set of filters", async ({
   // Focus moves to the chip now in its place.
   await expect(chips.getByRole("button", { name: "Remove filter: Drew Patel" })).toBeFocused();
 
+  // Hiding Expenses drops its filters, so Insights never narrows out of sight.
+  await hideSection(page, "Expenses");
+  await expect(insights(page)).toContainText("Housing$7,200.0086.0%");
+  await showSection(page, "Expenses");
+  await expect(filterButton).toHaveText("Filter");
+  await expect(timeline(page)).toHaveCount(12);
+
+  await filterButton.click();
+  await field(page, "Filter by Category").selectOption("Utilities");
   await chips.getByRole("button", { name: "Clear all" }).click();
   await expect(chips).toHaveCount(0);
   await expect(filterButton).toBeFocused();
   await expect(filterButton).toHaveText("Filter");
-  await tab(page, "Expenses").click();
-  await expect(timeline(page)).toHaveCount(12);
 });
 
 test("Insights lists no per-currency subtotals when every Expense is in the Group Currency", async ({ page }) => {
   await page.goto("/guest/groups/grp_apt_4b");
-  await tab(page, "Insights").click();
+  await showSection(page, "Insights");
   await expect(insights(page).getByRole("list", { name: "Spending by Category" })).toBeVisible();
   await expect(insights(page).getByRole("list", { name: "Spent per currency" })).toHaveCount(0);
 });
 
 test("Insights' per-currency subtotals follow the filters", async ({ page }) => {
   await page.goto("/guest/groups/grp_japan_2024");
-  await tab(page, "Insights").click();
+  await showSection(page, "Insights");
   const spent = insights(page).getByRole("list", { name: "Spent per currency" });
   await expect(spent).toContainText("Spent in JPY: ¥359,860");
 
+  await showSection(page, "Expenses");
   // 15 March has only the JR Pass, paid in dollars.
   await page.getByRole("button", { name: "Filter" }).click();
   await field(page, "From date").fill("2024-03-15");
   await field(page, "To date").fill("2024-03-15");
-  await expect(page.getByText("Showing 1 matching Expense of 13.")).toBeVisible();
+  await expect(insights(page).getByText("Showing 1 matching Expense of 13, filtered in Expenses.")).toBeVisible();
   await expect(spent).toHaveCount(0);
 });
 
 test("S2: charts load with text alternatives", async ({ page }) => {
   await page.goto("/guest/groups/grp_apt_4b");
-  await tab(page, "Insights").click();
+  await showSection(page, "Insights");
   for (const name of ["Category share", "Spending over time", "Balance per Member"]) {
     const figure = insights(page).getByRole("figure", { name: new RegExp(name) });
     await expect(figure).toBeVisible();

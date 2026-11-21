@@ -174,7 +174,7 @@ export function SpendingInsights({
   return (
     <div className="flex flex-col gap-4">
       <div>
-        <h2 className="font-semibold">Spending by Category</h2>
+        <h3 className="font-semibold">Spending by Category</h3>
         <p className="text-sm text-text-secondary">
           <span className="amount text-text-primary">{money(insights.total)}</span> across{" "}
           {filtering ? pluralize(insights.expenses.length, "matching expense") : pluralize(insights.expenses.length, "expense")}

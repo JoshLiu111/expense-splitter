@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
+import { showSection } from "./group-page";
 
 /** A visible form field by label (hidden cached pages can share labels). */
 function field(page: Page, label: string) {
@@ -30,6 +31,7 @@ test("S2: Guest records the suggested Settlement in parts and reaches Everyone i
 
   await expect(page.getByText("Settlement recorded. Chloe Yun will still owe $4.37.")).toBeVisible();
   await expect(page.getByTestId("balance-mem_chloe")).toContainText("owes $4.37");
+  await showSection(page, "Expenses");
   await expect(page.locator("main article").first()).toContainText("Settlement: Chloe Yun paid Ben Gutierrez");
 
   // Overpaying is refused with the most that can be paid.
@@ -47,6 +49,7 @@ test("S2: Guest records the suggested Settlement in parts and reaches Everyone i
 
 test("S2: a Settlement can be deleted after confirming, restoring the debt", async ({ page }) => {
   await page.goto("/guest/groups/grp_birthday");
+  await showSection(page, "Expenses");
   // The row is one control with no buttons of its own; it opens a dialog stating the Settlement.
   const row = page
     .getByRole("region", { name: "Expenses and Settlements" })
@@ -193,6 +196,7 @@ test("S2: a Former Member whose Balance reopens shows in Balances and can be set
   await page.getByRole("link", { name: "Back to Sarah's Birthday Present" }).click();
   await expect(page.getByTestId("balance-mem_olivia")).toHaveCount(0);
 
+  await showSection(page, "Expenses");
   // Deleting the Settlement that zeroed her brings her Balance back.
   await page.getByRole("button", { name: "Settlement: Chloe Yun paid Olivia Hayes" }).click();
   await page.getByRole("dialog", { name: "Settlement" }).getByRole("button", { name: "Delete Settlement" }).click();
@@ -209,7 +213,7 @@ test("S2: a Former Member whose Balance reopens shows in Balances and can be set
   await expect(statement.getByTestId("member-statement-balance")).toContainText("Olivia Hayes (Former Member) gets back $18.75");
   await statement.getByRole("button", { name: "Close" }).click();
   // The Balance chart labels her the same way.
-  await page.getByRole("tab", { name: "Insights" }).click();
+  await showSection(page, "Insights");
   await expect(page.getByRole("rowheader", { name: "Olivia Hayes (Former Member)" })).toHaveCount(1);
 
   // ...and she can still be settled with.

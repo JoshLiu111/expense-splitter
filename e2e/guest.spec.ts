@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { showSection } from "./group-page";
 
 test("Guest opens /guest, opens a Group and sees the expected Balances", async ({ page }) => {
   await page.goto("/guest");
@@ -20,6 +21,7 @@ test("Guest opens /guest, opens a Group and sees the expected Balances", async (
   await expect(page.getByTestId("balance-mem_sam")).toContainText("owes $315.09");
   await expect(page.getByTestId("balance-mem_taylor")).toContainText("gets back $318.12");
 
+  await showSection(page, "Expenses");
   // A yen Expense: the Group Currency amount over the yen amount.
   await expect(
     page.locator("main article").filter({ hasText: "Shinjuku hotel (3 nights)" }),
@@ -28,6 +30,7 @@ test("Guest opens /guest, opens a Group and sees the expected Balances", async (
 
 test("a Group's Expenses and Settlements are listed newest first, one date per day", async ({ page }) => {
   await page.goto("/guest/groups/grp_birthday");
+  await showSection(page, "Expenses");
   await expect(page.locator("main article")).toHaveCount(6);
   const dates = await page.locator("main ol time").evaluateAll((els) =>
     els.map((el) => el.getAttribute("datetime") ?? ""),

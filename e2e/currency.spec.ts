@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
+import { showSection } from "./group-page";
 
 // Runs against FIXED_EXCHANGE_RATES: 1 USD = ¥150 = €0.925.
 
@@ -29,18 +30,18 @@ test("S2: a Guest records a yen Expense at today's rate, overrides it, and re-lo
   await page.getByRole("button", { name: "Add Expense", exact: true }).click();
 
   await expect(page.getByText("Expense added.")).toBeVisible();
+  await showSection(page, "Expenses");
   await expect(row(page, "Ryokan")).toContainText(amounts("$560.00", "¥84,000"));
   // The Locked Rate lives in the editor, not the row.
   await expect(row(page, "Ryokan")).not.toContainText("1 JPY");
   await expect(page.getByTestId("balance-mem_olivia")).toContainText("gets back $420.00");
 
   // Insights subtotals each currency; only the yen one is converted.
-  await page.getByRole("tab", { name: "Insights" }).click();
+  await showSection(page, "Insights");
   const spent = page.getByRole("list", { name: "Spent per currency" }).getByRole("listitem");
   await expect(spent).toHaveCount(2);
   await expect(spent.first()).toHaveText(/^Spent in USD: \$[\d,]+\.\d\d$/);
   await expect(spent.last()).toHaveText("Spent in JPY: ¥84,000 ≈ $560.00");
-  await page.getByRole("tab", { name: "Expenses" }).click();
 
   // A manual rate, to match a card statement.
   await page.getByRole("button", { name: "Ryokan", exact: true }).click();
@@ -77,6 +78,7 @@ test("S2: editing a seed Expense keeps its Locked Rate, so past Balances never c
 
   // Today's fixed rate (0.00666667) differs from the seed's 0.0067.
   const description = "Kyoto ryokan (2 nights)";
+  await showSection(page, "Expenses");
   await page.getByRole("button", { name: description, exact: true }).click();
   await expect(page.getByText("1 JPY = 0.0067 USD.")).toBeVisible();
   await expect(page.getByText("This Expense keeps its Locked Rate.")).toBeVisible();
