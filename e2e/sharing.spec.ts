@@ -171,6 +171,9 @@ test("S2: a removed User whose Balance reopens reads the Group until it is settl
   await expect(page.getByRole("link", { name: "Activity" })).toBeVisible();
   // The same order, collapsed, read-only.
   await expect(page.getByRole("heading", { level: 2 })).toHaveText(GROUP_PAGE_SECTIONS);
+  // My Calendar shows his own month: the $10 Settlement he paid.
+  const calendar = page.getByRole("region", { name: "My Calendar" });
+  await expect(calendar.getByRole("definition")).toHaveText(["$0.00", "$0.00", "$10.00"]);
   // Rows still state each Expense and Settlement, but change nothing.
   await showSection(page, "Expenses");
   await expect(page.getByRole("button", { name: /Groceries/ })).toHaveCount(0);

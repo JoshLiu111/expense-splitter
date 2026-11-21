@@ -14,7 +14,7 @@ export async function hideSection(page: Page, name: "Expenses" | "Insights") {
 }
 
 /** The Group page's sections, in order: my position first, then the collapsed ones. */
-export const GROUP_PAGE_SECTIONS = ["Settle up", "Balances", "Expenses", "Insights"];
+export const GROUP_PAGE_SECTIONS = ["Settle up", "Balances", "My Calendar", "Expenses", "Insights"];
 
 /** Opens Insights on the Group page, clicks Export CSV, and returns the file's name and raw bytes. */
 export async function exportCsv(page: Page) {
