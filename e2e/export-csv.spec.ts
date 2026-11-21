@@ -1,21 +1,9 @@
-import { readFile } from "node:fs/promises";
 import { expect, test, type Page } from "@playwright/test";
-import { showSection } from "./group-page";
+import { exportCsv } from "./group-page";
 
 /** A visible form field by label (hidden cached pages can share labels). */
 function field(page: Page, label: string) {
   return page.getByLabel(label, { exact: true }).filter({ visible: true });
-}
-
-/** Opens Insights on the Group page, clicks Export CSV, and returns the file's name and raw bytes. */
-async function exportCsv(page: Page) {
-  await showSection(page, "Insights");
-  const insights = page.getByRole("region", { name: "Insights", exact: true });
-  const [download] = await Promise.all([
-    page.waitForEvent("download"),
-    insights.getByRole("button", { name: "Export CSV" }).click(),
-  ]);
-  return { name: download.suggestedFilename(), bytes: await readFile(await download.path()) };
 }
 
 const UTF8_BOM = Buffer.from([0xef, 0xbb, 0xbf]);

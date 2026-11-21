@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { GROUP_PAGE_SECTIONS, showSection } from "./group-page";
+import { exportCsv, GROUP_PAGE_SECTIONS, showSection } from "./group-page";
 import { linkInEmail } from "./outbox";
 
 function uniqueEmail(): string {
@@ -183,12 +183,7 @@ test("S2: a removed User whose Balance reopens reads the Group until it is settl
   await expect(page.getByRole("dialog", { name: /Theo Brown/ }).getByTestId("member-statement-balance")).toContainText("$5.00");
   await page.getByRole("dialog", { name: /Theo Brown/ }).getByRole("button", { name: "Close" }).click();
   // He can still export the Group from Insights.
-  await showSection(page, "Insights");
-  const [download] = await Promise.all([
-    page.waitForEvent("download"),
-    page.getByRole("region", { name: "Insights", exact: true }).getByRole("button", { name: "Export CSV" }).click(),
-  ]);
-  expect(download.suggestedFilename()).toBe("Flat 3B.csv");
+  expect((await exportCsv(page)).name).toBe("Flat 3B.csv");
   // Group settings send him back to the Group.
   const groupUrl = page.url();
   await page.goto(`${groupUrl}/settings`);

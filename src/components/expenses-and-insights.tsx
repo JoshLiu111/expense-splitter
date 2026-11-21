@@ -181,7 +181,7 @@ export function ExpensesAndInsights({
             Insights
           </h2>
           <div className="-mr-3 flex items-center">
-            {insightsOpen && ledger.timeline.length > 0 && <ExportCsvButton group={group} />}
+            {insightsOpen && <ExportCsvButton group={group} />}
             <SectionToggle
               section="Insights"
               open={insightsOpen}
