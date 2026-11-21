@@ -56,11 +56,13 @@ export function DatedLedger({
         const dateId = `${id}-${day.date}`;
         return (
           <li key={day.date} className="grid grid-cols-[3.25rem_minmax(0,1fr)] border-t border-border">
+            {/* Focusable by script only: My Calendar moves focus to the day it opens. */}
             <time
               id={dateId}
               dateTime={day.date}
               title={day.label}
-              className="flex flex-col items-start pt-3"
+              tabIndex={-1}
+              className="flex scroll-mt-4 flex-col items-start rounded-sm pt-3 outline-none focus-visible:ring-[3px] focus-visible:ring-ring"
             >
               <span className="sr-only">{day.label}</span>
               <span aria-hidden className="text-2xl leading-none font-extrabold tabular-nums">
