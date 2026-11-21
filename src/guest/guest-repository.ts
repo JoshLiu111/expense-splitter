@@ -19,7 +19,10 @@ export const GUEST_MEMBER_NAME = "You";
 
 // v2: Shares keep the percentages and ratios they were entered with.
 // v3: Activity, seeded for the sample Groups.
-const STORAGE_KEY = "expense-splitter:guest:v3";
+// v4: Settlements have a Settlement Currency and Locked Rate (ADR 0009); a
+// v3 session's Settlements (and their Activity) have neither, so it starts
+// over from the sample Groups rather than reading them.
+const STORAGE_KEY = "expense-splitter:guest:v4";
 
 /** Each Group's Activity, newest first, by Group id. */
 export type GuestActivity = Record<string, ActivityEntry[]>;

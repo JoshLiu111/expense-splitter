@@ -1,7 +1,7 @@
 import { categoryName } from "./categories";
 import { oldestFirst, type Recorded } from "./chronology";
 import { amountText } from "./currency";
-import { inGroupCurrency } from "./ledger";
+import { inGroupCurrency, settlementInGroupCurrency } from "./ledger";
 import { memberLabel } from "./manage-group";
 import { SPLIT_TYPE_LABELS } from "./new-expense";
 import type { GroupSnapshot } from "./types";
@@ -11,6 +11,8 @@ import type { GroupSnapshot } from "./types";
  * Amounts are exact decimal strings from integer minor units (ADR 0001);
  * each Share is in the Group Currency at the Expense's Locked Rate, rounded
  * on its own line, so an Expense's Shares sum to its Group Currency amount.
+ * A Settlement shows its Settlement Currency amount and Locked Rate (1 in
+ * the Group Currency) beside its amount in the Group Currency.
  */
 export function groupCsv(group: GroupSnapshot): string {
   const currency = group.currency;
@@ -28,6 +30,8 @@ export function groupCsv(group: GroupSnapshot): string {
     "To",
     "Expense Currency",
     "Expense Amount",
+    "Settlement Currency",
+    "Settlement Amount",
     "Locked Rate",
     `Amount (${currency})`,
     "Split Type",
@@ -50,6 +54,8 @@ export function groupCsv(group: GroupSnapshot): string {
         "",
         expense.currency,
         amountText(expense.amount, expense.currency),
+        "",
+        "",
         expense.lockedRate,
         amountText(groupAmount, currency),
         SPLIT_TYPE_LABELS[expense.splitType],
@@ -75,8 +81,10 @@ export function groupCsv(group: GroupSnapshot): string {
         nameOf(settlement.toId),
         "",
         "",
-        "",
-        amountText(settlement.amount, currency),
+        settlement.currency,
+        amountText(settlement.amount, settlement.currency),
+        settlement.lockedRate,
+        amountText(settlementInGroupCurrency(settlement, currency), currency),
         "",
         "",
         ...group.members.map(() => ""),

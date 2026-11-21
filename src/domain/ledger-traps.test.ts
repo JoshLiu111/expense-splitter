@@ -100,6 +100,8 @@ describe("Compute Ledger: data traps", () => {
         fromId: "b",
         toId: "a",
         amount: 0,
+        currency: "USD",
+        lockedRate: "1",
         date: "2024-03-07",
         createdAt: "2024-03-07T10:00:00.000Z",
       },

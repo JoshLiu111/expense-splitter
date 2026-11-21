@@ -141,7 +141,7 @@ const INVALID_SETTLEMENT: SettlementResult = { ok: false, errors: { form: "That 
 export async function recordUserSettlement(groupId: string, fields: unknown): Promise<SettlementResult> {
   const user = await requireUser(`/groups/${groupId}`);
   if (typeof groupId !== "string") return INVALID_SETTLEMENT;
-  const result = await recordSettlement(userGroupRepository(user), groupId, fields);
+  const result = await recordSettlement(userGroupRepository(user), groupId, fields, todaysRates);
   if (result.ok) refresh();
   return result;
 }

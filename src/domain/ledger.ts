@@ -40,6 +40,8 @@ export type TimelineEntry =
       id: string;
       date: CalendarDate;
       settlement: Settlement;
+      /** The Settlement in the Group Currency, at its Locked Rate. */
+      groupAmount: MinorUnits;
     };
 
 export interface Ledger {
@@ -72,6 +74,8 @@ export interface Ledger {
  * (ADR 0004). Each Share is converted to the Group Currency with the
  * Expense's Locked Rate and rounded on its own line (ADR 0001); the Payer is
  * credited the sum of those rounded lines, so Balances always sum to zero.
+ * A Settlement moves its Group Currency amount (`settlementInGroupCurrency`)
+ * from one Member to the other, so it keeps that sum too.
  */
 export function computeLedger(group: GroupSnapshot): Ledger {
   const totals = new Map<string, MinorUnits>(
@@ -106,8 +110,9 @@ export function computeLedger(group: GroupSnapshot): Ledger {
   }
 
   for (const settlement of group.settlements) {
-    add(settlement.fromId, settlement.amount);
-    add(settlement.toId, -settlement.amount);
+    const groupAmount = settlementInGroupCurrency(settlement, group.currency);
+    add(settlement.fromId, groupAmount);
+    add(settlement.toId, -groupAmount);
     entries.push({
       recorded: settlement,
       entry: {
@@ -115,6 +120,7 @@ export function computeLedger(group: GroupSnapshot): Ledger {
         id: settlement.id,
         date: settlement.date,
         settlement,
+        groupAmount,
       },
     });
   }
@@ -147,6 +153,18 @@ export function computeLedger(group: GroupSnapshot): Ledger {
     suggestions: simplified.filter(suggested),
     smallChange: simplified.filter((p) => !suggested(p)),
   };
+}
+
+/**
+ * A Settlement's amount in the Group Currency: converted from its Settlement
+ * Currency with its Locked Rate and rounded once (ADR 0009). Balances, Debts
+ * and Member Statements all count a Settlement as this amount.
+ */
+export function settlementInGroupCurrency(
+  settlement: Pick<Settlement, "amount" | "currency" | "lockedRate">,
+  groupCurrency: CurrencyCode,
+): MinorUnits {
+  return convert(settlement.amount, settlement.currency, groupCurrency, settlement.lockedRate);
 }
 
 /**

@@ -1,6 +1,6 @@
 import type { GroupSnapshot, MinorUnits } from "./types";
 
-/** A Settlement the app proposes, always in the Group Currency (ADR 0003). */
+/** A Settlement the app proposes, in the Group Currency. */
 export interface SuggestedSettlement {
   fromId: string;
   toId: string;

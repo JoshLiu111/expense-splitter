@@ -8,12 +8,12 @@ export {
   parseCategoryName,
 } from "./categories";
 export type { CategoryOption, ParseCategoryResult } from "./categories";
-export { computeLedger, inGroupCurrency } from "./ledger";
+export { computeLedger, inGroupCurrency, settlementInGroupCurrency } from "./ledger";
 export { settleUpStatus } from "./settle-up-status";
 export type { SettleUpStatus } from "./settle-up-status";
 export type { Ledger, MemberBalance, OwingLine, TimelineEntry } from "./ledger";
 export type { SuggestedSettlement } from "./settle-up";
-export { parseNewSettlement, validateSettlement } from "./settlement";
+export { parseNewSettlement, settleableAmount, settlementAmountFor, validateSettlement } from "./settlement";
 export type {
   NewSettlement,
   NewSettlementErrors,

@@ -13,7 +13,7 @@ export interface CalendarTally {
 
 export interface CalendarDay {
   date: CalendarDate;
-  /** In the Group Currency's minor unit, at each Expense's Locked Rate. */
+  /** In the Group Currency's minor unit, at each Expense's and Settlement's Locked Rate. */
   totals: CalendarTally;
   /** How many Expenses and Settlements of each kind; a day is marked for each kind above 0. */
   counts: CalendarTally;
@@ -41,8 +41,9 @@ const zero = (): CalendarTally => ({ paid: 0, settlementsMade: 0, settlementsRec
  * My Calendar: one month of what moved for one Member (a Former Member's
  * too), by day: the Expenses they paid for in full as Payer, and the
  * Settlements they made and received. Taken from their Member Statement, so
- * the amounts are in the Group Currency at each Expense's Locked Rate and the
- * months add up to the Statement's totals. Their Shares aren't shown.
+ * the amounts are in the Group Currency at each Expense's and Settlement's
+ * Locked Rate and the months add up to the Statement's totals. Their Shares
+ * aren't shown.
  */
 export function myCalendar(group: GroupSnapshot, memberId: string, month: string): MyCalendar {
   const days = new Map<CalendarDate, CalendarDay>();
@@ -51,7 +52,7 @@ export function myCalendar(group: GroupSnapshot, memberId: string, month: string
     if (!line.date.startsWith(`${month}-`)) continue;
     const kind: keyof CalendarTally =
       line.kind === "expense" ? "paid" : line.direction === "made" ? "settlementsMade" : "settlementsReceived";
-    const amount = line.kind === "expense" ? line.paid : line.settlement.amount;
+    const amount = line.kind === "expense" ? line.paid : line.groupAmount;
     let day = days.get(line.date);
     if (!day) {
       day = { date: line.date, totals: zero(), counts: zero() };

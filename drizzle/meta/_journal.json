@@ -71,6 +71,13 @@
       "when": 1795222350850,
       "tag": "0009_editing_mode",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1795225667457,
+      "tag": "0010_settlement_currency",
+      "breakpoints": true
     }
   ]
 }

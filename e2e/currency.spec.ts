@@ -89,3 +89,62 @@ test("S2: editing a seed Expense keeps its Locked Rate, so past Balances never c
   await expect(row(page, `${description} (edited)`)).toContainText(amounts("$804.00", "¥120,000"));
   await expect(page.getByTestId("balance-mem_alex")).toContainText("gets back $216.46");
 });
+
+test("S2: a Guest records a Suggested Settlement in yen, prefilled at today's rate, and sees both amounts", async ({
+  page,
+}) => {
+  await page.goto("/guest/groups/new");
+  await field(page, "Name").fill("Tokyo");
+  await page.getByRole("button", { name: "Create Group" }).click();
+  await expect(page.getByRole("heading", { level: 1, name: "Tokyo" })).toBeVisible();
+  await page.getByRole("link", { name: "Group settings" }).click();
+  await field(page, "Add a Member by name").fill("Taylor");
+  await page.getByRole("button", { name: "Add Member" }).click();
+  await expect(page.getByRole("region", { name: "Members" }).getByText("Taylor", { exact: true })).toBeVisible();
+  await page.getByRole("link", { name: "Back to Tokyo" }).click();
+
+  // Taylor paid $60 shared by You and Taylor: you owe Taylor $30.
+  await page.getByRole("button", { name: "Add the first Expense" }).click();
+  await field(page, "Amount (USD)").fill("60");
+  await field(page, "Description").fill("Sushi");
+  await page.locator("label").filter({ has: page.getByRole("radio", { name: "Taylor", exact: true }) }).click();
+  await page.getByRole("button", { name: "Add Expense", exact: true }).click();
+  await expect(page.getByText("Expense added.")).toBeVisible();
+
+  await page.getByRole("button", { name: "Record: you pay Taylor $30.00" }).click();
+  const dialog = page.getByRole("dialog", { name: "Record a Settlement" });
+  await expect(field(page, "Amount (USD)")).toHaveValue("30.00");
+
+  // In yen, the amount follows today's rate: ¥4,500 at 0.00666667 is $30.00.
+  await field(page, "Currency").selectOption("JPY");
+  await expect(field(page, "Amount (JPY)")).toHaveValue("4500");
+  await expect(dialog.getByText("1 JPY = 0.00666667 USD.")).toBeVisible();
+  await expect(dialog).toContainText("$30.00 at this rate. After this, You will be settled up.");
+
+  // A rate typed by hand re-derives it: ¥4,478 at 0.0067 is $30.00.
+  await field(page, "Exchange rate (USD per 1 JPY)").fill("0.0067");
+  await expect(field(page, "Amount (JPY)")).toHaveValue("4478");
+  await dialog.getByRole("button", { name: "Record Settlement" }).click();
+
+  await expect(page.getByText("Settlement recorded. You will be settled up.")).toBeVisible();
+  await expect(settleUpRegion(page)).toContainText("Everyone is Settled Up");
+  await showSection(page, "Expenses");
+  const settlement = page
+    .locator("main article")
+    .filter({ has: page.getByRole("heading", { name: "Settlement: You paid Taylor", exact: true }) });
+  await expect(settlement).toContainText(amounts("$30.00", "¥4,478"));
+  await settlement.getByRole("button").click();
+  await expect(page.getByRole("dialog", { name: "Settlement" })).toContainText(
+    "You paid Taylor ¥4,478 ≈ $30.00 on",
+  );
+  await expect(page.getByRole("dialog", { name: "Settlement" })).toContainText("Locked Rate: 1 JPY = 0.0067 USD (manual).");
+  await page.keyboard.press("Escape");
+
+  await page.getByRole("link", { name: "Activity" }).click();
+  const recorded = page.getByRole("main").getByRole("listitem").first();
+  await expect(recorded).toContainText("You recorded a Settlement: You paid Taylor");
+  await expect(recorded).toContainText("Amount¥4,478 ≈ $30.00");
+  await expect(recorded).toContainText("Locked Rate0.0067 (manual)");
+});
+
+const settleUpRegion = (page: Page) => page.getByRole("region", { name: "Settle up" });

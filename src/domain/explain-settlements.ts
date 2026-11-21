@@ -1,5 +1,5 @@
 import { oldestFirst } from "./chronology";
-import { computeLedger, inGroupCurrency } from "./ledger";
+import { computeLedger, inGroupCurrency, settlementInGroupCurrency } from "./ledger";
 import type { SuggestedSettlement } from "./settle-up";
 import type { CalendarDate, GroupSnapshot, MinorUnits } from "./types";
 
@@ -137,16 +137,17 @@ function debtsByMember(group: GroupSnapshot): Map<string, { items: DebtItem[]; c
     }
   }
   for (const settlement of group.settlements) {
+    const amount = settlementInGroupCurrency(settlement, group.currency);
     of(settlement.toId).items.push({
       kind: "settlement",
       id: settlement.id,
       counterpartyId: settlement.fromId,
-      full: settlement.amount,
-      remaining: settlement.amount,
+      full: amount,
+      remaining: amount,
       date: settlement.date,
       createdAt: settlement.createdAt,
     });
-    of(settlement.fromId).credit += settlement.amount;
+    of(settlement.fromId).credit += amount;
   }
 
   for (const { items } of result.values()) items.sort(oldestFirst);
@@ -170,7 +171,7 @@ function pairwiseDebts(group: GroupSnapshot): DebtEdge[] {
     for (const line of inGroupCurrency(expense, group.currency).lines)
       if (line.memberId !== expense.payerId) add(line.memberId, expense.payerId, line.groupAmount);
   // A Settlement repays what its payer owed the recipient.
-  for (const s of group.settlements) add(s.toId, s.fromId, s.amount);
+  for (const s of group.settlements) add(s.toId, s.fromId, settlementInGroupCurrency(s, group.currency));
 
   const ids = group.members.map((m) => m.id);
   const edges: DebtEdge[] = [];

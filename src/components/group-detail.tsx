@@ -224,6 +224,7 @@ export function GroupDetail({
 
       <SettleUpSection
         group={group}
+        rates={rates}
         ledger={ledger}
         currentMemberId={currentMemberId}
         settleUp={settleUp}
