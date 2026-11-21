@@ -14,20 +14,28 @@ To check: upload an avatar in Account Settings; its image URL is on `*.public.bl
 
 ## Before merging a migration, confirm Production has it
 
-Deploys never migrate. If a PR adds a file under `drizzle/`, a human applies it to the Production database before the merge; otherwise the new code queries columns that don't exist yet. Apply it just before merging, since the old deployment runs against the new schema until the new one is Ready.
+Deploys never migrate. If a PR adds a file under `drizzle/`, the Production database needs that migration before the merge; otherwise the new code queries columns that don't exist yet. Apply it just before merging, since the old deployment runs against the new schema until the new one is Ready.
 
-Before merging, from a checkout of the PR's head, with the Production `DATABASE_URL` (Vercel dashboard, Production) in `DATABASE_URL`:
-
-```sh
-ls drizzle/*.sql | wc -l
-shasum -a 256 "$(ls drizzle/*.sql | tail -1)"
-PGSSLROOTCERT=system psql "$DATABASE_URL" -XAt -c "set default_transaction_read_only = on" \
-  -c "select count(*), (select hash from drizzle.__drizzle_migrations order by id desc limit 1) from drizzle.__drizzle_migrations"
-```
-
-The count of rows must equal the count of files, and the last row's hash must equal the latest file's SHA-256. If not, stop and tell the user; don't merge. `PGSSLROOTCERT=system` makes psql trust the system root certificates; without it psql looks for `~/.postgresql/root.crt` and fails.
-
-To apply a missing migration, run `npm run db:migrate` with the Production `DATABASE_URL`, from a checkout that has the migration file. A checkout of an older commit applies only the migrations it has, and reports success. Then run the check again.
+1. In a checkout of the PR's head, confirm it contains `main`, so it has every migration `main` has:
+   ```sh
+   git fetch origin && git merge-base --is-ancestor origin/main HEAD && echo up to date
+   ```
+   If it prints nothing, rebase the PR onto `main` first.
+2. Export the Production `DATABASE_URL` (Vercel dashboard, Production) in the shell, then compare Production's migration journal with `drizzle/`:
+   ```sh
+   ls drizzle/*.sql | wc -l
+   shasum -a 256 "$(ls drizzle/*.sql | tail -1)"
+   PGSSLROOTCERT=system psql "$DATABASE_URL" -XAt -c "set default_transaction_read_only = on" \
+     -c "select count(*), (select hash from drizzle.__drizzle_migrations order by id desc limit 1) from drizzle.__drizzle_migrations"
+   ```
+   Production has the migration when the row count equals the file count and the last row's hash equals the latest file's SHA-256. If so, merge.
+   - `PGSSLROOTCERT=system` makes psql trust the system root certificates; without it psql looks for `~/.postgresql/root.crt` and fails. It needs psql 16 or later, and `sslmode=verify-full` in the URL: with `sslmode=require`, psql refuses with `weak sslmode "require" may not be used with sslrootcert=system`.
+3. If Production is behind, stop and tell the user which migrations are missing. The user applies them; run them yourself only if the user explicitly asks. Either way, the command is, from the same checkout:
+   ```sh
+   npm run db:migrate
+   ```
+   `drizzle.config.ts` reads `DATABASE_URL` from `.env.local`, but an exported `DATABASE_URL` wins. A checkout of an older commit applies only the migrations it has, and still reports success.
+4. Run step 2 again, then merge.
 
 ## After a push or merge, confirm the deployment
 
