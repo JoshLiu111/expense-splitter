@@ -2,10 +2,13 @@ import { monthRange, type CalendarDate } from "@/domain";
 
 const pad = (n: number) => String(n).padStart(2, "0");
 
+/** The number of days in a month, `YYYY-MM`. */
+const lastDayOf = (month: string) => Number(monthRange(month).to.slice(8));
+
 /** A month, `YYYY-MM`, as Sunday-first weeks of dates, with `null` before the 1st and after the last day. */
 export function monthWeeks(month: string): (CalendarDate | null)[][] {
   const [year, m] = month.split("-").map(Number);
-  const lastDay = Number(monthRange(month).to.slice(8));
+  const lastDay = lastDayOf(month);
   const cells: (CalendarDate | null)[] = Array(new Date(Date.UTC(year, m - 1, 1)).getUTCDay()).fill(null);
   for (let day = 1; day <= lastDay; day++) cells.push(`${month}-${pad(day)}`);
   while (cells.length % 7) cells.push(null);
@@ -24,7 +27,6 @@ export function addMonths(month: string, by: number): string {
 /** A date moved by a number of days, kept within its own month. */
 export function moveWithinMonth(date: CalendarDate, by: number): CalendarDate {
   const month = date.slice(0, 7);
-  const lastDay = Number(monthRange(month).to.slice(8));
-  const day = Math.min(Math.max(Number(date.slice(8)) + by, 1), lastDay);
+  const day = Math.min(Math.max(Number(date.slice(8)) + by, 1), lastDayOf(month));
   return `${month}-${pad(day)}`;
 }

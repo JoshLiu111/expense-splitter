@@ -17,8 +17,10 @@ import { formatCalendarDate, formatMonth, pluralize, todayCalendarDate } from "@
 import { cn } from "@/lib/utils";
 
 /**
- * The three marks, each its own shape as well as its own colour, in the
- * order they appear in a cell and in the summary.
+ * The three marks, told apart by shape alone (a dot, an arrow in, an arrow
+ * out) and all in ink: cobalt is for what's interactive and debt red and
+ * credit green are for Balances only (DESIGN.md). In the order they appear in
+ * a cell and in the summary.
  */
 const MARKS: {
   kind: keyof CalendarTally;
@@ -34,21 +36,21 @@ const MARKS: {
     count: (n) => `${pluralize(n, "Expense")} paid`,
     Icon: Circle,
     // Filled, so a size smaller to weigh the same as the arrows.
-    className: "size-2.5 fill-current text-accent",
+    className: "size-2.5 fill-current",
   },
   {
     kind: "settlementsReceived",
     label: "Received in Settlements",
     count: (n) => `${pluralize(n, "Settlement")} received`,
     Icon: ArrowDownLeft,
-    className: "size-3.5 text-owed",
+    className: "size-3.5",
   },
   {
     kind: "settlementsMade",
     label: "Paid in Settlements",
     count: (n) => `${pluralize(n, "Settlement")} paid`,
     Icon: ArrowUpRight,
-    className: "size-3.5 text-owe",
+    className: "size-3.5",
   },
 ];
 
@@ -62,14 +64,15 @@ const WEEKDAYS = [
   ["S", "Saturday"],
 ];
 
-const noop = () => () => {};
+/** Today's date never announces a change; it's read again on each render. */
+const subscribeNever = () => () => {};
 /** The server knows no visitor's time zone, so it renders UTC's date; the visitor's own follows. */
 const utcToday = () => new Date().toISOString().slice(0, 10);
 
 /**
- * My Calendar: one month of what moved for one Member (My Calendar in the
- * domain). Each day is marked for Expenses they paid for, Settlements they
- * received and Settlements they paid, by shape as well as colour; amounts
+ * My Calendar: one month of what moved for one Member (see `myCalendar`).
+ * Each day is marked for Expenses they paid for, Settlements they received
+ * and Settlements they paid, each by its own shape; amounts
  * are only in the month's summary, so cells fit a phone. A grid of day
  * buttons, one tab stop, moved through with the arrow keys; a marked day
  * opens Expenses at that date. Opens on the current month, or the Member's
@@ -88,7 +91,7 @@ export function MyCalendar({
   onOpenDay: (date: CalendarDate) => void;
 }) {
   const id = useId();
-  const today = useSyncExternalStore(noop, todayCalendarDate, utcToday);
+  const today = useSyncExternalStore(subscribeNever, todayCalendarDate, utcToday);
   const [chosenMonth, setChosenMonth] = useState<string | null>(null);
   const month = chosenMonth ?? myCalendarOpeningMonth(group, member.id, today);
   const calendar = myCalendar(group, member.id, month);
@@ -176,12 +179,14 @@ export function MyCalendar({
                       onFocus={() => setFocused(date)}
                       onKeyDown={(event) => onKeyDown(event, date)}
                       className={cn(
-                        "flex min-h-12 w-full flex-col items-center justify-center gap-1 rounded-md py-1 text-sm tabular-nums outline-none focus-visible:ring-[3px] focus-visible:ring-ring",
+                        "flex min-h-12 w-full flex-col items-center justify-center gap-1 rounded-lg py-1 text-sm tabular-nums outline-none focus-visible:ring-[3px] focus-visible:ring-ring",
                         day ? "cursor-pointer font-semibold hover:bg-bg-tertiary" : "cursor-default text-text-secondary",
-                        date === today && "bg-accent-subtle",
                       )}
                     >
-                      {Number(date.slice(8))}
+                      {/* Today is underlined, not tinted: a tint would read as selected. */}
+                      <span className={cn(date === today && "underline decoration-2 underline-offset-4")}>
+                        {Number(date.slice(8))}
+                      </span>
                       <span aria-hidden className="flex h-3.5 items-center gap-0.5">
                         {marks.map(({ kind, Icon, className }) => (
                           <Icon key={kind} className={className} strokeWidth={3} />

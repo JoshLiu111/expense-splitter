@@ -105,6 +105,10 @@ _Avoid_: Debt, total
 The itemised account of one Member's Balance (including a Former Member's): for each Expense, what they paid and their Share, and each Settlement they made or received, all in Group Currency at each Expense's Locked Rate and totalling exactly their Balance.
 _Avoid_: Balance breakdown
 
+**My Calendar**:
+One month of what moved for one Member (including a Former Member), by day: the Expenses they paid for as Payer (the full amount, not their Share), the Settlements they received and the Settlements they made, with the month's three totals. Taken from their Member Statement, so in Group Currency at each Expense's Locked Rate. It never shows their Shares or other Members.
+_Avoid_: Activity calendar, spending calendar
+
 **Debt**:
 The net amount one Member owes another from the Expenses they shared (and any Settlements between them), before Debt Simplification. A Group's Debts and its Suggested Settlements leave every Member with the same Balance.
 _Avoid_: IOU, payment
