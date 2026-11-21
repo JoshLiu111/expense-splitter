@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import sampleData from "../../data/sample-groups.json";
 import {
   computeLedger,
+  explainNeverShared,
   explainSettlements,
   importSampleGroups,
   type Expense,
@@ -159,6 +160,101 @@ describe("Explain Settlements: where each Suggested Settlement comes from", () =
         { kind: "settlement", id: "stl_a_b", amount: 1000, full: 1000 },
         { kind: "expense", id: "dinner", amount: 400, full: 1000 },
       ],
+    });
+  });
+});
+
+/** A Group of the given Members (in this order) with these Expenses. */
+const groupOf = (memberIds: string[], expenses: Expense[], former: string[] = []): GroupSnapshot => ({
+  id: "grp_never_shared",
+  name: "Never shared",
+  description: "",
+  currency: "USD",
+  members: memberIds.map((id) => ({ id, name: id, avatarColor: "#3B82F6", former: former.includes(id) || undefined })),
+  expenses,
+  settlements: [],
+});
+
+const suggestion = (group: GroupSnapshot, fromId: string, toId: string): SuggestedSettlement => {
+  const found = computeLedger(group).suggestions.find((s) => s.fromId === fromId && s.toId === toId);
+  if (!found) throw new Error(`No Suggested Settlement from ${fromId} to ${toId}`);
+  return found;
+};
+
+describe("Explain Never Shared: why a Member pays someone they never shared an Expense with", () => {
+  it("says nothing for two Members who shared an Expense", () => {
+    expect(explainNeverShared(flat(), suggestion(flat(), "c", "a"))).toBeUndefined();
+  });
+
+  it("gives the recipient's Balance, the most in the Group, and the Debts one payment replaces", () => {
+    // Tay paid for Tay, Sam and Rio; Sam and Rio each paid for themselves and You.
+    const group = groupOf(
+      ["you", "tay", "sam", "rio"],
+      [
+        expense("cabin", "tay", [["tay", 2500], ["sam", 2500], ["rio", 2500]], "2026-03-01"),
+        expense("fuel", "sam", [["sam", 2500], ["you", 2500]], "2026-03-02"),
+        expense("food", "rio", [["rio", 2500], ["you", 2500]], "2026-03-03"),
+      ],
+    );
+    expect(explainNeverShared(group, suggestion(group, "you", "tay"))).toEqual({
+      recipientBalance: 5000,
+      owedTheMost: true,
+      debtsWith: ["sam", "rio"],
+      payments: 1,
+    });
+  });
+
+  it("is not owed the most on a tie, and one payer's Debt can split across two recipients", () => {
+    // Qi paid for Qi and Pat; Ari and Bea each paid for themselves and Qi. Ari and Bea are owed the same.
+    const group = groupOf(
+      ["pat", "qi", "ari", "bea"],
+      [
+        expense("hotel", "qi", [["qi", 2000], ["pat", 2000]], "2026-03-01"),
+        expense("ferry", "ari", [["ari", 1000], ["qi", 1000]], "2026-03-02"),
+        expense("lunch", "bea", [["bea", 1000], ["qi", 1000]], "2026-03-03"),
+      ],
+    );
+    const reasons = [suggestion(group, "pat", "ari"), suggestion(group, "pat", "bea")].map((s) =>
+      explainNeverShared(group, s),
+    );
+    for (const reason of reasons)
+      expect(reason).toEqual({ recipientBalance: 1000, owedTheMost: false, debtsWith: ["qi"], payments: 2 });
+  });
+
+  it("is not owed the most when another Member is owed more", () => {
+    const group = groupOf(
+      ["pat", "qi", "ari", "bea"],
+      [
+        expense("hotel", "qi", [["qi", 4000], ["pat", 4000]], "2026-03-01"),
+        expense("ferry", "ari", [["ari", 3000], ["qi", 3000]], "2026-03-02"),
+        expense("lunch", "bea", [["bea", 1000], ["qi", 1000]], "2026-03-03"),
+      ],
+    );
+    expect(explainNeverShared(group, suggestion(group, "pat", "ari"))).toMatchObject({
+      recipientBalance: 3000,
+      owedTheMost: true,
+    });
+    expect(explainNeverShared(group, suggestion(group, "pat", "bea"))).toMatchObject({
+      recipientBalance: 1000,
+      owedTheMost: false,
+    });
+  });
+
+  it("counts a Debt with a Former Member", () => {
+    // Fay, removed at a zero Balance, owed Tay what Pat owed her.
+    const group = groupOf(
+      ["pat", "tay", "fay"],
+      [
+        expense("tickets", "fay", [["fay", 1000], ["pat", 1000]], "2026-03-01"),
+        expense("taxi", "tay", [["tay", 1000], ["fay", 1000]], "2026-03-02"),
+      ],
+      ["fay"],
+    );
+    expect(explainNeverShared(group, suggestion(group, "pat", "tay"))).toEqual({
+      recipientBalance: 1000,
+      owedTheMost: true,
+      debtsWith: ["fay"],
+      payments: 1,
     });
   });
 });

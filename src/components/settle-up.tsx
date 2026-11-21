@@ -28,6 +28,7 @@ import {
 } from "@/domain";
 import type { SettlementResult, SettleUp } from "@/settlements/settle-up";
 import { ExchangeRateField } from "@/components/exchange-rate-field";
+import { neverSharedReason } from "@/components/never-shared-reason";
 import { ErrorSummary, Field } from "@/components/form";
 import { AvatarStack, TransferPair } from "@/components/member-avatar";
 import { Button } from "@/components/ui/button";
@@ -65,7 +66,8 @@ const dialogClass =
 
 /**
  * The settle-up hero: the first thing on the Group page. Open Debts lead with
- * the visitor's own payment as the largest figure, then everyone else's
+ * the visitor's own payment as the largest figure (with a one-line reason
+ * when its two Members never shared an Expense), then everyone else's
  * Suggested Settlements as one-line rows; "Record a payment" shows only when
  * the visitor has no Suggested Settlement of their own;
  * Small Change clears in one tap; Settled Up is the Settled Up Moment; a
@@ -225,6 +227,7 @@ export function SettleUpSection({
           {mine.map((s) => {
             const youPay = s.fromId === me;
             const other = youPay ? s.toId : s.fromId;
+            const reason = neverSharedReason(group, s, youPay ? "payer" : "recipient");
             return (
               <div
                 key={`${s.fromId}-${s.toId}`}
@@ -239,12 +242,22 @@ export function SettleUpSection({
                     {money(s.amount)}
                   </span>
                 </p>
+                {/* Under the payment: right of the avatars on wide screens, full width above Record on phones. */}
+                {reason && (
+                  <p className="col-span-2 min-w-0 text-sm break-words text-text-secondary sm:col-start-2">
+                    {reason}
+                  </p>
+                )}
                 {record(
                   s,
                   youPay
                     ? `Record: you pay ${nameOf(other)} ${money(s.amount)}`
                     : `Record: ${nameOf(other)} pays you ${money(s.amount)}`,
-                  { variant: "default", text: "Record this payment", className: "col-span-2 px-5 sm:col-span-1" },
+                  {
+                    variant: "default",
+                    text: "Record this payment",
+                    className: "col-span-2 px-5 sm:col-span-1 sm:col-start-3 sm:row-start-1",
+                  },
                 )}
               </div>
             );

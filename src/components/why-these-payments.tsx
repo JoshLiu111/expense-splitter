@@ -13,6 +13,7 @@ import {
 import { layoutDebtGraph, NODE, SIZE, type EdgeLayout } from "@/components/debt-graph-layout";
 import { SIMPLIFY_TIMING, simplifyDurations, staggerFor } from "@/components/simplify-timing";
 import { avatarFill, initials, textColourOn } from "@/components/member-avatar";
+import { neverSharedReason } from "@/components/never-shared-reason";
 import { PaymentSources } from "@/components/payment-sources";
 import { Button } from "@/components/ui/button";
 import { togglePillClass } from "@/components/ui/toggle-pill";
@@ -192,12 +193,7 @@ export default function WhyThesePayments({
   // Under each Suggested Settlement: why it pairs these two, and what it adds up from.
   const explain = (s: ExplainedSettlement) => (
     <>
-      {!s.sharedAnExpense && (
-        <p className="text-text-secondary">
-          {nameOf(s.fromId)} and {nameOf(s.toId)} never shared an Expense; settling directly saves the Group a
-          Settlement.
-        </p>
-      )}
+      {!s.sharedAnExpense && <p className="break-words text-text-secondary">{neverSharedReason(group, s, "panel")}</p>}
       <PaymentSources
         group={group}
         payerName={nameOf(s.fromId)}

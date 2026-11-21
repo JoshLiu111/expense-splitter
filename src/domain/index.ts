@@ -22,10 +22,11 @@ export type {
   ProposedSettlement,
   SettlementCheck,
 } from "./settlement";
-export { explainSettlements } from "./explain-settlements";
+export { explainNeverShared, explainSettlements } from "./explain-settlements";
 export type {
   DebtEdge,
   ExplainedSettlement,
+  NeverSharedReason,
   SettlementExplanation,
   SettlementSource,
 } from "./explain-settlements";

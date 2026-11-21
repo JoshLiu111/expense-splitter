@@ -287,14 +287,84 @@ test.describe("with reduced motion", () => {
     await addExpense("30", "Fuel", "Taylor", "Sam");
     await addExpense("30", "Tolls", "You", "Taylor");
 
+    // In the main view, someone else's payment stays one line.
+    await expect(settleUp(page).getByRole("list", { name: "Other Suggested Settlements" })).toContainText(
+      "Sam pays Taylor",
+    );
+    await expect(settleUp(page)).not.toContainText("never shared");
+
     await settleUp(page).getByRole("button", { name: "Why these payments?" }).click();
     const samPays = settleUp(page)
       .getByRole("list", { name: /^After:/ })
       .getByRole("listitem")
       .filter({ hasText: "Sam pays Taylor" });
+    // Sam's one Debt was with You, so there is no count of Debts replaced.
     await expect(samPays).toContainText(
-      "Sam and Taylor never shared an Expense; settling directly saves the Group a Settlement.",
+      "Sam and Taylor never shared an Expense; Debt Simplification goes by Balances, and Taylor is owed $15.00, " +
+        "the most in the Group.",
     );
+    await expect(samPays).not.toContainText("Instead of");
+  });
+
+  test("Settle up says why you pay a Member you never shared an Expense with, wrapping long names", async ({
+    page,
+  }) => {
+    const taylor = "Taylor Alexandra Montgomery-Featherstonehaugh";
+    await page.goto("/guest/groups/new");
+    await field(page, "Name").fill("Cabin");
+    await page.getByRole("button", { name: "Create Group" }).click();
+    await expect(page.getByRole("heading", { level: 1, name: "Cabin" })).toBeVisible();
+    await page.getByRole("link", { name: "Group settings" }).click();
+    const members = page.getByRole("region", { name: "Members" });
+    for (const name of [taylor, "Sam", "Riley"]) {
+      await field(page, "Add a Member by name").fill(name);
+      await page.getByRole("button", { name: "Add Member" }).click();
+      await expect(members.getByText(name, { exact: true })).toBeVisible();
+    }
+    await page.getByRole("link", { name: "Back to Cabin" }).click();
+
+    // Taylor paid for Taylor, Sam and Riley; Sam and Riley each paid for themselves and You.
+    const chip = (role: "radio" | "checkbox", name: string) =>
+      page.locator("label").filter({ has: page.getByRole(role, { name, exact: true }) }).filter({ visible: true });
+    async function addExpense(amount: string, description: string, payer: string, without: string[]) {
+      await page.getByRole("button", { name: /^Add (the first )?Expense$/ }).click();
+      await field(page, "Amount (USD)").fill(amount);
+      await field(page, "Description").fill(description);
+      await chip("radio", payer).click();
+      for (const name of without) await chip("checkbox", name).click();
+      await page.getByRole("button", { name: "Add Expense", exact: true }).click();
+      await expect(page.getByText("Expense added.")).toBeVisible();
+    }
+    await addExpense("75", "Cabin", taylor, ["You"]);
+    await addExpense("50", "Fuel", "Sam", [taylor, "Riley"]);
+    await addExpense("50", "Food", "Riley", [taylor, "Sam"]);
+
+    await expect(settleUp(page).getByText(`You pay ${taylor}`, { exact: true })).toBeVisible();
+    const reason = settleUp(page).getByText(/^You never shared an Expense with/);
+    await expect(reason).toHaveText(
+      `You never shared an Expense with ${taylor}; Debt Simplification goes by Balances, and ${taylor} is owed ` +
+        "$50.00, the most in the Group. Instead of 2 Debts with Sam and Riley, you make 1 payment.",
+    );
+
+    // On a phone and on a desktop, long names wrap; no figure or reason runs past the panel.
+    await settleUp(page).getByRole("button", { name: "Why these payments?" }).click();
+    await expect(settleUp(page).getByText(/^You and .+ never shared an Expense/)).toBeVisible();
+    for (const viewport of [
+      { width: 390, height: 844 },
+      { width: 1280, height: 800 },
+    ]) {
+      await page.setViewportSize(viewport);
+      const panelBox = (await settleUp(page).boundingBox())!;
+      const right = panelBox.x + panelBox.width;
+      for (const box of [
+        ...(await settleUp(page).locator(".amount").filter({ visible: true }).all()),
+        ...(await settleUp(page).getByText(/never shared an Expense/).all()),
+      ]) {
+        const { x, width } = (await box.boundingBox())!;
+        expect(x + width, `${viewport.width}px: ${await box.textContent()}`).toBeLessThanOrEqual(right);
+      }
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+    }
   });
 
   test("Why these payments? simplifies at once when asked", async ({ page }) => {

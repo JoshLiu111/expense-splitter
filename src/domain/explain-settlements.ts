@@ -102,6 +102,51 @@ export function explainSettlements(group: GroupSnapshot): SettlementExplanation 
   };
 }
 
+/**
+ * Why a Suggested Settlement pairs two Members who never shared an Expense:
+ * Debt Simplification goes by Balances, so it gives the recipient's Balance,
+ * and what the payer settles in it against what they owed before.
+ */
+export interface NeverSharedReason {
+  /** The recipient's Balance, which Debt Simplification pairs on. */
+  recipientBalance: MinorUnits;
+  /** Whether that Balance is larger than every other Member's (false on a tie). */
+  owedTheMost: boolean;
+  /**
+   * The Members the payer has a Debt with, either way, before Debt
+   * Simplification; in Group Member order.
+   */
+  debtsWith: string[];
+  /** How many Suggested Settlements the payer makes. */
+  payments: number;
+}
+
+/**
+ * Explain Never Shared: the reason for a Suggested Settlement between two
+ * Members who never shared an Expense; nothing for a pair who did.
+ */
+export function explainNeverShared(
+  group: GroupSnapshot,
+  suggestion: SuggestedSettlement,
+): NeverSharedReason | undefined {
+  if (suggestion.sharedAnExpense) return undefined;
+  const ledger = computeLedger(group);
+  const balanceOf = (id: string) => ledger.balances.find((b) => b.memberId === id)?.amount ?? 0;
+  const recipientBalance = balanceOf(suggestion.toId);
+  const payer = suggestion.fromId;
+  const counterparties = new Set(
+    pairwiseDebts(group)
+      .filter((d) => d.fromId === payer || d.toId === payer)
+      .map((d) => (d.fromId === payer ? d.toId : d.fromId)),
+  );
+  return {
+    recipientBalance,
+    owedTheMost: ledger.balances.every((b) => b.memberId === suggestion.toId || b.amount < recipientBalance),
+    debtsWith: group.members.map((m) => m.id).filter((id) => counterparties.has(id)),
+    payments: ledger.suggestions.filter((s) => s.fromId === payer).length,
+  };
+}
+
 interface DebtItem {
   kind: SettlementSource["kind"];
   id: string;
