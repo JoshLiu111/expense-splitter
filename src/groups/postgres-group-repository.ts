@@ -5,6 +5,7 @@ import {
   isSameExpense,
   type ActivityChange,
   type CurrencyCode,
+  type EditingMode,
   type Expense,
   type GroupSnapshot,
   type NewExpense,
@@ -246,6 +247,7 @@ export function createPostgresGroupRepository(
       name: g.name,
       description: g.description,
       currency: g.currency as CurrencyCode,
+      editingMode: g.editingMode as EditingMode,
       ...(g.creatorUserId ? { creatorUserId: g.creatorUserId } : {}),
       members: memberRows
         .filter((row) => row.member.groupId === g.id)
@@ -439,6 +441,18 @@ export function createPostgresGroupRepository(
         .update(groups)
         .set({ name: details.name, description: details.description, currency: details.currency })
         .where(eq(groups.id, id));
+      const [group] = await load(id);
+      return group ?? null;
+    },
+    async setEditingMode(id, mode) {
+      // Only the Group Creator may, and only while they are a Linked Member.
+      if (!(await canChange(id))) return null;
+      const rows = await db
+        .update(groups)
+        .set({ editingMode: mode })
+        .where(and(eq(groups.id, id), eq(groups.creatorUserId, currentUser.id)))
+        .returning({ id: groups.id });
+      if (rows.length === 0) return null;
       const [group] = await load(id);
       return group ?? null;
     },

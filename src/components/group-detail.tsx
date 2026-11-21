@@ -6,9 +6,11 @@ import { ArrowLeft, Eye, History, Plus, Settings } from "lucide-react";
 import {
   computeLedger,
   formatMoney,
+  recordChangeBlock,
   type Expense,
   type GroupSnapshot,
   type Settlement,
+  type Visitor,
 } from "@/domain";
 import type { DeleteExpense, SaveExpense } from "@/expenses/save-expense";
 import type { SettleUp } from "@/settlements/settle-up";
@@ -41,6 +43,7 @@ export function GroupDetail({
   backLabel,
   settingsHref,
   activityHref,
+  visitor,
   currentMemberId,
   onSaveExpense,
   onDeleteExpense,
@@ -55,6 +58,8 @@ export function GroupDetail({
   settingsHref: string;
   /** The Group's Activity page. */
   activityHref: string;
+  /** Who is looking: whether they may change a record depends on it. */
+  visitor: Visitor;
   /** The visitor's own Member: the default Payer. */
   currentMemberId: string | undefined;
   onSaveExpense: SaveExpense;
@@ -204,6 +209,8 @@ export function GroupDetail({
             setEditing(null);
             void remove(expense);
           }}
+          editBlock={editing.expense && recordChangeBlock(group, visitor, "edit-expense", editing.expense)}
+          deleteBlock={editing.expense && recordChangeBlock(group, visitor, "delete-expense", editing.expense)}
         />
       )}
 
@@ -233,6 +240,9 @@ export function GroupDetail({
               timeline={timeline}
               onOpenExpense={readOnly ? undefined : open}
               onDeleteSettlement={readOnly ? undefined : removeSettlement}
+              settlementDeleteBlock={(settlement) =>
+                recordChangeBlock(group, visitor, "delete-settlement", settlement)
+              }
               unconfirmed={unconfirmed}
               currentMemberId={currentMemberId}
             />

@@ -2,9 +2,11 @@ import {
   amountText,
   computeLedger,
   parseNewSettlement,
+  recordChangeBlock,
   type CalendarDate,
   type NewSettlementErrors,
   type NewSettlementFields,
+  type Visitor,
 } from "@/domain";
 import type { GroupRepository } from "@/groups/group-repository";
 
@@ -47,14 +49,22 @@ export async function recordSettlement(
   return (await repo.addSettlement(groupId, parsed.value)) ? { ok: true } : formError(GROUP_GONE);
 }
 
+const SETTLEMENT_GONE = "This Settlement no longer exists. It may have been deleted.";
+
+/** Deletes a Settlement, if the Editing Mode lets `visitor` delete it. */
 export async function deleteSettlement(
   repo: GroupRepository,
   groupId: string,
   settlementId: string,
+  visitor: Visitor,
 ): Promise<SettlementResult> {
-  return (await repo.deleteSettlement(groupId, settlementId))
-    ? { ok: true }
-    : formError("This Settlement no longer exists. It may have been deleted.");
+  const group = await repo.getGroup(groupId);
+  if (!group) return formError(GROUP_GONE);
+  const existing = group.settlements.find((s) => s.id === settlementId);
+  if (!existing) return formError(SETTLEMENT_GONE);
+  const block = recordChangeBlock(group, visitor, "delete-settlement", existing);
+  if (block) return formError(block);
+  return (await repo.deleteSettlement(groupId, settlementId)) ? { ok: true } : formError(SETTLEMENT_GONE);
 }
 
 /**

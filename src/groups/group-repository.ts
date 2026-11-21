@@ -1,6 +1,7 @@
 import type {
   ActivityEntry,
   CustomCategory,
+  EditingMode,
   Expense,
   GroupSnapshot,
   Member,
@@ -43,6 +44,11 @@ export interface GroupRepository {
   deleteSettlement(groupId: string, settlementId: string): Promise<boolean>;
   /** Replaces a Group's name, description and Group Currency; `null` if not visible. */
   updateGroup(id: string, details: NewGroup): Promise<GroupSnapshot | null>;
+  /**
+   * Sets the Group's Editing Mode; `null` if the Group isn't visible here or
+   * the visitor isn't its Group Creator (a Guest is, of every session Group).
+   */
+  setEditingMode(id: string, mode: EditingMode): Promise<GroupSnapshot | null>;
   /**
    * Adds a Member at the end of the Group, with an avatar colour of its own;
    * `null` if the Group isn't visible here. Without an email it is Name-only;

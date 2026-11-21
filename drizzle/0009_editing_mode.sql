@@ -1,0 +1,1 @@
+ALTER TABLE "groups" ADD COLUMN "editing_mode" text DEFAULT 'open' NOT NULL;

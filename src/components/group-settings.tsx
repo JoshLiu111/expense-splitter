@@ -6,12 +6,16 @@ import { Mail, Trash2, UserPlus, X } from "lucide-react";
 import {
   CURRENCY_CODES,
   currencyLock,
+  EDITING_MODE_LABELS,
+  EDITING_MODES,
+  editingModeOf,
   currentMembers,
   MAX_GROUP_DESCRIPTION_LENGTH,
   MAX_GROUP_NAME_LENGTH,
   MAX_MEMBER_NAME_LENGTH,
   memberEmailBlock,
   memberRemovalBlock,
+  type EditingMode,
   type GroupSnapshot,
   type Member,
   type NewGroupFields,
@@ -557,6 +561,92 @@ function MemberEmailDialog({
         </Dialog.Content>
       </Dialog.Portal>
     </Dialog.Root>
+  );
+}
+
+const EDITING_MODE_HINTS: Record<EditingMode, string> = {
+  open: "Any Member can edit or delete any Expense or Settlement.",
+  "own-records-only":
+    "Members can edit or delete only the Expenses and Settlements they recorded. The Group Creator can edit or delete everything, including records no one is known to have recorded.",
+};
+
+const modeChipClass =
+  "inline-flex min-h-11 cursor-pointer items-center rounded-full border border-border-input bg-surface px-4 py-1 text-sm font-semibold transition-colors duration-(--duration-fast) has-checked:border-accent has-checked:bg-accent-subtle has-focus-visible:ring-[3px] has-focus-visible:ring-ring has-disabled:pointer-events-none has-disabled:opacity-50";
+
+/**
+ * The Group's Editing Mode: every Member sees it; only the Group Creator can
+ * change it, and anyone else sees why they can't.
+ */
+export function EditingModeSection({
+  group,
+  block,
+  onSave,
+  onSaved,
+}: {
+  group: GroupSnapshot;
+  /** Why the visitor can't change the Editing Mode, or `null`. */
+  block: string | null;
+  onSave: (mode: EditingMode) => Promise<ManageResult>;
+  onSaved: () => void;
+}) {
+  const saved = editingModeOf(group);
+  const [mode, setMode] = useState<EditingMode>(saved);
+  const [error, setError] = useState("");
+  const [pending, startTransition] = useTransition();
+  const id = useId();
+
+  function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setError("");
+    startTransition(async () => {
+      const result = await attempt(() => onSave(mode));
+      if (result.ok) onSaved();
+      else setError(result.errors.form ?? "Couldn't change the Editing Mode.");
+    });
+  }
+
+  return (
+    <section aria-labelledby={`${id}-heading`}>
+      <h2 id={`${id}-heading`} className="text-lg font-bold">
+        Editing Mode
+      </h2>
+      <form onSubmit={submit} className="mt-3 flex flex-col gap-3">
+        <fieldset disabled={block !== null} aria-describedby={`${id}-hint`}>
+          <legend className="sr-only">Editing Mode</legend>
+          <div className="flex flex-wrap gap-2">
+            {EDITING_MODES.map((option) => (
+              <label key={option} className={modeChipClass}>
+                <input
+                  type="radio"
+                  name="editingMode"
+                  value={option}
+                  checked={mode === option}
+                  onChange={() => setMode(option)}
+                  className="sr-only"
+                />
+                {EDITING_MODE_LABELS[option]}
+              </label>
+            ))}
+          </div>
+        </fieldset>
+        <p id={`${id}-hint`} className="text-sm text-text-secondary">
+          {EDITING_MODE_HINTS[mode]}
+          {block && ` ${block}`}
+        </p>
+        {error && (
+          <p role="alert" className="text-sm font-semibold text-error">
+            {error}
+          </p>
+        )}
+        {block === null && (
+          <div>
+            <Button type="submit" variant="outline" disabled={pending || mode === saved}>
+              {pending ? "Saving…" : "Save Editing Mode"}
+            </Button>
+          </div>
+        )}
+      </form>
+    </section>
   );
 }
 

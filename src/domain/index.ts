@@ -79,6 +79,16 @@ export {
   selectableMembers,
 } from "./manage-group";
 export type { ParseEmailResult, ParseMemberResult } from "./manage-group";
+export {
+  EDITING_MODE_LABELS,
+  EDITING_MODES,
+  editingModeBlock,
+  editingModeOf,
+  isEditingMode,
+  isGroupCreator,
+  recordChangeBlock,
+} from "./editing-mode";
+export type { EditingMode, RecordAction, Visitor } from "./editing-mode";
 export { memberStatement } from "./member-statement";
 export type { MemberStatement, StatementLine } from "./member-statement";
 export { groupCsv, groupCsvFileName } from "./group-csv";

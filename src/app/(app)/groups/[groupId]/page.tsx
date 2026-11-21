@@ -39,6 +39,7 @@ async function UserGroup({ params }: Pick<PageProps<"/groups/[groupId]">, "param
       backLabel="All Groups"
       settingsHref={`/groups/${groupId}/settings`}
       activityHref={`/groups/${groupId}/activity`}
+      visitor={{ userId: user.id }}
       currentMemberId={me?.id}
       // Only a Former Member with a reopened Balance gets here as one (ADR 0006).
       readOnly={me?.former === true}

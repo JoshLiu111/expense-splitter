@@ -1,3 +1,5 @@
+import type { EditingMode } from "./editing-mode";
+
 /** ISO 4217 code of a supported currency. */
 export type CurrencyCode =
   | "USD"
@@ -112,6 +114,8 @@ export interface GroupSnapshot {
   currency: CurrencyCode;
   /** The Group Creator's User id; absent for Groups made by a Guest. */
   creatorUserId?: string;
+  /** Who may edit or delete Expenses and Settlements; absent means Open. */
+  editingMode?: EditingMode;
   members: Member[];
   /** The Group's own Custom Categories, oldest first; absent means none. */
   customCategories?: CustomCategory[];

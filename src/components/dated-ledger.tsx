@@ -25,14 +25,16 @@ import { formatCalendarDate } from "@/lib/format";
  * one control: it opens the Expense editor or the Settlement dialog. Without
  * `onOpenExpense` an Expense row is plain text, and without
  * `onDeleteSettlement` the Settlement dialog only states it (read-only access,
- * ADR 0006). An `unconfirmed` entry is shown the same way, marked as saving,
- * until the server has confirmed it.
+ * ADR 0006), as it does, saying why, for a Settlement the Editing Mode keeps
+ * the visitor from deleting. An `unconfirmed` entry is shown the same way,
+ * marked as saving, until the server has confirmed it.
  */
 export function DatedLedger({
   group,
   timeline,
   onOpenExpense,
   onDeleteSettlement,
+  settlementDeleteBlock,
   unconfirmed,
   currentMemberId,
 }: {
@@ -42,6 +44,8 @@ export function DatedLedger({
   currentMemberId?: string;
   onOpenExpense?: (expense: Expense) => void;
   onDeleteSettlement?: (settlement: Settlement) => void;
+  /** Why the visitor can't delete a Settlement, or `null` if they can. */
+  settlementDeleteBlock?: (settlement: Settlement) => string | null;
   /** Ids of Expenses and Settlements shown before the server has confirmed them. */
   unconfirmed?: ReadonlySet<string>;
 }) {
@@ -95,6 +99,7 @@ export function DatedLedger({
                         to={memberOf(entry.settlement.toId)}
                         dateId={dateId}
                         saving={saving}
+                        deleteBlock={settlementDeleteBlock?.(entry.settlement) ?? null}
                         onDelete={
                           !saving && onDeleteSettlement ? () => onDeleteSettlement(entry.settlement) : undefined
                         }
@@ -196,6 +201,7 @@ function SettlementRow({
   to,
   dateId,
   saving,
+  deleteBlock,
   onDelete,
 }: {
   entry: Extract<TimelineEntry, { kind: "settlement" }>;
@@ -206,6 +212,8 @@ function SettlementRow({
   dateId: string;
   /** Shown before the server has confirmed it. */
   saving: boolean;
+  /** Why the visitor can't delete it, said in place of Delete Settlement. */
+  deleteBlock: string | null;
   onDelete?: () => void;
 }) {
   const amount = formatMoney(entry.settlement.amount, group.currency);
@@ -278,7 +286,8 @@ function SettlementRow({
             currentMemberId={currentMemberId}
             className="mt-1"
           />
-          {onDelete && (
+          {onDelete && deleteBlock && <p className="mt-4 text-sm text-text-secondary">{deleteBlock}</p>}
+          {onDelete && !deleteBlock && (
             <div className="-mr-3 mt-6 flex justify-end">
               <ConfirmDelete
                 title="Delete this Settlement?"
