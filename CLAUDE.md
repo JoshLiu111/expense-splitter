@@ -20,7 +20,7 @@ Single-context: `GLOSSARY.md` + `docs/adr/` at the repo root. See `docs/agents/d
 
 ### Deploying
 
-Vercel. After every push or merge, confirm the deployment as in `docs/agents/deploy.md`.
+Vercel. Before merging a PR that adds a migration, confirm Production has it; after every push or merge, confirm the deployment. Both are in `docs/agents/deploy.md`.
 
 ## Workflow
 
