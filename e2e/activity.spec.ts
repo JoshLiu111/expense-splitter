@@ -63,6 +63,24 @@ test("View changes on an Expense from before Activity started says so", async ({
   await expect(page).toHaveURL(/\/guest\/groups\/grp_apt_4b\/activity$/);
 });
 
+test("Activity filters to Expenses & Settlements or to Group changes", async ({ page }) => {
+  await page.goto("/guest/groups/grp_japan_2024/activity");
+  const filters = page.getByRole("group", { name: "Filter Activity" });
+  await expect(filters.getByRole("button", { name: "All" })).toHaveAttribute("aria-pressed", "true");
+  await expect(activityEntries(page)).toHaveCount(4);
+
+  await filters.getByRole("button", { name: "Group changes" }).click();
+  await expect(filters.getByRole("button", { name: "Group changes" })).toHaveAttribute("aria-pressed", "true");
+  await expect(activityEntries(page)).toHaveCount(1);
+  await expect(activityEntries(page).first()).toContainText("Taylor Kim edited the Group’s details");
+
+  await filters.getByRole("button", { name: "Expenses & Settlements" }).click();
+  await expect(activityEntries(page)).toHaveCount(3);
+  await expect(activityEntries(page).first()).toContainText("recorded a Settlement");
+  // Activity's own start is noted whatever is shown.
+  await expect(page.getByText(/^Activity starts on Mar 23, 2024\./)).toBeVisible();
+});
+
 test("a signed-in User's changes, to Expenses, Members, Categories and the Editing Mode, are recorded under their Member, and a new Group has no launch note", async ({
   page,
 }) => {

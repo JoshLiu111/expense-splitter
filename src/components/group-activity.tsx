@@ -1,19 +1,28 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useId, useRef, useSyncExternalStore } from "react";
+import { useEffect, useId, useRef, useState, useSyncExternalStore } from "react";
 import { ArrowLeft } from "lucide-react";
 import type { ActivityEntry, GroupSnapshot } from "@/domain";
-import { activityItems, type ActivityItem } from "@/components/activity-view";
+import {
+  ACTIVITY_FILTERS,
+  activityItems,
+  activityNotes,
+  activityStartNote,
+  filterActivity,
+  type ActivityFilter,
+  type ActivityItem,
+} from "@/components/activity-view";
 import { MemberAvatar } from "@/components/member-avatar";
-import { formatCalendarDate } from "@/lib/format";
+import { togglePillClass } from "@/components/ui/toggle-pill";
 import { cn } from "@/lib/utils";
 
 /**
- * A Group's Activity: every change to the Group, newest first and
- * unfiltered. Read-only: entries can't be edited, deleted or
- * restored. With `focusExpenseId` (from "View changes"), that Expense's
- * entries are marked and the newest is scrolled to.
+ * A Group's Activity: every change to the Group, newest first, filtered
+ * to Expenses and Settlements or to Group changes on request. Read-only:
+ * entries can't be edited, deleted or restored. With `focusExpenseId`
+ * (from "View changes"), that Expense's entries are marked and the newest
+ * is scrolled to.
  */
 export function GroupActivity({
   group,
@@ -27,7 +36,11 @@ export function GroupActivity({
   groupHref: string;
   focusExpenseId?: string;
 }) {
-  const items = activityItems(entries, group);
+  const [filter, setFilter] = useState<ActivityFilter>("all");
+  // Filtered after reading: each entry is read in the Group Currency of its time.
+  const allItems = activityItems(entries, group);
+  const items = filterActivity(allItems, filter);
+  const notes = activityNotes(group, filter);
   const focused = (item: ActivityItem) => item.subject.kind === "expense" && item.subject.id === focusExpenseId;
   const firstFocused = useRef<HTMLLIElement>(null);
   const focusedExpense = group.expenses.find((e) => e.id === focusExpenseId);
@@ -39,11 +52,8 @@ export function GroupActivity({
     firstFocused.current.focus({ preventScroll: true });
   }, [focusExpenseId]);
 
-  const launchNote = group.activityStartedOn && (
-    <>
-      Activity starts on {formatCalendarDate(group.activityStartedOn)}. Earlier changes aren’t listed here.
-    </>
-  );
+  // An Expense's own entries go back as far as Activity does.
+  const launchNote = activityStartNote(group);
 
   return (
     <div className="mx-auto flex max-w-content flex-col gap-8">
@@ -58,9 +68,22 @@ export function GroupActivity({
         <p className="mt-1 text-sm text-text-secondary">
           Every change to this Group, newest first.
         </p>
+        <div className="mt-4 flex flex-wrap gap-2" role="group" aria-label="Filter Activity">
+          {ACTIVITY_FILTERS.map(({ value, label }) => (
+            <button
+              key={value}
+              type="button"
+              className={togglePillClass}
+              aria-pressed={filter === value}
+              onClick={() => setFilter(value)}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
       </div>
 
-      {focusExpenseId && firstFocusedIndex === -1 && (
+      {focusExpenseId && !allItems.some(focused) && (
         <p className="rounded-md bg-bg-secondary px-4 py-3 text-sm">
           {focusedExpense && (
             <>
@@ -72,7 +95,7 @@ export function GroupActivity({
       )}
 
       {items.length === 0 ? (
-        !group.activityStartedOn && <p className="text-text-secondary">No changes yet.</p>
+        notes.length === 0 && <p className="text-text-secondary">{ACTIVITY_FILTERS.find((f) => f.value === filter)?.empty}</p>
       ) : (
         <ol className="border-b border-border">
           {items.map((item, index) => (
@@ -86,7 +109,11 @@ export function GroupActivity({
         </ol>
       )}
 
-      {launchNote && <p className="text-sm text-text-secondary">{launchNote}</p>}
+      {notes.map((note) => (
+        <p key={note} className="text-sm text-text-secondary">
+          {note}
+        </p>
+      ))}
     </div>
   );
 }

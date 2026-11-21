@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import sampleData from "../../data/sample-groups.json";
 import { importSampleGroups, type ActivityEntry, type Expense } from "@/domain";
-import { activityItems } from "./activity-view";
+import { activityItems, activityNotes, filterActivity } from "./activity-view";
 
 const apartment = importSampleGroups(sampleData).find((g) => g.id === "grp_apt_4b")!;
 const japan = importSampleGroups(sampleData).find((g) => g.id === "grp_japan_2024")!;
@@ -309,5 +309,69 @@ describe("activityItems", () => {
       money: true,
       memberId: "mem_alex",
     });
+  });
+});
+
+describe("filterActivity", () => {
+  const at = "2024-02-01T10:00:00.000Z";
+  const settlement = apartment.settlements[0];
+  const entries: ActivityEntry[] = [
+    { id: "act_5", at, actorMemberId: "mem_riley", change: { kind: "editing-mode-changed", before: "open", after: "own-records-only" } },
+    { id: "act_4", at, actorMemberId: "mem_casey", change: { kind: "settlement-added", settlement } },
+    { id: "act_3", at, change: { kind: "category-added", category: { id: "cat_cleaning", name: "Cleaning" } } },
+    { id: "act_2", at, actorMemberId: "mem_riley", change: { kind: "member-added", member: { id: "mem_drew", name: "Drew" } } },
+    edited({ ...electricity, description: "Jan electricity" }, electricity, "mem_casey"),
+  ];
+  const items = activityItems(entries, apartment);
+  const ids = (filter: Parameters<typeof filterActivity>[1]) => filterActivity(items, filter).map((i) => i.id);
+
+  it("shows every entry by default, newest first", () => {
+    expect(ids("all")).toEqual(["act_5", "act_4", "act_3", "act_2", "act_1"]);
+  });
+
+  it("shows only the entries about Expenses and Settlements", () => {
+    expect(ids("expenses-and-settlements")).toEqual(["act_4", "act_1"]);
+  });
+
+  it("shows only the Group's other changes: Members, details, Group Currency, Custom Categories and Editing Mode", () => {
+    expect(ids("group-changes")).toEqual(["act_5", "act_3", "act_2"]);
+  });
+});
+
+describe("activityNotes", () => {
+  it("says nothing for a Group whose Activity lists everything", () => {
+    for (const filter of ["all", "expenses-and-settlements", "group-changes"] as const) {
+      expect(activityNotes({}, filter)).toEqual([]);
+    }
+  });
+
+  it("says when Activity started, whatever is shown", () => {
+    for (const filter of ["all", "expenses-and-settlements", "group-changes"] as const) {
+      expect(activityNotes({ activityStartedOn: "2024-01-13" }, filter)).toEqual([
+        "Activity starts on Jan 13, 2024. Earlier changes aren’t listed here.",
+      ]);
+    }
+  });
+
+  it("says when Group changes started being listed, only where Group changes are shown", () => {
+    const group = { groupChangesStartedOn: "2026-11-21" };
+    const note = "Group changes are listed from Nov 21, 2026. Earlier ones aren’t listed here.";
+
+    expect(activityNotes(group, "all")).toEqual([note]);
+    expect(activityNotes(group, "group-changes")).toEqual([note]);
+    expect(activityNotes(group, "expenses-and-settlements")).toEqual([]);
+  });
+
+  it("gives both notes when Group changes started being listed after Activity did", () => {
+    expect(activityNotes({ activityStartedOn: "2026-11-19", groupChangesStartedOn: "2026-11-21" }, "group-changes")).toEqual([
+      "Activity starts on Nov 19, 2026. Earlier changes aren’t listed here.",
+      "Group changes are listed from Nov 21, 2026. Earlier ones aren’t listed here.",
+    ]);
+  });
+
+  it("leaves out the Group changes note when Activity started the same day", () => {
+    expect(activityNotes({ activityStartedOn: "2026-11-21", groupChangesStartedOn: "2026-11-21" }, "all")).toEqual([
+      "Activity starts on Nov 21, 2026. Earlier changes aren’t listed here.",
+    ]);
   });
 });
