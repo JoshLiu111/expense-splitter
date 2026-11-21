@@ -25,6 +25,10 @@ interface ExpenseEditorProps {
   onSaved: () => void;
   /** Deletes the Expense being edited, once confirmed. */
   onDelete: (expense: Expense) => void;
+  /** Why the visitor can't edit the Expense being edited, or `null`: it is then shown read-only. */
+  editBlock: string | null;
+  /** Why the visitor can't delete it, or `null`: Delete is then left out. */
+  deleteBlock: string | null;
 }
 
 /**
@@ -32,12 +36,13 @@ interface ExpenseEditorProps {
  * action), an accessible bottom sheet on phones. The sheet traps focus and
  * returns it to whatever opened it. An existing Expense can be deleted from
  * here, after confirmation, and its changes viewed in Activity, and says
- * who recorded it.
+ * who recorded it. One the Editing Mode keeps the visitor from editing is
+ * shown read-only, saying why.
  */
 export function ExpenseEditor(props: ExpenseEditorProps) {
   const wide = useMediaQuery("(min-width: 48rem)");
   const { expense } = props;
-  const title = expense ? "Edit Expense" : "Add Expense";
+  const title = !expense ? "Add Expense" : props.editBlock ? "Expense" : "Edit Expense";
   // At the panel's edge it pulls its padding back so the text lines up. The
   // editor closes as it goes, so the Group page isn't left behind a sheet
   // when it is kept for coming back.
@@ -67,8 +72,10 @@ export function ExpenseEditor(props: ExpenseEditorProps) {
       onSave={props.onSave}
       onCancel={props.onClose}
       onSaved={props.onSaved}
+      editBlock={props.editBlock}
       deleteAction={
-        expense && (
+        expense &&
+        !props.deleteBlock && (
           <ConfirmDelete
             title="Delete this Expense?"
             confirmLabel="Delete Expense"

@@ -10,6 +10,7 @@ import {
   deleteUserGroup,
   removeUserMember,
   resendUserInvitation,
+  setUserEditingMode,
   renameUserCategory,
   setUserMemberEmail,
   updateUserGroup,
@@ -48,6 +49,7 @@ async function UserGroupSettings({ params }: Pick<PageProps<"/groups/[groupId]/s
         setMemberEmail: setUserMemberEmail.bind(null, groupId),
         resendInvitation: resendUserInvitation.bind(null, groupId),
         removeMember: removeUserMember.bind(null, groupId),
+        setEditingMode: setUserEditingMode.bind(null, groupId),
         deleteGroup: deleteUserGroup.bind(null, groupId),
       }}
       categories={{
@@ -55,7 +57,7 @@ async function UserGroupSettings({ params }: Pick<PageProps<"/groups/[groupId]/s
         rename: renameUserCategory.bind(null, groupId),
         delete: deleteUserCategory.bind(null, groupId),
       }}
-      isGroupCreator={group.creatorUserId === user.id}
+      visitor={{ userId: user.id }}
     />
   );
 }

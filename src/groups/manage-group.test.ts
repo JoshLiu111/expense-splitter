@@ -7,6 +7,7 @@ import {
   deleteGroup,
   removeMember,
   resendInvitation,
+  setEditingMode,
   setMemberEmail,
   updateGroupDetails,
 } from "./manage-group";
@@ -469,5 +470,30 @@ describe("deleteGroup", () => {
 
     expect(await deleteGroup(repo, group.id, { userId: undefined })).toEqual({ ok: true });
     expect(await repo.getGroup(group.id)).toBeNull();
+  });
+});
+
+describe("setEditingMode", () => {
+  it("lets the Group Creator switch to Own Records Only and back", async () => {
+    const { repo, group } = await flatWithDebt();
+
+    expect(await setEditingMode(repo, group.id, "own-records-only", { userId: undefined })).toEqual({ ok: true });
+    expect((await repo.getGroup(group.id))!.editingMode).toBe("own-records-only");
+    expect(await setEditingMode(repo, group.id, "open", { userId: undefined })).toEqual({ ok: true });
+    expect((await repo.getGroup(group.id))!.editingMode).toBe("open");
+  });
+
+  it("refuses anyone but the Group Creator, and anything but an Editing Mode", async () => {
+    const { repo, group } = await flatWithDebt();
+
+    expect(await setEditingMode(repo, group.id, "own-records-only", { userId: "usr_theo" })).toEqual({
+      ok: false,
+      errors: { form: "Only the Group Creator can change the Editing Mode." },
+    });
+    expect(await setEditingMode(repo, group.id, "admins-only", { userId: undefined })).toEqual({
+      ok: false,
+      errors: { form: "Choose an Editing Mode." },
+    });
+    expect((await repo.getGroup(group.id))!.editingMode).toBe("open");
   });
 });

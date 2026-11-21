@@ -4,20 +4,22 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
 import { ArrowLeft } from "lucide-react";
-import { groupDeletionBlock, type GroupSnapshot } from "@/domain";
+import { editingModeBlock, groupDeletionBlock, isGroupCreator, type GroupSnapshot, type Visitor } from "@/domain";
 import type { CategoryManagement } from "@/categories/manage-categories";
 import type { GroupManagement } from "@/groups/manage-group";
 import { CategoriesSection } from "@/components/categories-section";
 import {
   DeleteGroupSection,
+  EditingModeSection,
   GroupDetailsSection,
   MembersSection,
   type NewsTone,
 } from "@/components/group-settings";
 
 /**
- * Everything a Member changes rarely: the Group's details, its Categories,
- * its Members, exporting it as CSV, and deleting it. Reached from the Group page.
+ * Everything a Member changes rarely: the Group's details, its Editing
+ * Mode, its Categories, its Members, exporting it as CSV, and deleting it.
+ * Reached from the Group page.
  */
 export function GroupSettingsView({
   group,
@@ -25,7 +27,7 @@ export function GroupSettingsView({
   afterDeleteHref,
   manage,
   categories,
-  isGroupCreator,
+  visitor,
 }: {
   group: GroupSnapshot;
   /** The Group page, for the back link. */
@@ -34,8 +36,8 @@ export function GroupSettingsView({
   afterDeleteHref: string;
   manage: GroupManagement;
   categories: CategoryManagement;
-  /** Whether the visitor is the Group Creator, the only one who may delete it. */
-  isGroupCreator: boolean;
+  /** Who is looking: only the Group Creator may change the Editing Mode or delete the Group. */
+  visitor: Visitor;
 }) {
   const router = useRouter();
   const [news, setNewsState] = useState<{ text: string; tone?: NewsTone }>({ text: "" });
@@ -68,6 +70,15 @@ export function GroupSettingsView({
         onSaved={() => setNews("Group details saved.")}
       />
 
+      <EditingModeSection
+        // Starts again from the saved Editing Mode whenever it changes.
+        key={group.editingMode}
+        group={group}
+        block={editingModeBlock(group, visitor)}
+        onSave={manage.setEditingMode}
+        onSaved={() => setNews("Editing Mode saved.")}
+      />
+
       <CategoriesSection group={group} categories={categories} onNews={setNews} />
 
       <MembersSection
@@ -82,7 +93,7 @@ export function GroupSettingsView({
 
       <DeleteGroupSection
         group={group}
-        block={groupDeletionBlock(group, { isCreator: isGroupCreator })}
+        block={groupDeletionBlock(group, { isCreator: isGroupCreator(group, visitor) })}
         onDelete={manage.deleteGroup}
         onDeleted={() => router.replace(afterDeleteHref)}
       />

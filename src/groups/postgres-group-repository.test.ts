@@ -144,6 +144,29 @@ describe.skipIf(!url)("Postgres GroupRepository", () => {
     expect(await theosRepo.getGroup(group.id)).not.toBeNull();
   });
 
+  it("lets only the Group Creator change the Editing Mode, which every Member sees", async () => {
+    const maya = await aUser();
+    const theo = await aUser();
+    const group = await createPostgresGroupRepository(db, maya).createGroup({
+      name: "Shared",
+      description: "",
+      currency: "USD",
+    });
+    await db.insert(members).values({
+      id: "mem_theo_editing",
+      groupId: group.id,
+      name: theo.name,
+      userId: theo.id,
+      avatarColor: "#10B981",
+      position: 1,
+    });
+    const theosRepo = createPostgresGroupRepository(db, theo);
+
+    expect(await theosRepo.setEditingMode(group.id, "own-records-only")).toBeNull();
+    expect(await createPostgresGroupRepository(db, maya).setEditingMode(group.id, "own-records-only")).not.toBeNull();
+    expect((await theosRepo.getGroup(group.id))?.editingMode).toBe("own-records-only");
+  });
+
   it("takes the Group away from a Linked Member once they are a Former Member", async () => {
     const maya = await aUser();
     const theo = await aUser();

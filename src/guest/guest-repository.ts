@@ -149,6 +149,7 @@ export function createSessionStorageRepository(
       const group: GroupSnapshot = {
         id: `grp_${newId()}`,
         ...input,
+        editingMode: "open",
         members: [{ id: `mem_${newId()}`, name: GUEST_MEMBER_NAME, avatarColor: AVATAR_COLORS[0] }],
         customCategories: [],
         expenses: [],
@@ -221,6 +222,10 @@ export function createSessionStorageRepository(
     },
     async updateGroup(id, details) {
       return changeGroup(id, (g) => ({ ...g, ...details }));
+    },
+    // The Guest is the Group Creator of every session Group.
+    async setEditingMode(id, mode) {
+      return changeGroup(id, (g) => ({ ...g, editingMode: mode }));
     },
     // Guests have no Users, so a Member with an email stays a Pending Member.
     async addMember(groupId, { name, email }) {

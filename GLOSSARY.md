@@ -38,8 +38,12 @@ A Member removed from a Group at zero Balance; no longer selectable for new Expe
 _Avoid_: Deleted member, ex-member
 
 **Group Creator**:
-The User who created the Group; the only one allowed to delete it. All other Linked Members have equal editing rights.
+The User who created the Group; the only one allowed to delete it or change its Editing Mode, and in Own Records Only the only one who may edit or delete every Expense and Settlement. A Guest is the Group Creator of every session Group. Otherwise all Linked Members have equal editing rights.
 _Avoid_: Owner, admin
+
+**Editing Mode**:
+Who may edit or delete a Group's Expenses and Settlements: Open (any Member, the default) or Own Records Only (only their Recorder or the Group Creator; one with no Recorder, only the Group Creator). Adding them is never restricted. Every Member can see it; only the Group Creator can change it (ADR 0008).
+_Avoid_: Permissions, lock, edit policy
 
 ### Expenses and splits
 

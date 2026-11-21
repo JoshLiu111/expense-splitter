@@ -64,6 +64,13 @@
       "when": 1795216099879,
       "tag": "0008_recorder",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1795222350850,
+      "tag": "0009_editing_mode",
+      "breakpoints": true
     }
   ]
 }

@@ -15,6 +15,7 @@ import {
   deleteGroup,
   removeMember,
   resendInvitation,
+  setEditingMode,
   setMemberEmail,
   updateGroupDetails,
   type AddMemberResult,
@@ -43,7 +44,9 @@ export async function saveUserExpense(
   if (typeof groupId !== "string" || (expenseId !== null && typeof expenseId !== "string")) {
     return { ok: false, errors: { form: "That request wasn't valid." } };
   }
-  const result = await saveExpense(userGroupRepository(user), groupId, expenseId, fields, todaysRates);
+  const result = await saveExpense(userGroupRepository(user), groupId, expenseId, fields, todaysRates, {
+    userId: user.id,
+  });
   if (result.ok) refresh();
   return result;
 }
@@ -53,7 +56,7 @@ export async function deleteUserExpense(groupId: string, expenseId: string): Pro
   if (typeof groupId !== "string" || typeof expenseId !== "string") {
     return { ok: false, errors: { form: "That request wasn't valid." } };
   }
-  const result = await deleteExpense(userGroupRepository(user), groupId, expenseId);
+  const result = await deleteExpense(userGroupRepository(user), groupId, expenseId, { userId: user.id });
   if (result.ok) refresh();
   return result;
 }
@@ -105,6 +108,14 @@ export async function removeUserMember(groupId: string, memberId: string): Promi
   return result;
 }
 
+export async function setUserEditingMode(groupId: string, mode: unknown): Promise<ManageResult> {
+  const user = await requireUser(`/groups/${groupId}/settings`);
+  if (typeof groupId !== "string") return INVALID;
+  const result = await setEditingMode(userGroupRepository(user), groupId, mode, { userId: user.id });
+  if (result.ok) refresh();
+  return result;
+}
+
 /** The client navigates away on success, so there's nothing to refresh. */
 export async function deleteUserGroup(groupId: string): Promise<ManageResult> {
   const user = await requireUser(`/groups/${groupId}`);
@@ -125,7 +136,7 @@ export async function recordUserSettlement(groupId: string, fields: unknown): Pr
 export async function deleteUserSettlement(groupId: string, settlementId: string): Promise<SettlementResult> {
   const user = await requireUser(`/groups/${groupId}`);
   if (typeof groupId !== "string" || typeof settlementId !== "string") return INVALID_SETTLEMENT;
-  const result = await deleteSettlement(userGroupRepository(user), groupId, settlementId);
+  const result = await deleteSettlement(userGroupRepository(user), groupId, settlementId, { userId: user.id });
   if (result.ok) refresh();
   return result;
 }

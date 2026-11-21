@@ -72,13 +72,13 @@ export function LiveGroupDetail({
       unconfirmed={unconfirmed}
       onSaveExpense={(expenseId, fields) =>
         write(
-          (repo, groupId) => saveExpense(repo, groupId, expenseId, fields, fetchTodaysRates),
+          (repo, groupId) => saveExpense(repo, groupId, expenseId, fields, fetchTodaysRates, props.visitor),
           () => onSaveExpense(expenseId, fields),
         )
       }
       onDeleteExpense={(expenseId) =>
         write(
-          (repo, groupId) => deleteExpense(repo, groupId, expenseId),
+          (repo, groupId) => deleteExpense(repo, groupId, expenseId, props.visitor),
           () => onDeleteExpense(expenseId),
         )
       }
@@ -90,7 +90,7 @@ export function LiveGroupDetail({
           ),
         delete: (settlementId) =>
           write(
-            (repo, groupId) => deleteSettlement(repo, groupId, settlementId),
+            (repo, groupId) => deleteSettlement(repo, groupId, settlementId, props.visitor),
             () => settleUp.delete(settlementId),
           ),
         clearSmallChange: (date) =>

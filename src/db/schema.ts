@@ -89,6 +89,8 @@ export const groups = pgTable("groups", {
   name: text("name").notNull(),
   description: text("description").notNull().default(""),
   currency: text("currency").notNull(),
+  /** "open" or "own-records-only": who may edit or delete records. */
+  editingMode: text("editing_mode").notNull().default("open"),
   /** The Group Creator. */
   creatorUserId: text("creator_user_id").references(() => user.id, {
     onDelete: "set null",

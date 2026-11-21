@@ -6,6 +6,8 @@ import { memoryStorage } from "@/lib/memory-storage";
 import { clearSmallChange, deleteSettlement, recordSettlement } from "@/settlements/settle-up";
 import { applyLocally } from "./apply-locally";
 
+const GUEST = { userId: undefined };
+
 /** A Group with "You" and Chloe, where Chloe owes You `owed` cents. */
 async function flatWithDebt(owed = 1000) {
   const repo = createSessionStorageRepository(memoryStorage(), () => []);
@@ -54,6 +56,7 @@ describe("applyLocally", () => {
           splitValues: {},
         },
         noRates,
+        GUEST,
       ),
     );
 
@@ -98,6 +101,7 @@ describe("applyLocally", () => {
           splitValues: {},
         },
         noRates,
+        GUEST,
       ),
     );
 
@@ -135,7 +139,7 @@ describe("applyLocally", () => {
 
       const { group: after } = await applyLocally(
         group,
-        (repo, groupId) => saveExpense(repo, groupId, null, groceries, noRates),
+        (repo, groupId) => saveExpense(repo, groupId, null, groceries, noRates, GUEST),
         { recorderId: you.id },
       );
 
@@ -148,7 +152,7 @@ describe("applyLocally", () => {
       const { group: after } = await applyLocally(
         group,
         (repo, groupId) =>
-          saveExpense(repo, groupId, group.expenses[0].id, { ...groceries, description: "Pizza" }, noRates),
+          saveExpense(repo, groupId, group.expenses[0].id, { ...groceries, description: "Pizza" }, noRates, GUEST),
         { recorderId: you.id },
       );
 
@@ -173,7 +177,7 @@ describe("applyLocally", () => {
     const { group } = await flatWithDebt();
 
     const { group: after } = await applyLocally(group, (repo, groupId) =>
-      deleteExpense(repo, groupId, group.expenses[0].id),
+      deleteExpense(repo, groupId, group.expenses[0].id, GUEST),
     );
 
     expect(balances(after)).toEqual([0, 0]);
@@ -188,7 +192,7 @@ describe("applyLocally", () => {
     expect(balances(recorded.group)).toEqual([600, -600]);
 
     const deleted = await applyLocally(recorded.group, (repo, groupId) =>
-      deleteSettlement(repo, groupId, recorded.group.settlements[0].id),
+      deleteSettlement(repo, groupId, recorded.group.settlements[0].id, GUEST),
     );
     expect(balances(deleted.group)).toEqual([1000, -1000]);
   });

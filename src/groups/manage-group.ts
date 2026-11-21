@@ -1,5 +1,8 @@
 import {
+  editingModeBlock,
   groupDeletionBlock,
+  isEditingMode,
+  isGroupCreator,
   isPendingMember,
   memberEmailBlock,
   memberRemovalBlock,
@@ -8,7 +11,7 @@ import {
   parseNewMember,
   type NewGroupFields,
 } from "@/domain";
-import type { Member } from "@/domain";
+import type { EditingMode, Member, Visitor } from "@/domain";
 import type { GroupRepository } from "./group-repository";
 import type { MemberNotifier } from "./member-notifier";
 
@@ -21,19 +24,6 @@ export type ManageResult =
 export interface NewMemberFields {
   name: string;
   email: string;
-}
-
-/** Who is acting: a signed-in User, or a Guest (`userId` undefined). */
-export interface Visitor {
-  userId: string | undefined;
-}
-
-/**
- * The Group Creator is the User who created the Group. A Guest's session
- * Groups have no Group Creator User, so the Guest counts as theirs.
- */
-export function isGroupCreator(group: { creatorUserId?: string }, visitor: Visitor): boolean {
-  return group.creatorUserId === visitor.userId;
 }
 
 const GROUP_GONE = "This Group is no longer available.";
@@ -224,6 +214,24 @@ export async function deleteGroup(
   return (await repo.deleteGroup(groupId)) ? { ok: true } : formError(GROUP_GONE);
 }
 
+/**
+ * Sets who may edit or delete the Group's Expenses and Settlements, for its
+ * Group Creator only.
+ */
+export async function setEditingMode(
+  repo: GroupRepository,
+  groupId: string,
+  mode: unknown,
+  visitor: Visitor,
+): Promise<ManageResult> {
+  const group = await repo.getGroup(groupId);
+  if (!group) return formError(GROUP_GONE);
+  const block = editingModeBlock(group, visitor);
+  if (block) return formError(block);
+  if (!isEditingMode(mode)) return formError("Choose an Editing Mode.");
+  return (await repo.setEditingMode(groupId, mode)) ? { ok: true } : formError(GROUP_GONE);
+}
+
 /** The Group management operations a Group page can call, bound to one Group. */
 export interface GroupManagement {
   updateDetails(fields: NewGroupFields): Promise<ManageResult>;
@@ -233,5 +241,6 @@ export interface GroupManagement {
   /** Absent for Guests, whose Pending Members are never sent an Invitation. */
   resendInvitation?: (memberId: string) => Promise<ManageResult>;
   removeMember(memberId: string): Promise<ManageResult>;
+  setEditingMode(mode: EditingMode): Promise<ManageResult>;
   deleteGroup(): Promise<ManageResult>;
 }

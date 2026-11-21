@@ -247,6 +247,17 @@ export function groupRepositoryContract<U extends { id: string; email: string }>
     expect(await repo.getGroup(group.id)).toEqual(edited);
   });
 
+  it("starts a Group Open and lets its Group Creator set its Editing Mode", async () => {
+    const repo = await makeRepository();
+    const group = await repo.createGroup({ name: "Flat", description: "", currency: "USD" });
+    expect(group.editingMode).toBe("open");
+
+    const strict = await repo.setEditingMode(group.id, "own-records-only");
+    expect(strict).toEqual({ ...group, editingMode: "own-records-only" });
+    expect(await repo.getGroup(group.id)).toEqual(strict);
+    expect(await repo.setEditingMode("grp_missing", "open")).toBeNull();
+  });
+
   it("adds Name-only Members, each keeping its own avatar colour", async () => {
     const repo = await makeRepository();
     const group = await repo.createGroup({ name: "Flat", description: "", currency: "USD" });

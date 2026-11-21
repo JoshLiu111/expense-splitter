@@ -1,5 +1,7 @@
 import {
   parseNewExpense,
+  recordChangeBlock,
+  type Visitor,
   type NewExpenseErrors,
   type NewExpenseFields,
   type RateSnapshot,
@@ -55,6 +57,7 @@ export function expenseFields(input: unknown): NewExpenseFields {
   };
 }
 
+const GROUP_GONE = "This Group is no longer available.";
 const EXPENSE_GONE = "This Expense no longer exists. It may have been deleted.";
 
 const formError = (form: string): ExpenseResult => ({ ok: false, errors: { form } });
@@ -65,8 +68,9 @@ export type TodaysRates = () => Promise<RateSnapshot | null>;
 /**
  * Validates the form against the Group as it is now (so the Payer and
  * participants must still be its current Members, or already on the
- * Expense being edited), then records it. A foreign-currency Expense gets
- * Today's Rate from `rates` as its Locked Rate, unless it keeps one.
+ * Expense being edited, and the Editing Mode must let `visitor` edit it),
+ * then records it. A foreign-currency Expense gets Today's Rate from
+ * `rates` as its Locked Rate, unless it keeps one.
  */
 export async function saveExpense(
   repo: GroupRepository,
@@ -74,12 +78,15 @@ export async function saveExpense(
   expenseId: string | null,
   input: NewExpenseFields,
   rates: TodaysRates,
+  visitor: Visitor,
 ): Promise<ExpenseResult> {
   const group = await repo.getGroup(groupId);
-  if (!group) return formError("This Group is no longer available.");
+  if (!group) return formError(GROUP_GONE);
   // Former Members already on an edited Expense stay selectable for it.
   const existing = expenseId ? group.expenses.find((e) => e.id === expenseId) : undefined;
   if (expenseId && !existing) return formError(EXPENSE_GONE);
+  const block = existing && recordChangeBlock(group, visitor, "edit-expense", existing);
+  if (block) return formError(block);
   const fields = expenseFields(input);
   const foreign = fields.currency !== group.currency;
   const parsed = parseNewExpense(fields, group, existing, foreign ? await rates() : null);
@@ -90,11 +97,19 @@ export async function saveExpense(
   return saved ? { ok: true } : formError(EXPENSE_GONE);
 }
 
+/** Deletes an Expense, if the Editing Mode lets `visitor` delete it. */
 export async function deleteExpense(
   repo: GroupRepository,
   groupId: string,
   expenseId: string,
+  visitor: Visitor,
 ): Promise<ExpenseResult> {
+  const group = await repo.getGroup(groupId);
+  if (!group) return formError(GROUP_GONE);
+  const existing = group.expenses.find((e) => e.id === expenseId);
+  if (!existing) return formError(EXPENSE_GONE);
+  const block = recordChangeBlock(group, visitor, "delete-expense", existing);
+  if (block) return formError(block);
   return (await repo.deleteExpense(groupId, expenseId))
     ? { ok: true }
     : formError(EXPENSE_GONE);

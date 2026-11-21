@@ -122,6 +122,7 @@ export function ExpenseForm({
   onCancel,
   onSaved,
   deleteAction,
+  editBlock,
 }: {
   group: GroupSnapshot;
   /** The Expense being edited, or `null` to add one. */
@@ -133,6 +134,8 @@ export function ExpenseForm({
   onSaved: () => void;
   /** Deleting the Expense being edited, set apart at the end of the actions. */
   deleteAction?: ReactNode;
+  /** Why the visitor can't edit the Expense, or `null`: it is then shown read-only, with only Close. */
+  editBlock?: string | null;
 }) {
   const [fields, setFields] = useState(() => initialFields(group, expense, currentMemberId));
   // Former Members appear only on Expenses they were already part of.
@@ -226,343 +229,358 @@ export function ExpenseForm({
   return (
     <form onSubmit={submit} noValidate className="flex flex-col gap-5">
       <ErrorSummary errors={summaryErrors} fieldIds={ids} />
-
-      <div className="grid grid-cols-[1fr_auto] items-start gap-3">
-      <Field id={ids.amount} label={`Amount (${currency})`} error={shownErrors.amount}>
-        {(describedBy, className) => (
-          <input
-            id={ids.amount}
-            name="amount"
-            inputMode="decimal"
-            autoComplete="off"
-            autoFocus
-            value={fields.amount}
-            onChange={(e) => set("amount", e.target.value)}
-            aria-invalid={shownErrors.amount ? true : undefined}
-            aria-describedby={describedBy}
-            className={cn(className, "amount text-xl font-semibold")}
-            placeholder={currency === "JPY" ? "0" : "0.00"}
-          />
-        )}
-      </Field>
-      <Field id={ids.currency} label="Currency" error={errors?.currency}>
-        {(describedBy, className) => (
-          <select
-            id={ids.currency}
-            name="currency"
-            value={fields.currency}
-            onChange={(e) => changeCurrency(e.target.value)}
-            aria-invalid={errors?.currency ? true : undefined}
-            aria-describedby={describedBy}
-            className={cn(className, "min-h-11 text-xl font-semibold")}
-          >
-            {CURRENCY_CODES.map((code) => (
-              <option key={code} value={code}>
-                {code}
-              </option>
-            ))}
-          </select>
-        )}
-      </Field>
-      </div>
-
-      {foreign && (
-        <ExchangeRateField
-          id={ids.rate}
-          currency={currency}
-          groupCurrency={group.currency}
-          typed={fields.rate}
-          onChange={(rate) => set("rate", rate)}
-          lock={lock}
-          rates={rates}
-          relocking={relocking}
-          error={rateError}
-        />
-      )}
-
-      <Field id={ids.description} label="Description" error={errors?.description}>
-        {(describedBy, className) => (
-          <input
-            id={ids.description}
-            name="description"
-            maxLength={MAX_EXPENSE_DESCRIPTION_LENGTH}
-            value={fields.description}
-            onChange={(e) => set("description", e.target.value)}
-            aria-invalid={errors?.description ? true : undefined}
-            aria-describedby={describedBy}
-            className={className}
-          />
-        )}
-      </Field>
-
-      <fieldset
-        id={ids.payerId}
-        tabIndex={-1}
-        className="flex flex-col gap-2 outline-none"
-        aria-describedby={errors?.payerId ? `${ids.payerId}-error` : undefined}
-      >
-        <legend className="mb-2 text-sm font-semibold">Paid by</legend>
-        <div className="flex flex-wrap gap-2">
-          {pickable.map((member) => (
-            <label key={member.id} className={chipClass}>
-              <input
-                type="radio"
-                name="payerId"
-                value={member.id}
-                checked={fields.payerId === member.id}
-                onChange={() => set("payerId", member.id)}
-                className="sr-only"
-              />
-              <MemberAvatar member={member} size="sm" />
-              {member.name}
-              {member.id === currentMemberId && member.name !== GUEST_MEMBER_NAME && " (you)"}
-            </label>
-          ))}
-        </div>
-        {errors?.payerId && (
-          <p id={`${ids.payerId}-error`} className="text-sm font-semibold text-error">
-            {errors.payerId}
-          </p>
-        )}
-      </fieldset>
-
-      <fieldset
-        id={ids.participants}
-        tabIndex={-1}
-        className="flex flex-col gap-2 outline-none"
-        aria-describedby={[`${ids.participants}-count`, errors?.participants && `${ids.participants}-error`]
-          .filter(Boolean)
-          .join(" ")}
-      >
-        <legend className="mb-2 text-sm font-semibold">Split between</legend>
-        <div className="flex flex-wrap gap-2">
-          {pickable.map((member) => (
-            <label key={member.id} className={chipClass}>
-              <input
-                type="checkbox"
-                name="participantIds"
-                value={member.id}
-                checked={fields.participantIds.includes(member.id)}
-                onChange={(e) =>
-                  set(
-                    "participantIds",
-                    e.target.checked
-                      ? [...fields.participantIds, member.id]
-                      : fields.participantIds.filter((id) => id !== member.id),
-                  )
-                }
-                className="sr-only"
-              />
-              <MemberAvatar member={member} size="sm" />
-              {member.name}
-            </label>
-          ))}
-        </div>
-        <p id={`${ids.participants}-count`} aria-live="polite" className="text-sm text-text-secondary">
-          {selectedCount} of {pickable.length} members selected
+      {editBlock && (
+        <p role="note" className="rounded-md bg-bg-secondary px-4 py-3 text-sm">
+          {editBlock}
         </p>
-        {errors?.participants && (
-          <p id={`${ids.participants}-error`} className="text-sm font-semibold text-error">
-            {errors.participants}
-          </p>
-        )}
-      </fieldset>
-
-      <fieldset
-        id={ids.splitType}
-        tabIndex={-1}
-        className="flex flex-col gap-2 outline-none"
-        aria-describedby={errors?.splitType ? `${ids.splitType}-error` : undefined}
-      >
-        <legend className="mb-2 text-sm font-semibold">Split type</legend>
-        <div className="flex flex-wrap gap-2">
-          {SPLIT_TYPE_OPTIONS.map((option) => (
-            <label key={option.value} className={cn(chipClass, "pl-4")}>
-              <input
-                type="radio"
-                name="splitType"
-                value={option.value}
-                checked={splitType === option.value}
-                onChange={() => set("splitType", option.value)}
-                className="sr-only"
-              />
-              {option.label}
-            </label>
-          ))}
-        </div>
-        {errors?.splitType && (
-          <p id={`${ids.splitType}-error`} className="text-sm font-semibold text-error">
-            {errors.splitType}
-          </p>
-        )}
-      </fieldset>
-
-      {splitType !== "equal" && (
-        <fieldset
-          id={ids.split}
-          tabIndex={-1}
-          className="flex flex-col gap-3 outline-none"
-          aria-describedby={splitError ? `${ids.split}-error` : undefined}
-        >
-          <legend className="mb-2 text-sm font-semibold">{SPLIT_VALUE_LEGENDS[splitType]}</legend>
-          <div className="grid gap-3 sm:grid-cols-2">
-            {participants.map((member) => {
-              const id = `${ids.split}-${member.id}`;
-              const error = valueErrors?.[member.id];
-              return (
-                <Field
-                  key={member.id}
-                  id={id}
-                  label={`${member.name} (${splitType === "exact" ? currency : splitType === "percentage" ? "%" : "shares"})`}
-                  error={error}
-                >
-                  {(describedBy, className) => (
-                    <input
-                      id={id}
-                      inputMode="decimal"
-                      autoComplete="off"
-                      value={values[member.id] ?? ""}
-                      onChange={(e) => setValue(member.id, e.target.value)}
-                      aria-invalid={error ? true : undefined}
-                      aria-describedby={describedBy}
-                      className={cn(className, "amount")}
-                      placeholder="0"
-                    />
-                  )}
-                </Field>
-              );
-            })}
-          </div>
-          {splitError && (
-            <p id={`${ids.split}-error`} className="text-sm font-semibold text-error">
-              {splitError}
-            </p>
-          )}
-        </fieldset>
       )}
-
-      {/* Not a live region: it changes on every keystroke. */}
-      <div
-        data-testid="split-preview"
-        className="rounded-md bg-bg-secondary px-4 py-3 text-sm"
-      >
-        {split?.ok && amount.ok && splitType !== "equal" ? (
-          <ul>
-            {split.shares.map((share) => (
-              <li key={share.memberId}>
-                {nameOf(share.memberId)}:{" "}
-                {share.amount === 0 ? (
-                  <span className="text-text-secondary">not charged</span>
-                ) : (
-                  <span className="amount font-semibold">
-                    {formatMoney(share.amount, currency)}
-                  </span>
-                )}
-              </li>
-            ))}
-          </ul>
-        ) : split?.ok && amount.ok ? (
-          <>
-            <p className="amount font-semibold">
-              {describeEqualSplit(amount.amount, currency, split.shares)}
-            </p>
-            {new Set(split.shares.map((s) => s.amount)).size > 1 && (
-              <ul className="mt-1 text-text-secondary">
-                {split.shares.map((share) => (
-                  <li key={share.memberId}>
-                    {nameOf(share.memberId)}:{" "}
-                    <span className="amount">{formatMoney(share.amount, currency)}</span>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </>
-        ) : (
-          <p className="text-text-secondary">
-            {split && !split.ok ? split.error : "Enter an amount to see each Share."}
-          </p>
-        )}
-        {converted && amount.ok && (
-          <p className="amount mt-1 font-semibold" data-testid="converted-preview">
-            {formatMoney(amount.amount, currency)} ≈ {formatMoney(converted.groupAmount, group.currency)}
-          </p>
-        )}
-      </div>
-
-      <div className="grid gap-5 sm:grid-cols-2">
-        <Field id={ids.date} label="Date" error={errors?.date}>
+      {/* Shown as it is, but nothing can be changed, when the visitor can't edit it. */}
+      <fieldset disabled={Boolean(editBlock)} className="contents">
+        <div className="grid grid-cols-[1fr_auto] items-start gap-3">
+        <Field id={ids.amount} label={`Amount (${currency})`} error={shownErrors.amount}>
           {(describedBy, className) => (
             <input
-              id={ids.date}
-              name="date"
-              type="date"
-              value={fields.date}
-              onChange={(e) => set("date", e.target.value)}
-              aria-invalid={errors?.date ? true : undefined}
+              id={ids.amount}
+              name="amount"
+              inputMode="decimal"
+              autoComplete="off"
+              autoFocus
+              value={fields.amount}
+              onChange={(e) => set("amount", e.target.value)}
+              aria-invalid={shownErrors.amount ? true : undefined}
               aria-describedby={describedBy}
-              className={cn(className, "min-h-11")}
+              className={cn(className, "amount text-xl font-semibold")}
+              placeholder={currency === "JPY" ? "0" : "0.00"}
             />
           )}
         </Field>
-        <Field id={ids.category} label="Category" error={errors?.category}>
+        <Field id={ids.currency} label="Currency" error={errors?.currency}>
           {(describedBy, className) => (
             <select
-              id={ids.category}
-              name="category"
-              value={fields.category}
-              onChange={(e) => set("category", e.target.value)}
-              aria-invalid={errors?.category ? true : undefined}
+              id={ids.currency}
+              name="currency"
+              value={fields.currency}
+              onChange={(e) => changeCurrency(e.target.value)}
+              aria-invalid={errors?.currency ? true : undefined}
               aria-describedby={describedBy}
-              className={cn(className, "min-h-11")}
+              className={cn(className, "min-h-11 text-xl font-semibold")}
             >
-              {categoryOptions(group)
-                .filter((o) => !o.custom)
-                .map((o) => (
-                  <option key={o.id} value={o.id}>
-                    {o.name}
-                  </option>
-                ))}
-              {(group.customCategories ?? []).length > 0 && (
-                <optgroup label="This Group's Categories">
-                  {categoryOptions(group)
-                    .filter((o) => o.custom)
-                    .map((o) => (
-                      <option key={o.id} value={o.id}>
-                        {o.name}
-                      </option>
-                    ))}
-                </optgroup>
-              )}
+              {CURRENCY_CODES.map((code) => (
+                <option key={code} value={code}>
+                  {code}
+                </option>
+              ))}
             </select>
           )}
         </Field>
-      </div>
+        </div>
 
-      <Field id={ids.notes} label="Notes (optional)" error={errors?.notes}>
-        {(describedBy, className) => (
-          <textarea
-            id={ids.notes}
-            name="notes"
-            rows={2}
-            maxLength={MAX_EXPENSE_NOTES_LENGTH}
-            value={fields.notes}
-            onChange={(e) => set("notes", e.target.value)}
-            aria-invalid={errors?.notes ? true : undefined}
-            aria-describedby={describedBy}
-            className={className}
+        {foreign && (
+          <ExchangeRateField
+            id={ids.rate}
+            currency={currency}
+            groupCurrency={group.currency}
+            typed={fields.rate}
+            onChange={(rate) => set("rate", rate)}
+            lock={lock}
+            rates={rates}
+            relocking={relocking}
+            error={rateError}
           />
         )}
-      </Field>
 
-      <div className="flex flex-wrap gap-3">
-        <Button type="submit" disabled={pending}>
-          {pending ? "Saving…" : expense ? "Save changes" : "Add Expense"}
-        </Button>
-        <Button type="button" variant="outline" onClick={onCancel}>
-          Cancel
-        </Button>
-        {deleteAction && <div className="-mr-3 ml-auto">{deleteAction}</div>}
-      </div>
+        <Field id={ids.description} label="Description" error={errors?.description}>
+          {(describedBy, className) => (
+            <input
+              id={ids.description}
+              name="description"
+              maxLength={MAX_EXPENSE_DESCRIPTION_LENGTH}
+              value={fields.description}
+              onChange={(e) => set("description", e.target.value)}
+              aria-invalid={errors?.description ? true : undefined}
+              aria-describedby={describedBy}
+              className={className}
+            />
+          )}
+        </Field>
+
+        <fieldset
+          id={ids.payerId}
+          tabIndex={-1}
+          className="flex flex-col gap-2 outline-none"
+          aria-describedby={errors?.payerId ? `${ids.payerId}-error` : undefined}
+        >
+          <legend className="mb-2 text-sm font-semibold">Paid by</legend>
+          <div className="flex flex-wrap gap-2">
+            {pickable.map((member) => (
+              <label key={member.id} className={chipClass}>
+                <input
+                  type="radio"
+                  name="payerId"
+                  value={member.id}
+                  checked={fields.payerId === member.id}
+                  onChange={() => set("payerId", member.id)}
+                  className="sr-only"
+                />
+                <MemberAvatar member={member} size="sm" />
+                {member.name}
+                {member.id === currentMemberId && member.name !== GUEST_MEMBER_NAME && " (you)"}
+              </label>
+            ))}
+          </div>
+          {errors?.payerId && (
+            <p id={`${ids.payerId}-error`} className="text-sm font-semibold text-error">
+              {errors.payerId}
+            </p>
+          )}
+        </fieldset>
+
+        <fieldset
+          id={ids.participants}
+          tabIndex={-1}
+          className="flex flex-col gap-2 outline-none"
+          aria-describedby={[`${ids.participants}-count`, errors?.participants && `${ids.participants}-error`]
+            .filter(Boolean)
+            .join(" ")}
+        >
+          <legend className="mb-2 text-sm font-semibold">Split between</legend>
+          <div className="flex flex-wrap gap-2">
+            {pickable.map((member) => (
+              <label key={member.id} className={chipClass}>
+                <input
+                  type="checkbox"
+                  name="participantIds"
+                  value={member.id}
+                  checked={fields.participantIds.includes(member.id)}
+                  onChange={(e) =>
+                    set(
+                      "participantIds",
+                      e.target.checked
+                        ? [...fields.participantIds, member.id]
+                        : fields.participantIds.filter((id) => id !== member.id),
+                    )
+                  }
+                  className="sr-only"
+                />
+                <MemberAvatar member={member} size="sm" />
+                {member.name}
+              </label>
+            ))}
+          </div>
+          <p id={`${ids.participants}-count`} aria-live="polite" className="text-sm text-text-secondary">
+            {selectedCount} of {pickable.length} members selected
+          </p>
+          {errors?.participants && (
+            <p id={`${ids.participants}-error`} className="text-sm font-semibold text-error">
+              {errors.participants}
+            </p>
+          )}
+        </fieldset>
+
+        <fieldset
+          id={ids.splitType}
+          tabIndex={-1}
+          className="flex flex-col gap-2 outline-none"
+          aria-describedby={errors?.splitType ? `${ids.splitType}-error` : undefined}
+        >
+          <legend className="mb-2 text-sm font-semibold">Split type</legend>
+          <div className="flex flex-wrap gap-2">
+            {SPLIT_TYPE_OPTIONS.map((option) => (
+              <label key={option.value} className={cn(chipClass, "pl-4")}>
+                <input
+                  type="radio"
+                  name="splitType"
+                  value={option.value}
+                  checked={splitType === option.value}
+                  onChange={() => set("splitType", option.value)}
+                  className="sr-only"
+                />
+                {option.label}
+              </label>
+            ))}
+          </div>
+          {errors?.splitType && (
+            <p id={`${ids.splitType}-error`} className="text-sm font-semibold text-error">
+              {errors.splitType}
+            </p>
+          )}
+        </fieldset>
+
+        {splitType !== "equal" && (
+          <fieldset
+            id={ids.split}
+            tabIndex={-1}
+            className="flex flex-col gap-3 outline-none"
+            aria-describedby={splitError ? `${ids.split}-error` : undefined}
+          >
+            <legend className="mb-2 text-sm font-semibold">{SPLIT_VALUE_LEGENDS[splitType]}</legend>
+            <div className="grid gap-3 sm:grid-cols-2">
+              {participants.map((member) => {
+                const id = `${ids.split}-${member.id}`;
+                const error = valueErrors?.[member.id];
+                return (
+                  <Field
+                    key={member.id}
+                    id={id}
+                    label={`${member.name} (${splitType === "exact" ? currency : splitType === "percentage" ? "%" : "shares"})`}
+                    error={error}
+                  >
+                    {(describedBy, className) => (
+                      <input
+                        id={id}
+                        inputMode="decimal"
+                        autoComplete="off"
+                        value={values[member.id] ?? ""}
+                        onChange={(e) => setValue(member.id, e.target.value)}
+                        aria-invalid={error ? true : undefined}
+                        aria-describedby={describedBy}
+                        className={cn(className, "amount")}
+                        placeholder="0"
+                      />
+                    )}
+                  </Field>
+                );
+              })}
+            </div>
+            {splitError && (
+              <p id={`${ids.split}-error`} className="text-sm font-semibold text-error">
+                {splitError}
+              </p>
+            )}
+          </fieldset>
+        )}
+
+        {/* Not a live region: it changes on every keystroke. */}
+        <div
+          data-testid="split-preview"
+          className="rounded-md bg-bg-secondary px-4 py-3 text-sm"
+        >
+          {split?.ok && amount.ok && splitType !== "equal" ? (
+            <ul>
+              {split.shares.map((share) => (
+                <li key={share.memberId}>
+                  {nameOf(share.memberId)}:{" "}
+                  {share.amount === 0 ? (
+                    <span className="text-text-secondary">not charged</span>
+                  ) : (
+                    <span className="amount font-semibold">
+                      {formatMoney(share.amount, currency)}
+                    </span>
+                  )}
+                </li>
+              ))}
+            </ul>
+          ) : split?.ok && amount.ok ? (
+            <>
+              <p className="amount font-semibold">
+                {describeEqualSplit(amount.amount, currency, split.shares)}
+              </p>
+              {new Set(split.shares.map((s) => s.amount)).size > 1 && (
+                <ul className="mt-1 text-text-secondary">
+                  {split.shares.map((share) => (
+                    <li key={share.memberId}>
+                      {nameOf(share.memberId)}:{" "}
+                      <span className="amount">{formatMoney(share.amount, currency)}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </>
+          ) : (
+            <p className="text-text-secondary">
+              {split && !split.ok ? split.error : "Enter an amount to see each Share."}
+            </p>
+          )}
+          {converted && amount.ok && (
+            <p className="amount mt-1 font-semibold" data-testid="converted-preview">
+              {formatMoney(amount.amount, currency)} ≈ {formatMoney(converted.groupAmount, group.currency)}
+            </p>
+          )}
+        </div>
+
+        <div className="grid gap-5 sm:grid-cols-2">
+          <Field id={ids.date} label="Date" error={errors?.date}>
+            {(describedBy, className) => (
+              <input
+                id={ids.date}
+                name="date"
+                type="date"
+                value={fields.date}
+                onChange={(e) => set("date", e.target.value)}
+                aria-invalid={errors?.date ? true : undefined}
+                aria-describedby={describedBy}
+                className={cn(className, "min-h-11")}
+              />
+            )}
+          </Field>
+          <Field id={ids.category} label="Category" error={errors?.category}>
+            {(describedBy, className) => (
+              <select
+                id={ids.category}
+                name="category"
+                value={fields.category}
+                onChange={(e) => set("category", e.target.value)}
+                aria-invalid={errors?.category ? true : undefined}
+                aria-describedby={describedBy}
+                className={cn(className, "min-h-11")}
+              >
+                {categoryOptions(group)
+                  .filter((o) => !o.custom)
+                  .map((o) => (
+                    <option key={o.id} value={o.id}>
+                      {o.name}
+                    </option>
+                  ))}
+                {(group.customCategories ?? []).length > 0 && (
+                  <optgroup label="This Group's Categories">
+                    {categoryOptions(group)
+                      .filter((o) => o.custom)
+                      .map((o) => (
+                        <option key={o.id} value={o.id}>
+                          {o.name}
+                        </option>
+                      ))}
+                  </optgroup>
+                )}
+              </select>
+            )}
+          </Field>
+        </div>
+
+        <Field id={ids.notes} label="Notes (optional)" error={errors?.notes}>
+          {(describedBy, className) => (
+            <textarea
+              id={ids.notes}
+              name="notes"
+              rows={2}
+              maxLength={MAX_EXPENSE_NOTES_LENGTH}
+              value={fields.notes}
+              onChange={(e) => set("notes", e.target.value)}
+              aria-invalid={errors?.notes ? true : undefined}
+              aria-describedby={describedBy}
+              className={className}
+            />
+          )}
+        </Field>
+      </fieldset>
+
+      {editBlock ? (
+        <div>
+          <Button type="button" variant="outline" onClick={onCancel}>
+            Close
+          </Button>
+        </div>
+      ) : (
+        <div className="flex flex-wrap gap-3">
+          <Button type="submit" disabled={pending}>
+            {pending ? "Saving…" : expense ? "Save changes" : "Add Expense"}
+          </Button>
+          <Button type="button" variant="outline" onClick={onCancel}>
+            Cancel
+          </Button>
+          {deleteAction && <div className="-mr-3 ml-auto">{deleteAction}</div>}
+        </div>
+      )}
     </form>
   );
 }
