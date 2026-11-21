@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { GROUP_PAGE_SECTIONS, showSection } from "./group-page";
+import { exportCsv, GROUP_PAGE_SECTIONS, showSection } from "./group-page";
 import { linkInEmail } from "./outbox";
 
 function uniqueEmail(): string {
@@ -182,6 +182,8 @@ test("S2: a removed User whose Balance reopens reads the Group until it is settl
   await page.getByTestId(/^balance-/).filter({ hasText: "Theo Brown (Former Member)" }).getByRole("button").click();
   await expect(page.getByRole("dialog", { name: /Theo Brown/ }).getByTestId("member-statement-balance")).toContainText("$5.00");
   await page.getByRole("dialog", { name: /Theo Brown/ }).getByRole("button", { name: "Close" }).click();
+  // He can still export the Group from Insights.
+  expect((await exportCsv(page)).name).toBe("Flat 3B.csv");
   // Group settings send him back to the Group.
   const groupUrl = page.url();
   await page.goto(`${groupUrl}/settings`);
