@@ -123,6 +123,7 @@ function toExpense(e: ExpenseRow, shares: ShareRow[]): Expense {
     createdAt: e.createdAt.toISOString(),
     category: e.category,
     ...(e.notes ? { notes: e.notes } : {}),
+    ...(e.recorderMemberId ? { recorderId: e.recorderMemberId } : {}),
   };
 }
 
@@ -134,6 +135,7 @@ function toSettlement(s: SettlementRow): Settlement {
     amount: s.amount,
     date: s.date,
     createdAt: s.createdAt.toISOString(),
+    ...(s.recorderMemberId ? { recorderId: s.recorderMemberId } : {}),
   };
 }
 
@@ -285,13 +287,23 @@ export function createPostgresGroupRepository(
   /**
    * Records an Activity entry in the same transaction as its change, under
    * the User's Linked Member in that Group (one `canChange` already found).
+   * A caller that has already looked that Member up passes it as `actorMemberId`.
    */
-  async function record(tx: Tx, groupId: string, change: ActivityChange) {
-    const [actor] = await tx
+  async function record(tx: Tx, groupId: string, change: ActivityChange, actorMemberId?: string) {
+    actorMemberId ??= await linkedMemberId(tx, groupId);
+    await tx.insert(activity).values({ id: `act_${newId()}`, groupId, actorMemberId, change });
+  }
+
+  /**
+   * The User's Linked Member in a Group `canChange` already found: the actor
+   * of their Activity entries and the Recorder of what they record.
+   */
+  async function linkedMemberId(tx: Tx, groupId: string): Promise<string> {
+    const [me] = await tx
       .select({ id: members.id })
       .from(members)
       .where(and(eq(members.groupId, groupId), eq(members.userId, currentUser.id)));
-    await tx.insert(activity).values({ id: `act_${newId()}`, groupId, actorMemberId: actor.id, change });
+    return me.id;
   }
 
   async function insertShares(tx: Tx, expenseId: string, expense: NewExpense) {
@@ -351,10 +363,11 @@ export function createPostgresGroupRepository(
       if (!(await canChange(groupId))) return null;
       const expenseId = `exp_${newId()}`;
       return db.transaction(async (tx) => {
-        await tx.insert(expenses).values({ id: expenseId, groupId, ...expenseColumns(input) });
+        const myMemberId = await linkedMemberId(tx, groupId);
+        await tx.insert(expenses).values({ id: expenseId, groupId, ...expenseColumns(input), recorderMemberId: myMemberId });
         await insertShares(tx, expenseId, input);
         const expense = (await lockExpense(tx, groupId, expenseId))!;
-        await record(tx, groupId, { kind: "expense-added", expense });
+        await record(tx, groupId, { kind: "expense-added", expense }, myMemberId);
         return expense;
       });
     },
@@ -390,6 +403,7 @@ export function createPostgresGroupRepository(
         .where(and(eq(members.groupId, groupId), inArray(members.id, [input.fromId, input.toId])));
       if (found.length !== new Set([input.fromId, input.toId]).size) return null;
       return db.transaction(async (tx) => {
+        const myMemberId = await linkedMemberId(tx, groupId);
         const [row] = await tx
           .insert(settlements)
           .values({
@@ -399,10 +413,11 @@ export function createPostgresGroupRepository(
             toMemberId: input.toId,
             amount: input.amount,
             date: input.date,
+            recorderMemberId: myMemberId,
           })
           .returning();
         const settlement = toSettlement(row);
-        await record(tx, groupId, { kind: "settlement-added", settlement });
+        await record(tx, groupId, { kind: "settlement-added", settlement }, myMemberId);
         return settlement;
       });
     },

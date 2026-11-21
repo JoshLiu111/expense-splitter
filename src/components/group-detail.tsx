@@ -234,6 +234,7 @@ export function GroupDetail({
               onOpenExpense={readOnly ? undefined : open}
               onDeleteSettlement={readOnly ? undefined : removeSettlement}
               unconfirmed={unconfirmed}
+              currentMemberId={currentMemberId}
             />
           )}
         />

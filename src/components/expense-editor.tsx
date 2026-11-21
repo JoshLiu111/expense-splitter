@@ -8,6 +8,7 @@ import type { TodaysRatesState } from "@/rates/use-todays-rates";
 import type { ExpenseResult } from "@/expenses/save-expense";
 import { ConfirmDelete } from "@/components/confirm-delete";
 import { ExpenseForm } from "@/components/expense-form";
+import { RecordedBy } from "@/components/recorded-by";
 import { Button } from "@/components/ui/button";
 import { useMediaQuery } from "@/components/use-media-query";
 
@@ -30,7 +31,8 @@ interface ExpenseEditorProps {
  * Expense entry: an inline panel on wide screens (no modal for a routine
  * action), an accessible bottom sheet on phones. The sheet traps focus and
  * returns it to whatever opened it. An existing Expense can be deleted from
- * here, after confirmation, and its changes viewed in Activity.
+ * here, after confirmation, and its changes viewed in Activity, and says
+ * who recorded it.
  */
 export function ExpenseEditor(props: ExpenseEditorProps) {
   const wide = useMediaQuery("(min-width: 48rem)");
@@ -47,6 +49,14 @@ export function ExpenseEditor(props: ExpenseEditorProps) {
         </Link>
       </Button>
     );
+  const recordedBy = expense && (
+    <RecordedBy
+      group={props.group}
+      recorderId={expense.recorderId}
+      currentMemberId={props.currentMemberId}
+      className="-mt-2 mb-4"
+    />
+  );
   const form = (
     <ExpenseForm
       key={expense?.id ?? "new"}
@@ -84,6 +94,7 @@ export function ExpenseEditor(props: ExpenseEditorProps) {
           </h2>
           {viewChanges("-mr-3")}
         </div>
+        {recordedBy}
         {form}
       </section>
     );
@@ -109,6 +120,7 @@ export function ExpenseEditor(props: ExpenseEditorProps) {
               </Button>
             </Dialog.Close>
           </div>
+          {recordedBy}
           {form}
         </Dialog.Content>
       </Dialog.Portal>

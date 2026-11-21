@@ -9,12 +9,15 @@ import type { GroupRepository } from "./group-repository";
  * returns its result with the Group it leaves. `group` itself is untouched.
  * The signed-in Group page shows that Group while the server makes the same
  * write, so Balances change at once rather than after the round-trip.
+ * `recorderId`, the visitor's Member, is the Recorder of what they record,
+ * as the server will have it.
  */
 export async function applyLocally<Result extends { ok: boolean }>(
   group: GroupSnapshot,
   write: (repo: GroupRepository, groupId: string) => Promise<Result>,
+  { recorderId }: { recorderId?: string } = {},
 ): Promise<{ result: Result; group: GroupSnapshot }> {
-  const repo = createSessionStorageRepository(memoryStorage(), () => [group]);
+  const repo = createSessionStorageRepository(memoryStorage(), () => [group], { recorderId });
   const result = await write(repo, group.id);
   return { result, group: result.ok ? ((await repo.getGroup(group.id)) ?? group) : group };
 }

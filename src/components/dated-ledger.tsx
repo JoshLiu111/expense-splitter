@@ -15,6 +15,7 @@ import {
 import { ConfirmDelete } from "@/components/confirm-delete";
 import { ledgerDays } from "@/components/ledger-days";
 import { MemberAvatar, TransferPair } from "@/components/member-avatar";
+import { RecordedBy, recorderName } from "@/components/recorded-by";
 import { Button } from "@/components/ui/button";
 import { formatCalendarDate } from "@/lib/format";
 
@@ -33,9 +34,12 @@ export function DatedLedger({
   onOpenExpense,
   onDeleteSettlement,
   unconfirmed,
+  currentMemberId,
 }: {
   group: GroupSnapshot;
   timeline: TimelineEntry[];
+  /** The visitor's Member, named "you" as a Recorder. */
+  currentMemberId?: string;
   onOpenExpense?: (expense: Expense) => void;
   onDeleteSettlement?: (settlement: Settlement) => void;
   /** Ids of Expenses and Settlements shown before the server has confirmed them. */
@@ -77,6 +81,7 @@ export function DatedLedger({
                         entry={entry}
                         group={group}
                         payer={memberOf(entry.expense.payerId)}
+                        recorder={recorderName(group, entry.expense.recorderId, currentMemberId)}
                         dateId={dateId}
                         saving={saving}
                         onOpen={!saving && onOpenExpense ? () => onOpenExpense(entry.expense) : undefined}
@@ -84,7 +89,8 @@ export function DatedLedger({
                     ) : (
                       <SettlementRow
                         entry={entry}
-                        currency={group.currency}
+                        group={group}
+                        currentMemberId={currentMemberId}
                         from={memberOf(entry.settlement.fromId)}
                         to={memberOf(entry.settlement.toId)}
                         dateId={dateId}
@@ -121,6 +127,7 @@ function ExpenseRow({
   entry,
   group,
   payer,
+  recorder,
   dateId,
   saving,
   onOpen,
@@ -128,6 +135,8 @@ function ExpenseRow({
   entry: Extract<TimelineEntry, { kind: "expense" }>;
   group: GroupSnapshot;
   payer: Member;
+  /** The Recorder's name, when known. */
+  recorder: string | undefined;
   dateId: string;
   /** Shown before the server has confirmed it. */
   saving: boolean;
@@ -157,6 +166,7 @@ function ExpenseRow({
         </h3>
         <p id={`${id}-details`} className="text-sm break-words text-text-secondary">
           {payer.name} paid in {categoryName(group, expense.category)}
+          {recorder && ` · recorded by ${recorder}`}
           {saving && " · Saving…"}
         </p>
       </div>
@@ -175,12 +185,13 @@ function ExpenseRow({
 
 /**
  * A Settlement can be added or deleted but never edited, so its row opens a
- * dialog stating it, with Delete Settlement behind a confirmation when it can
- * be deleted.
+ * dialog stating it and who recorded it, with Delete Settlement behind a
+ * confirmation when it can be deleted.
  */
 function SettlementRow({
   entry,
-  currency,
+  group,
+  currentMemberId,
   from,
   to,
   dateId,
@@ -188,7 +199,8 @@ function SettlementRow({
   onDelete,
 }: {
   entry: Extract<TimelineEntry, { kind: "settlement" }>;
-  currency: GroupSnapshot["currency"];
+  group: GroupSnapshot;
+  currentMemberId: string | undefined;
   from: Member;
   to: Member;
   dateId: string;
@@ -196,7 +208,8 @@ function SettlementRow({
   saving: boolean;
   onDelete?: () => void;
 }) {
-  const amount = formatMoney(entry.settlement.amount, currency);
+  const amount = formatMoney(entry.settlement.amount, group.currency);
+  const recorder = recorderName(group, entry.settlement.recorderId, currentMemberId);
   const date = formatCalendarDate(entry.date);
   const id = useId();
   const [open, setOpen] = useState(false);
@@ -215,7 +228,7 @@ function SettlementRow({
         <div className="min-w-0 flex-1">
           <h3>
             <Dialog.Trigger
-              aria-describedby={`${id}-amount ${dateId}`}
+              aria-describedby={[recorder && `${id}-recorder`, `${id}-amount`, dateId].filter(Boolean).join(" ")}
               className={`${rowButtonClass} text-text-secondary`}
             >
               <span className="sr-only">Settlement: </span>
@@ -226,6 +239,12 @@ function SettlementRow({
           <p className="text-sm text-text-secondary">
             {/* The button already says "Settlement" to screen readers. */}
             <span aria-hidden>Settlement</span>
+            {recorder && (
+              <>
+                <span aria-hidden> · </span>
+                <span id={`${id}-recorder`}>recorded by {recorder}</span>
+              </>
+            )}
             {saving && " · Saving…"}
           </p>
         </div>
@@ -253,6 +272,12 @@ function SettlementRow({
             {from.name} paid {to.name} <span className="amount font-semibold">{amount}</span> on{" "}
             <time dateTime={entry.date}>{date}</time>.
           </Dialog.Description>
+          <RecordedBy
+            group={group}
+            recorderId={entry.settlement.recorderId}
+            currentMemberId={currentMemberId}
+            className="mt-1"
+          />
           {onDelete && (
             <div className="-mr-3 mt-6 flex justify-end">
               <ConfirmDelete
