@@ -131,6 +131,8 @@ test("S2: a Member sees their own action first, with others' suggestions below i
   const yours = settleUp(page).getByRole("button", { name: "Record: you pay Taylor $45.20" });
   await expect(settleUp(page).getByText("You pay Taylor", { exact: true })).toBeVisible();
   await expect(yours).toHaveText("Record this payment");
+  // You and Taylor shared the Fuel, so your payment needs no reason.
+  await expect(settleUp(page)).not.toContainText("never shared");
   const others = settleUp(page).getByRole("list", { name: "Other Suggested Settlements" });
   await expect(others.getByRole("listitem")).toHaveCount(1);
   await expect(others).toContainText("Sam pays Jo $10.00");

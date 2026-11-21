@@ -6,6 +6,7 @@ import {
   type MinorUnits,
   type Settlement,
 } from "@/domain";
+import { GUEST_MEMBER_NAME } from "@/guest/guest-repository";
 
 const dateFormatter = new Intl.DateTimeFormat("en-US", {
   month: "short",
@@ -25,6 +26,14 @@ export function formatSignedMoney(amount: MinorUnits, currency: CurrencyCode): s
   if (amount > 0) return `+${magnitude}`;
   if (amount < 0) return `−${magnitude}`;
   return magnitude;
+}
+
+/**
+ * The verb that agrees with a Member's name: "pays" for "Sam", but "pay" for
+ * "You", the name a Guest's own Member goes by (and any Member so named).
+ */
+export function verbFor(name: string, thirdPerson: string, base: string): string {
+  return name === GUEST_MEMBER_NAME ? base : thirdPerson;
 }
 
 export function pluralize(count: number, singular: string, plural = `${singular}s`) {
