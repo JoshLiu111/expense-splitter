@@ -10,6 +10,7 @@ import {
   type Ledger,
   type TimelineEntry,
 } from "@/domain";
+import { ExportCsvButton } from "@/components/export-csv-button";
 import { filterChips } from "@/components/filter-chips";
 import { SectionToggle } from "@/components/section-toggle";
 import { ExpenseFilters, SpendingInsights } from "@/components/spending";
@@ -22,7 +23,8 @@ import { pluralize } from "@/lib/format";
  * and not remembered between visits. Expenses carries the filters, behind
  * one Filter button and as removable chips; Insights follows them. Hiding
  * Expenses drops its filters, so Insights is never narrowed by filters out
- * of sight. While filtering, the ledger hides Settlements.
+ * of sight. While filtering, the ledger hides Settlements. Once open,
+ * Insights offers Export CSV, which takes the whole Group, filters or not.
  */
 export function ExpensesAndInsights({
   group,
@@ -178,13 +180,15 @@ export function ExpensesAndInsights({
           <h2 id={`${id}-insights-heading`} className="text-lg font-extrabold">
             Insights
           </h2>
-          <SectionToggle
-            section="Insights"
-            open={insightsOpen}
-            controls={`${id}-insights-panel`}
-            onToggle={() => setInsightsOpen(!insightsOpen)}
-            className="-mr-3"
-          />
+          <div className="-mr-3 flex items-center">
+            {insightsOpen && ledger.timeline.length > 0 && <ExportCsvButton group={group} />}
+            <SectionToggle
+              section="Insights"
+              open={insightsOpen}
+              controls={`${id}-insights-panel`}
+              onToggle={() => setInsightsOpen(!insightsOpen)}
+            />
+          </div>
         </div>
         <div id={`${id}-insights-panel`} hidden={!insightsOpen} className="mt-5">
           {/* Rendered only when open, so the charts load when Insights is first shown. */}

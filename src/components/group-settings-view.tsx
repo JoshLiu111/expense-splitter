@@ -10,7 +10,6 @@ import type { GroupManagement } from "@/groups/manage-group";
 import { CategoriesSection } from "@/components/categories-section";
 import {
   DeleteGroupSection,
-  ExportSection,
   GroupDetailsSection,
   MembersSection,
   type NewsTone,
@@ -80,8 +79,6 @@ export function GroupSettingsView({
         onRemove={manage.removeMember}
         onNews={setNews}
       />
-
-      <ExportSection group={group} />
 
       <DeleteGroupSection
         group={group}

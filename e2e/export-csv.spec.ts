@@ -1,17 +1,19 @@
 import { readFile } from "node:fs/promises";
 import { expect, test, type Page } from "@playwright/test";
+import { showSection } from "./group-page";
 
 /** A visible form field by label (hidden cached pages can share labels). */
 function field(page: Page, label: string) {
   return page.getByLabel(label, { exact: true }).filter({ visible: true });
 }
 
-/** Clicks Export CSV on Group settings and returns the file's name and raw bytes. */
+/** Opens Insights on the Group page, clicks Export CSV, and returns the file's name and raw bytes. */
 async function exportCsv(page: Page) {
-  const exportSection = page.getByRole("region", { name: "Export" });
+  await showSection(page, "Insights");
+  const insights = page.getByRole("region", { name: "Insights", exact: true });
   const [download] = await Promise.all([
     page.waitForEvent("download"),
-    exportSection.getByRole("button", { name: "Export CSV" }).click(),
+    insights.getByRole("button", { name: "Export CSV" }).click(),
   ]);
   return { name: download.suggestedFilename(), bytes: await readFile(await download.path()) };
 }
@@ -19,7 +21,9 @@ async function exportCsv(page: Page) {
 const UTF8_BOM = Buffer.from([0xef, 0xbb, 0xbf]);
 
 test("a Guest exports a Group as a UTF-8 CSV named after it", async ({ page }) => {
-  await page.goto("/guest/groups/grp_japan_2024/settings");
+  await page.goto("/guest/groups/grp_japan_2024");
+  // Collapsed, Insights offers nothing to export yet.
+  await expect(page.getByRole("button", { name: "Export CSV" })).toHaveCount(0);
   const { name, bytes } = await exportCsv(page);
   expect(name).toBe("Trip to Japan.csv");
   // The BOM tells spreadsheet apps the file is UTF-8.
@@ -62,7 +66,6 @@ test("a signed-in User exports their Group, with commas and quotes escaped", asy
   await page.getByRole("button", { name: "Add Expense", exact: true }).click();
   await expect(page.getByText("Expense added.")).toBeVisible();
 
-  await page.getByRole("link", { name: "Group settings" }).click();
   const { name, bytes } = await exportCsv(page);
   expect(name).toBe("Flat 3B.csv");
   const lines = bytes.subarray(3).toString("utf8").split("\r\n");
