@@ -86,7 +86,7 @@ export {
   multiplyRates,
   parseCurrencyChange,
 } from "./change-currency";
-export type { CurrencyChange, CurrencyChangeFields, ParseCurrencyChangeResult } from "./change-currency";
+export type { CurrencyChange, CurrencyChangeField, CurrencyChangeFields, ParseCurrencyChangeResult } from "./change-currency";
 export {
   EDITING_MODE_LABELS,
   EDITING_MODES,

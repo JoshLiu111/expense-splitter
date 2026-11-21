@@ -242,14 +242,13 @@ export function createSessionStorageRepository(
     async updateGroup(id, { name, description }) {
       return changeGroup(id, (g) => ({ ...g, name, description }));
     },
-    // The Guest is the Group Creator of every session Group.
+    // The Guest is the Group Creator of every session Group, so may make both.
+    async setEditingMode(id, mode) {
+      return changeGroup(id, (g) => ({ ...g, editingMode: mode }));
+    },
     async changeGroupCurrency(id, change) {
       if (read().find((g) => g.id === id)?.currency !== change.from) return null;
       return changeGroup(id, (g) => changeGroupCurrency(g, change));
-    },
-    // The Guest is the Group Creator of every session Group.
-    async setEditingMode(id, mode) {
-      return changeGroup(id, (g) => ({ ...g, editingMode: mode }));
     },
     // Guests have no Users, so a Member with an email stays a Pending Member.
     async addMember(groupId, { name, email }) {

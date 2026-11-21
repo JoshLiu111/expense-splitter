@@ -24,9 +24,12 @@ export interface CurrencyChangeFields {
   rate: string;
 }
 
+/** The fields a Group Currency change can fail on, `form` for the change as a whole. */
+export type CurrencyChangeField = "to" | "rate" | "form";
+
 export type ParseCurrencyChangeResult =
   | { ok: true; value: CurrencyChange }
-  | { ok: false; errors: Partial<Record<"to" | "rate" | "form", string>> };
+  | { ok: false; errors: Partial<Record<CurrencyChangeField, string>> };
 
 /** Why the visitor can't change the Group Currency, or `null` if they can: only the Group Creator may, in any Editing Mode. */
 export function currencyChangeBlock(group: GroupSnapshot, visitor: Visitor): string | null {
@@ -55,9 +58,15 @@ export function parseCurrencyChange(fields: CurrencyChangeFields, group: GroupSn
   const rate = parseRate(fields.rate);
   if (!rate.ok) return { ok: false, errors: { rate: rate.error } };
   const change = { from: group.currency, to, rate: rate.rate };
-  const converted = changeGroupCurrency(group, change);
-  if ([...converted.expenses, ...converted.settlements].some((r) => /^0(\.0*)?$/.test(r.lockedRate)))
-    return { ok: false, errors: { rate: "That rate is too small to convert every Expense and Settlement." } };
+  // Every converted Locked Rate must still be one a Member could type.
+  const rates = [...group.expenses, ...group.settlements].map((r) => convertedRate(r, change).lockedRate);
+  if (rates.some((r) => !parseRate(r).ok)) {
+    const tooSmall = rates.some((r) => /^0(\.0*)?$/.test(r));
+    return {
+      ok: false,
+      errors: { rate: `That rate is too ${tooSmall ? "small" : "large"} to convert every Expense and Settlement.` },
+    };
+  }
   return { ok: true, value: change };
 }
 

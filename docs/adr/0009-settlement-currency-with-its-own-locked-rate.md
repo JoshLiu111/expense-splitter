@@ -1,5 +1,7 @@
 # Settlements have their own Settlement Currency and Locked Rate
 
+Amended by [ADR 0010](0010-group-currency-change-rewrites-locked-rates.md): a change of Group Currency converts every Settlement's Locked Rate too.
+
 Supersedes ADR 0003.
 
 A Settlement is recorded in any supported currency, its Settlement Currency (the Group Currency unless the Member picks another), with its own Locked Rate fixed exactly as an Expense's is: Today's Rate when it is recorded, or a rate the Member types (marked manual), and 1 in the Group Currency. Its amount is stored in the Settlement Currency's minor unit, beside the currency, the Locked Rate and whether it was manual. Everything that counts a Settlement (Balances, Debts, Suggested Settlements, Member Statement, My Calendar, the CSV export) converts it to the Group Currency once, with the same round-half-up integer conversion as an Expense's Shares (ADR 0001), and nothing stores the converted amount (ADR 0004). Settlements are never edited, so a Settlement's Locked Rate never changes. Validate Settlement compares the converted amount, so "you can't settle a debt that doesn't exist" still compares like with like; an amount that converts to nothing is refused.

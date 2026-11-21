@@ -13,7 +13,7 @@ import {
   parseNewMember,
   type NewGroupFields,
 } from "@/domain";
-import type { CurrencyChangeFields, EditingMode, GroupDetails, Member, Visitor } from "@/domain";
+import type { CurrencyChangeField, CurrencyChangeFields, EditingMode, GroupDetails, Member, Visitor } from "@/domain";
 import type { GroupRepository } from "./group-repository";
 import type { MemberNotifier } from "./member-notifier";
 
@@ -22,7 +22,7 @@ export type ManageResult =
   | { ok: true }
   | {
       ok: false;
-      errors: Partial<Record<keyof NewGroupFields | keyof NewMemberFields | "to" | "rate" | "form", string>>;
+      errors: Partial<Record<keyof NewGroupFields | keyof NewMemberFields | CurrencyChangeField, string>>;
     };
 
 /** What the Add Member form sends; a blank email adds a Name-only Member. */

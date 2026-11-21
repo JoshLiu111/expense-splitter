@@ -142,7 +142,7 @@ Reducing the Suggested Settlements to as few payments as possible, using only Ba
 _Avoid_: Netting, optimisation
 
 **Activity**:
-The record of each change to a Group's Expenses, Settlements and Members (adding, editing or deleting an Expense; adding or deleting a Settlement; adding a Member, sending one an Invitation or a new one, giving one an email, or removing one; a Pending Member joining when claimed): who made it (a Linked Member, still named if later a Former Member, or the Guest; a joining is the joiner's own), when, and for edits the values before and after. An entry about a Member names them as they were named then. A change that is refused or changes nothing, or an Invitation whose email wasn't sent, records nothing. No one can edit or remove an entry, and it holds no Balances or Suggested Settlements.
+The record of each change to a Group's Expenses, Settlements and Members (adding, editing or deleting an Expense; adding or deleting a Settlement; adding a Member, sending one an Invitation or a new one, giving one an email, or removing one; a Pending Member joining when claimed): who made it (a Linked Member, still named if later a Former Member, or the Guest; a joining is the joiner's own), when, and for edits the values before and after. An entry about a Member names them as they were named then. A change that is refused or changes nothing, or an Invitation whose email wasn't sent, records nothing; nor, yet, does a change of Group Currency, though it changes every Locked Rate. No one can edit or remove an entry, and it holds no Balances or Suggested Settlements.
 _Avoid_: History, change log, audit log, feed
 
 ### Access

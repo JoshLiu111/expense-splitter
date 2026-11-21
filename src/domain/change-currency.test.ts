@@ -252,6 +252,16 @@ describe("parseCurrencyChange", () => {
     });
   });
 
+  it("refuses a rate that would make a Locked Rate too large to type", () => {
+    const big = usdGroup({
+      expenses: [expense({ amount: 1000, currency: "EUR", lockedRate: "50000", shares: [{ memberId: "b", amount: 1000 }] })],
+    });
+    expect(parseCurrencyChange({ from: "USD", to: "JPY", rate: "100000" }, big)).toEqual({
+      ok: false,
+      errors: { rate: "That rate is too large to convert every Expense and Settlement." },
+    });
+  });
+
   it("refuses the Group Currency it already has, or one not supported", () => {
     expect(parseCurrencyChange({ from: "USD", to: "USD", rate: "1" }, withRecord)).toEqual({
       ok: false,
