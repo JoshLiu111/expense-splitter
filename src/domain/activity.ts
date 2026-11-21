@@ -23,7 +23,7 @@ export type ActivityChange =
   | { kind: "member-added"; member: ActivityMember }
   /** An Invitation emailed to a Pending Member; `resent` when an earlier one was too. */
   | { kind: "member-invited"; member: ActivityMember; email: string; resent: boolean }
-  /** A Pending Member claimed: recorded under that Member, the person who joined. */
+  /** A Pending Member claimed: recorded under that Member, as the User who claimed it. */
   | { kind: "member-joined"; member: ActivityMember }
   | { kind: "member-email-set"; member: ActivityMember; email: string }
   | { kind: "member-removed"; member: ActivityMember };

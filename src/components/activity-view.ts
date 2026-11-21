@@ -130,10 +130,7 @@ export function activityItems(entries: readonly ActivityEntry[], group: GroupSna
           ],
           changes: [],
         };
-      // Named as they were then, so a later rename doesn't rewrite the past.
       case "member-joined":
-        // The person who joined is the actor, so the sentence names no one else.
-        return { ...shown, subject: { kind: "member", id: change.member.id }, title: "", details: [], changes: [] };
       case "member-added":
       case "member-invited":
       case "member-email-set":
@@ -141,7 +138,9 @@ export function activityItems(entries: readonly ActivityEntry[], group: GroupSna
         return {
           ...shown,
           subject: { kind: "member", id: change.member.id },
-          title: change.member.name,
+          // Named as they were then, so a later rename doesn't rewrite the
+          // past; whoever joined is the actor, so names no one else.
+          title: change.kind === "member-joined" ? "" : change.member.name,
           details: [],
           changes: [],
         };

@@ -706,16 +706,21 @@ export function groupRepositoryContract<U extends { id: string; email: string }>
       const second = (await repo.issueInvitation(group.id, dev.id))!;
       await repo.recordInvitationSent(group.id, second);
       await repo.recordInvitationSent(group.id, "tok_never_issued");
+      // The first Invitation to a new email is no resend.
+      await repo.setMemberEmail(group.id, dev.id, "dev.shah@nowhere.test");
+      await repo.recordInvitationSent(group.id, (await repo.issueInvitation(group.id, dev.id))!);
 
       expect(unsent).not.toBe(first);
       const named = { id: dev.id, name: "Dev Shah" };
       const activity = await repo.listActivity(group.id);
       expect(activity?.map((a) => a.change)).toEqual([
+        { kind: "member-invited", member: named, email: "dev.shah@nowhere.test", resent: false },
+        { kind: "member-email-set", member: named, email: "dev.shah@nowhere.test" },
         { kind: "member-invited", member: named, email: "dev@nowhere.test", resent: true },
         { kind: "member-invited", member: named, email: "dev@nowhere.test", resent: false },
         { kind: "member-added", member: named },
       ]);
-      expect(activity?.map((a) => a.actorMemberId)).toEqual(Array(3).fill(actorOf(group)));
+      expect(activity?.map((a) => a.actorMemberId)).toEqual(Array(5).fill(actorOf(group)));
     });
 
     it("records nothing for changes refused, and deletes Activity with its Group", async () => {

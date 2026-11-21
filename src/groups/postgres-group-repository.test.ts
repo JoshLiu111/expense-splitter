@@ -390,7 +390,7 @@ describe.skipIf(!url)("Postgres GroupRepository", () => {
     expect(linked).toHaveLength(1);
   });
 
-  it("records a Pending Member claimed as joined, under that Member and the name they were added by", async () => {
+  it("records a Pending Member claimed as joined, under that Member and their User's name", async () => {
     const maya = await aUser();
     const theo = await aUser();
     const mayasRepo = createPostgresGroupRepository(db, maya);
@@ -405,7 +405,7 @@ describe.skipIf(!url)("Postgres GroupRepository", () => {
 
     const theosRepo = createPostgresGroupRepository(db, theo);
     const [joined, ...rest] = (await theosRepo.listActivity(group.id))!;
-    expect(joined).toMatchObject({ actorMemberId: pending.id, change: { kind: "member-joined", member: { id: pending.id, name: "Teddy" } } });
+    expect(joined).toMatchObject({ actorMemberId: pending.id, change: { kind: "member-joined", member: { id: pending.id, name: theo.name } } });
     expect(rest.map((a) => a.change.kind)).toEqual(["member-added"]);
     expect(await mayasRepo.listActivity(elsewhere.id)).toEqual([]);
   });

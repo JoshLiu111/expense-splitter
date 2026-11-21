@@ -132,6 +132,21 @@ export function createSessionStorageRepository(
       ?.expenses.find((e) => e.id === expenseId);
   }
 
+  function findMember(groupId: string, memberId: string): Member | undefined {
+    return read()
+      .find((g) => g.id === groupId)
+      ?.members.find((m) => m.id === memberId);
+  }
+
+  /** Replaces one Member of a Group, recording `activity` with it. */
+  function replaceMember(groupId: string, member: Member, activity: ActivityChange) {
+    changeGroup(
+      groupId,
+      (g) => ({ ...g, members: g.members.map((m) => (m.id === member.id ? member : m)) }),
+      () => activity,
+    );
+  }
+
   function write(state: StoredState) {
     storage.setItem(STORAGE_KEY, JSON.stringify(state satisfies StoredState));
   }
@@ -245,17 +260,11 @@ export function createSessionStorageRepository(
       return member;
     },
     async setMemberEmail(groupId, memberId, email) {
-      const before = read()
-        .find((g) => g.id === groupId)
-        ?.members.find((m) => m.id === memberId && !m.userId);
-      if (!before) return null;
+      const before = findMember(groupId, memberId);
+      if (!before || before.userId) return null;
       if (before.email === email) return before;
       const member: Member = { ...before, email };
-      changeGroup(
-        groupId,
-        (g) => ({ ...g, members: g.members.map((m) => (m.id === memberId ? member : m)) }),
-        () => ({ kind: "member-email-set", member: { id: memberId, name: before.name }, email }),
-      );
+      replaceMember(groupId, member, { kind: "member-email-set", member: { id: memberId, name: before.name }, email });
       return member;
     },
     async issueInvitation() {
@@ -265,16 +274,10 @@ export function createSessionStorageRepository(
       return false;
     },
     async removeMember(groupId, memberId) {
-      const member = read()
-        .find((g) => g.id === groupId)
-        ?.members.find((m) => m.id === memberId);
+      const member = findMember(groupId, memberId);
       if (!member) return false;
       if (member.former) return true;
-      changeGroup(
-        groupId,
-        (g) => ({ ...g, members: g.members.map((m) => (m.id === memberId ? { ...m, former: true } : m)) }),
-        () => ({ kind: "member-removed", member: { id: memberId, name: member.name } }),
-      );
+      replaceMember(groupId, { ...member, former: true }, { kind: "member-removed", member: { id: memberId, name: member.name } });
       return true;
     },
     async addCategory(groupId, name) {

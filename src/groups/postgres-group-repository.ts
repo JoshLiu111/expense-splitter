@@ -73,19 +73,24 @@ const pendingMembers = () => and(isNotNull(members.email), isNull(members.userId
 
 type MemberRow = typeof members.$inferSelect;
 
+/** Inserts one Activity entry; every entry is recorded through here. */
+async function insertActivity(tx: Tx, id: string, groupId: string, actorMemberId: string, change: ActivityChange) {
+  await tx.insert(activity).values({ id: `act_${id}`, groupId, actorMemberId, change });
+}
+
 /**
  * One Member of the Group, locked until the transaction ends, with how
  * Activity names them now: a Linked Member under their User's name.
  * `null` if they aren't in that Group.
  */
-async function lockMember(tx: Tx, groupId: string, memberId: string): Promise<{ row: MemberRow; named: ActivityMember } | null> {
+async function lockMember(tx: Tx, groupId: string, memberId: string): Promise<{ row: MemberRow; asNamed: ActivityMember } | null> {
   const [row] = await tx
     .select()
     .from(members)
     .where(and(eq(members.id, memberId), eq(members.groupId, groupId)))
     .for("update");
   if (!row) return null;
-  return { row, named: { id: row.id, name: await shownName(tx, row) } };
+  return { row, asNamed: { id: row.id, name: await shownName(tx, row) } };
 }
 
 /** The name a Member is shown under: a Linked Member's is their User's. */
@@ -101,7 +106,11 @@ async function shownName(tx: Tx, row: Pick<MemberRow, "name" | "userId">): Promi
  * they are already linked. Former Members are left as they are. Pass a
  * transaction to make claiming part of it.
  */
-export async function claimPendingMembers(db: Database | Transaction, verified: { id: string; email: string }) {
+export async function claimPendingMembers(
+  db: Database | Transaction,
+  verified: { id: string; email: string },
+  newId: () => string = () => crypto.randomUUID(),
+) {
   await db.transaction(async (tx) => {
     const pending = await tx
       .select({ id: members.id, groupId: members.groupId, name: members.name })
@@ -120,13 +129,9 @@ export async function claimPendingMembers(db: Database | Transaction, verified: 
       if (linkedGroups.has(member.groupId)) continue;
       linkedGroups.add(member.groupId);
       await tx.update(members).set({ userId: verified.id }).where(eq(members.id, member.id));
-      // The person who joined made this change, so it is theirs.
-      await tx.insert(activity).values({
-        id: `act_${crypto.randomUUID()}`,
-        groupId: member.groupId,
-        actorMemberId: member.id,
-        change: { kind: "member-joined", member: { id: member.id, name: member.name } },
-      });
+      // Claiming is the User's own doing, so it is recorded under the Member they now are.
+      const asNamed = { id: member.id, name: await shownName(tx, { name: member.name, userId: verified.id }) };
+      await insertActivity(tx, newId(), member.groupId, member.id, { kind: "member-joined", member: asNamed });
     }
   });
 }
@@ -340,7 +345,7 @@ export function createPostgresGroupRepository(
    */
   async function record(tx: Tx, groupId: string, change: ActivityChange, actorMemberId?: string) {
     actorMemberId ??= await linkedMemberId(tx, groupId);
-    await tx.insert(activity).values({ id: `act_${newId()}`, groupId, actorMemberId, change });
+    await insertActivity(tx, newId(), groupId, actorMemberId, change);
   }
 
   /**
@@ -510,7 +515,6 @@ export function createPostgresGroupRepository(
       if (!(await canChange(groupId))) return null;
       const memberId = `mem_${newId()}`;
       await db.transaction(async (tx) => {
-        const myMemberId = await linkedMemberId(tx, groupId);
         const existing = await tx
           .select({ avatarColor: members.avatarColor })
           .from(members)
@@ -532,7 +536,7 @@ export function createPostgresGroupRepository(
           })
           .returning();
         const member = { id: memberId, name: await shownName(tx, row) };
-        await record(tx, groupId, { kind: "member-added", member }, myMemberId);
+        await record(tx, groupId, { kind: "member-added", member });
       });
       const [group] = await load(groupId);
       return group?.members.find((m) => m.id === memberId) ?? null;
@@ -548,7 +552,7 @@ export function createPostgresGroupRepository(
           .update(members)
           .set({ email, userId: await userToLink(tx, groupId, email) })
           .where(eq(members.id, memberId));
-        await record(tx, groupId, { kind: "member-email-set", member: before.named, email });
+        await record(tx, groupId, { kind: "member-email-set", member: before.asNamed, email });
         return true;
       });
       if (!updated) return null;
@@ -588,13 +592,14 @@ export function createPostgresGroupRepository(
         // Recording the same sending twice changes nothing.
         if (sent.sentAt) return true;
         await tx.update(invitations).set({ sentAt: now() }).where(eq(invitations.id, sent.id));
-        const invitee = (await lockMember(tx, groupId, sent.memberId))!;
+        const pending = (await lockMember(tx, groupId, sent.memberId))!;
         const [earlier] = await tx
           .select({ id: invitations.id })
           .from(invitations)
           .where(
             and(
               eq(invitations.memberId, sent.memberId),
+              eq(invitations.email, sent.email),
               isNotNull(invitations.sentAt),
               ne(invitations.id, sent.id),
             ),
@@ -602,7 +607,7 @@ export function createPostgresGroupRepository(
           .limit(1);
         await record(tx, groupId, {
           kind: "member-invited",
-          member: invitee.named,
+          member: pending.asNamed,
           email: sent.email,
           resent: earlier !== undefined,
         });
@@ -616,7 +621,7 @@ export function createPostgresGroupRepository(
         if (!member) return false;
         if (member.row.former) return true;
         await tx.update(members).set({ former: true }).where(eq(members.id, memberId));
-        await record(tx, groupId, { kind: "member-removed", member: member.named });
+        await record(tx, groupId, { kind: "member-removed", member: member.asNamed });
         return true;
       });
     },
