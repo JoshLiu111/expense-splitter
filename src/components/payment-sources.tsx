@@ -1,5 +1,6 @@
 import type { GroupSnapshot, SettlementSource } from "@/domain";
 import { formatCalendarDate, pluralize, verbFor } from "@/lib/format";
+import { GUEST_MEMBER_NAME } from "@/guest/guest-repository";
 
 /**
  * Where a Suggested Settlement's amount comes from: a disclosure summarised
@@ -68,7 +69,10 @@ export function PaymentSources({
           </li>
         ))}
         <li className="grid grid-cols-[minmax(0,1fr)_auto] gap-x-3 border-t border-border-subtle pt-2 text-text-secondary">
-          <span>What {payerName} {verbFor(payerName, "owes", "owe")} from these, after what they paid for others</span>
+          <span>
+            What {payerName} {verbFor(payerName, "owes", "owe")} from these, after what{" "}
+            {payerName === GUEST_MEMBER_NAME ? "you" : "they"} paid for others
+          </span>
           <span className="amount text-right font-semibold text-text-primary">{money(amount)}</span>
         </li>
       </ul>

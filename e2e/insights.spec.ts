@@ -362,7 +362,7 @@ test.describe("with reduced motion", () => {
       .filter({ hasText: `You pay ${taylor}` });
     await expect(youPay).toContainText(`You pay ${taylor} $50.00`);
     await youPay.getByText(/^From “/).click();
-    await expect(youPay).toContainText("What You owe from these, after what they paid for others$50.00");
+    await expect(youPay).toContainText("What You owe from these, after what you paid for others$50.00");
     await expect(settleUp(page)).not.toContainText(/You (pays|owes|makes|is owed)/);
     for (const viewport of [
       { width: 390, height: 844 },
