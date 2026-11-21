@@ -217,9 +217,10 @@ export const settlements = pgTable(
 );
 
 /**
- * Activity: one row per change to a Group's Expenses and Settlements, never
- * updated or deleted except with its Group. `change` holds the Expense or
- * Settlement as it was before and/or after; never a Balance (ADR 0004).
+ * Activity: one row per change to a Group's Expenses, Settlements and
+ * Members, never updated or deleted except with its Group. `change` holds
+ * the Expense or Settlement as it was before and/or after, or the Member as
+ * named then; never a Balance (ADR 0004).
  */
 export const activity = pgTable(
   "activity",

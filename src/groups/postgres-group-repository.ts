@@ -1,9 +1,10 @@
-import { and, asc, desc, eq, exists, inArray, isNotNull, isNull, max, notExists, sql } from "drizzle-orm";
+import { and, asc, desc, eq, exists, inArray, isNotNull, isNull, max, ne, notExists, sql } from "drizzle-orm";
 import {
   computeLedger,
   isPendingMember,
   isSameExpense,
   type ActivityChange,
+  type ActivityMember,
   type CurrencyCode,
   type EditingMode,
   type Expense,
@@ -70,16 +71,49 @@ async function userToLink(tx: Tx, groupId: string, email: string): Promise<strin
  */
 const pendingMembers = () => and(isNotNull(members.email), isNull(members.userId), eq(members.former, false));
 
+type MemberRow = typeof members.$inferSelect;
+
+/** Inserts one Activity entry; every entry is recorded through here. */
+async function insertActivity(tx: Tx, id: string, groupId: string, actorMemberId: string, change: ActivityChange) {
+  await tx.insert(activity).values({ id: `act_${id}`, groupId, actorMemberId, change });
+}
+
+/**
+ * One Member of the Group, locked until the transaction ends, with how
+ * Activity names them now: a Linked Member under their User's name.
+ * `null` if they aren't in that Group.
+ */
+async function lockMember(tx: Tx, groupId: string, memberId: string): Promise<{ row: MemberRow; asNamed: ActivityMember } | null> {
+  const [row] = await tx
+    .select()
+    .from(members)
+    .where(and(eq(members.id, memberId), eq(members.groupId, groupId)))
+    .for("update");
+  if (!row) return null;
+  return { row, asNamed: { id: row.id, name: await shownName(tx, row) } };
+}
+
+/** The name a Member is shown under: a Linked Member's is their User's. */
+async function shownName(tx: Tx, row: Pick<MemberRow, "name" | "userId">): Promise<string> {
+  if (!row.userId) return row.name;
+  const [linked] = await tx.select({ name: user.name }).from(user).where(eq(user.id, row.userId));
+  return linked?.name ?? row.name;
+}
+
 /**
  * Links a User who has just verified their email to every Pending Member
  * with that exact email, at most one per Group and never in a Group where
  * they are already linked. Former Members are left as they are. Pass a
  * transaction to make claiming part of it.
  */
-export async function claimPendingMembers(db: Database | Transaction, verified: { id: string; email: string }) {
+export async function claimPendingMembers(
+  db: Database | Transaction,
+  verified: { id: string; email: string },
+  newId: () => string = () => crypto.randomUUID(),
+) {
   await db.transaction(async (tx) => {
     const pending = await tx
-      .select({ id: members.id, groupId: members.groupId })
+      .select({ id: members.id, groupId: members.groupId, name: members.name })
       .from(members)
       .where(and(eq(sql`lower(${members.email})`, verified.email.toLowerCase()), pendingMembers()))
       .orderBy(asc(members.position));
@@ -95,6 +129,9 @@ export async function claimPendingMembers(db: Database | Transaction, verified: 
       if (linkedGroups.has(member.groupId)) continue;
       linkedGroups.add(member.groupId);
       await tx.update(members).set({ userId: verified.id }).where(eq(members.id, member.id));
+      // Claiming is the User's own doing, so it is recorded under the Member they now are.
+      const asNamed = { id: member.id, name: await shownName(tx, { name: member.name, userId: verified.id }) };
+      await insertActivity(tx, newId(), member.groupId, member.id, { kind: "member-joined", member: asNamed });
     }
   });
 }
@@ -308,7 +345,7 @@ export function createPostgresGroupRepository(
    */
   async function record(tx: Tx, groupId: string, change: ActivityChange, actorMemberId?: string) {
     actorMemberId ??= await linkedMemberId(tx, groupId);
-    await tx.insert(activity).values({ id: `act_${newId()}`, groupId, actorMemberId, change });
+    await insertActivity(tx, newId(), groupId, actorMemberId, change);
   }
 
   /**
@@ -486,15 +523,20 @@ export function createPostgresGroupRepository(
           .select({ last: max(members.position) })
           .from(members)
           .where(eq(members.groupId, groupId));
-        await tx.insert(members).values({
-          id: memberId,
-          groupId,
-          name,
-          email: email ?? null,
-          userId: email ? await userToLink(tx, groupId, email) : null,
-          avatarColor: nextAvatarColor(existing),
-          position: (last ?? -1) + 1,
-        });
+        const [row] = await tx
+          .insert(members)
+          .values({
+            id: memberId,
+            groupId,
+            name,
+            email: email ?? null,
+            userId: email ? await userToLink(tx, groupId, email) : null,
+            avatarColor: nextAvatarColor(existing),
+            position: (last ?? -1) + 1,
+          })
+          .returning();
+        const member = { id: memberId, name: await shownName(tx, row) };
+        await record(tx, groupId, { kind: "member-added", member });
       });
       const [group] = await load(groupId);
       return group?.members.find((m) => m.id === memberId) ?? null;
@@ -502,13 +544,16 @@ export function createPostgresGroupRepository(
     async setMemberEmail(groupId, memberId, email) {
       if (!(await canChange(groupId))) return null;
       const updated = await db.transaction(async (tx) => {
-        const rows = await tx
+        const before = await lockMember(tx, groupId, memberId);
+        // A Linked Member's email is their User's, so leave it alone.
+        if (!before || before.row.userId) return false;
+        if (before.row.email === email) return true;
+        await tx
           .update(members)
           .set({ email, userId: await userToLink(tx, groupId, email) })
-          // A Linked Member's email is their User's, so leave it alone.
-          .where(and(eq(members.id, memberId), eq(members.groupId, groupId), isNull(members.userId)))
-          .returning({ id: members.id });
-        return rows.length > 0;
+          .where(eq(members.id, memberId));
+        await record(tx, groupId, { kind: "member-email-set", member: before.asNamed, email });
+        return true;
       });
       if (!updated) return null;
       const [group] = await load(groupId);
@@ -537,21 +582,48 @@ export function createPostgresGroupRepository(
     },
     async recordInvitationSent(groupId, token) {
       if (!(await canChange(groupId))) return false;
-      const rows = await db
-        .update(invitations)
-        .set({ sentAt: now() })
-        .where(and(eq(invitations.tokenHash, hashInvitationToken(token)), eq(invitations.groupId, groupId)))
-        .returning({ id: invitations.id });
-      return rows.length > 0;
+      return db.transaction(async (tx) => {
+        const [sent] = await tx
+          .select()
+          .from(invitations)
+          .where(and(eq(invitations.tokenHash, hashInvitationToken(token)), eq(invitations.groupId, groupId)))
+          .for("update");
+        if (!sent) return false;
+        // Recording the same sending twice changes nothing.
+        if (sent.sentAt) return true;
+        await tx.update(invitations).set({ sentAt: now() }).where(eq(invitations.id, sent.id));
+        const pending = (await lockMember(tx, groupId, sent.memberId))!;
+        const [earlier] = await tx
+          .select({ id: invitations.id })
+          .from(invitations)
+          .where(
+            and(
+              eq(invitations.memberId, sent.memberId),
+              eq(invitations.email, sent.email),
+              isNotNull(invitations.sentAt),
+              ne(invitations.id, sent.id),
+            ),
+          )
+          .limit(1);
+        await record(tx, groupId, {
+          kind: "member-invited",
+          member: pending.asNamed,
+          email: sent.email,
+          resent: earlier !== undefined,
+        });
+        return true;
+      });
     },
     async removeMember(groupId, memberId) {
       if (!(await canChange(groupId))) return false;
-      const rows = await db
-        .update(members)
-        .set({ former: true })
-        .where(and(eq(members.id, memberId), eq(members.groupId, groupId)))
-        .returning({ id: members.id });
-      return rows.length > 0;
+      return db.transaction(async (tx) => {
+        const member = await lockMember(tx, groupId, memberId);
+        if (!member) return false;
+        if (member.row.former) return true;
+        await tx.update(members).set({ former: true }).where(eq(members.id, memberId));
+        await record(tx, groupId, { kind: "member-removed", member: member.asNamed });
+        return true;
+      });
     },
     async addCategory(groupId, name) {
       if (!(await canChange(groupId))) return null;

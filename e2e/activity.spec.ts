@@ -45,7 +45,7 @@ test("a Guest edits an Expense and finds the change, before → after, from View
   await expect(deletion).toContainText("Amount$8.99");
   await expect(deletion).toContainText("PayerDrew Patel");
   await expect(deletion).toContainText("DateJan 12, 2024");
-  await expect(page.getByText("Activity starts on Jan 13, 2024. Earlier Expenses and Settlements aren’t listed here.")).toBeVisible();
+  await expect(page.getByText("Activity starts on Jan 13, 2024. Earlier changes aren’t listed here.")).toBeVisible();
 
   // Activity is read-only: no buttons to edit, delete or restore an entry.
   await expect(page.getByRole("main").getByRole("list").getByRole("button")).toHaveCount(0);
@@ -63,7 +63,7 @@ test("View changes on an Expense from before Activity started says so", async ({
   await expect(page).toHaveURL(/\/guest\/groups\/grp_apt_4b\/activity$/);
 });
 
-test("a signed-in User's changes are recorded under their Member, and a new Group has no launch note", async ({
+test("a signed-in User's changes, to Expenses and Members, are recorded under their Member, and a new Group has no launch note", async ({
   page,
 }) => {
   const email = `e2e-${Date.now()}-${Math.random().toString(36).slice(2, 8)}@example.test`;
@@ -89,9 +89,16 @@ test("a signed-in User's changes are recorded under their Member, and a new Grou
   await page.getByRole("alertdialog").getByRole("button", { name: "Delete Expense" }).click();
   await expect(page.getByText("Deleted “Milk”.")).toBeVisible();
 
+  await page.getByRole("link", { name: "Group settings" }).click();
+  await field(page, "Add a Member by name").fill("Dev Shah");
+  await page.getByRole("button", { name: "Add Member" }).click();
+  await expect(page.getByText("Added Dev Shah.")).toBeVisible();
+  await page.getByRole("link", { name: "Back to Flat 3B" }).click();
+
   await page.getByRole("link", { name: "Activity" }).click();
-  await expect(activityEntries(page)).toHaveCount(2);
-  await expect(activityEntries(page).first()).toContainText("Maya Chen deleted the Expense Milk");
-  await expect(activityEntries(page).nth(1)).toContainText("Maya Chen added the Expense Milk");
+  await expect(activityEntries(page)).toHaveCount(3);
+  await expect(activityEntries(page).first()).toContainText("Maya Chen added Dev Shah to the Group");
+  await expect(activityEntries(page).nth(1)).toContainText("Maya Chen deleted the Expense Milk");
+  await expect(activityEntries(page).nth(2)).toContainText("Maya Chen added the Expense Milk");
   await expect(page.getByText(/Activity starts on/)).toHaveCount(0);
 });

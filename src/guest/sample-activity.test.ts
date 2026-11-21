@@ -37,10 +37,29 @@ describe("the sample Groups' Activity", () => {
         case "settlement-deleted":
           expect(group.settlements.map((s) => s.id)).not.toContain(change.settlement.id);
           break;
+        case "member-added":
+        case "member-email-set":
+        case "member-removed": {
+          const member = group.members.find((m) => m.id === change.member.id);
+          expect(member?.name).toBe(change.member.name);
+          if (change.kind === "member-email-set") expect(member?.email).toBe(change.email);
+          expect(member?.former ?? false).toBe(change.kind === "member-removed");
+          break;
+        }
+        // The sample Groups' Members have no Users, so none is sent an
+        // Invitation or joins.
+        case "member-invited":
+        case "member-joined":
+          expect.unreachable(`${change.kind} in a sample Group`);
       }
     }
     const times = entries.map((e) => e.at);
     expect(times).toEqual([...times].sort().reverse());
+  });
+
+  it("includes a change to a Member", () => {
+    const kinds = Object.values(SAMPLE_ACTIVITY).flatMap((a) => a.entries.map((e) => e.change.kind));
+    expect(kinds).toContain("member-email-set");
   });
 
   it("seeds each sample Group with the day its Activity started", () => {

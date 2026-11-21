@@ -637,7 +637,90 @@ export function groupRepositoryContract<U extends { id: string; email: string }>
         { kind: "settlement-deleted", settlement },
         { kind: "settlement-added", settlement },
         { kind: "expense-added", expense },
+        { kind: "member-added", member: { id: chloe!.id, name: "Chloe" } },
       ]);
+    });
+
+    it("records adding a Member, giving one an email and removing one, each under who did it and the name they had then", async () => {
+      const repo = await makeRepository();
+      const group = await repo.createGroup({ name: "Flat", description: "", currency: "USD" });
+      const chloe = (await repo.addMember(group.id, { name: "Chloe" }))!;
+      const dev = (await repo.addMember(group.id, { name: "Dev Shah", email: "dev@nowhere.test" }))!;
+
+      await repo.setMemberEmail(group.id, chloe.id, "chloe@nowhere.test");
+      await repo.removeMember(group.id, dev.id);
+
+      const activity = await repo.listActivity(group.id);
+      expect(activity?.map((a) => a.change)).toEqual([
+        { kind: "member-removed", member: { id: dev.id, name: "Dev Shah" } },
+        { kind: "member-email-set", member: { id: chloe.id, name: "Chloe" }, email: "chloe@nowhere.test" },
+        { kind: "member-added", member: { id: dev.id, name: "Dev Shah" } },
+        { kind: "member-added", member: { id: chloe.id, name: "Chloe" } },
+      ]);
+      expect(activity?.map((a) => a.actorMemberId)).toEqual(Array(4).fill(actorOf(group)));
+    });
+
+    it("records a Member added by a User's email under that User's name", async () => {
+      if (!users) return;
+      const repo = await makeRepository();
+      const group = await repo.createGroup({ name: "Flat", description: "", currency: "USD" });
+      const theo = await users.aUser();
+      await users.rename(theo.id, "Theo Lee");
+
+      const added = (await repo.addMember(group.id, { name: "Theo", email: theo.email }))!;
+
+      expect((await repo.listActivity(group.id))?.map((a) => a.change)).toEqual([
+        { kind: "member-added", member: { id: added.id, name: "Theo Lee" } },
+      ]);
+    });
+
+    it("records nothing for Member changes that change nothing or are refused", async () => {
+      const repo = await makeRepository();
+      const group = await repo.createGroup({ name: "Flat", description: "", currency: "USD" });
+      const dev = (await repo.addMember(group.id, { name: "Dev Shah", email: "dev@nowhere.test" }))!;
+      await repo.removeMember(group.id, dev.id);
+      const other = await (await makeRepository()).createGroup({ name: "Other", description: "", currency: "USD" });
+
+      await repo.setMemberEmail(group.id, dev.id, "dev@nowhere.test");
+      await repo.removeMember(group.id, dev.id);
+      await repo.removeMember(group.id, "mem_missing");
+      await repo.setMemberEmail(group.id, "mem_missing", "x@nowhere.test");
+      // A Linked Member's email is their User's; a Guest's creator is Name-only.
+      if (users) await repo.setMemberEmail(group.id, group.members[0].id, "x@nowhere.test");
+      await repo.addMember("grp_missing", { name: "Zoe" });
+      await repo.removeMember(other.id, dev.id);
+
+      expect((await repo.listActivity(group.id))?.map((a) => a.change.kind)).toEqual(["member-removed", "member-added"]);
+    });
+
+    it("records an Invitation once it is sent, a resent one as new, and nothing for one never sent", async () => {
+      if (!users) return;
+      const repo = await makeRepository();
+      const group = await repo.createGroup({ name: "Flat", description: "", currency: "USD" });
+      const dev = (await repo.addMember(group.id, { name: "Dev Shah", email: "dev@nowhere.test" }))!;
+
+      const unsent = (await repo.issueInvitation(group.id, dev.id))!;
+      const first = (await repo.issueInvitation(group.id, dev.id))!;
+      await repo.recordInvitationSent(group.id, first);
+      await repo.recordInvitationSent(group.id, first);
+      const second = (await repo.issueInvitation(group.id, dev.id))!;
+      await repo.recordInvitationSent(group.id, second);
+      await repo.recordInvitationSent(group.id, "tok_never_issued");
+      // The first Invitation to a new email is no resend.
+      await repo.setMemberEmail(group.id, dev.id, "dev.shah@nowhere.test");
+      await repo.recordInvitationSent(group.id, (await repo.issueInvitation(group.id, dev.id))!);
+
+      expect(unsent).not.toBe(first);
+      const named = { id: dev.id, name: "Dev Shah" };
+      const activity = await repo.listActivity(group.id);
+      expect(activity?.map((a) => a.change)).toEqual([
+        { kind: "member-invited", member: named, email: "dev.shah@nowhere.test", resent: false },
+        { kind: "member-email-set", member: named, email: "dev.shah@nowhere.test" },
+        { kind: "member-invited", member: named, email: "dev@nowhere.test", resent: true },
+        { kind: "member-invited", member: named, email: "dev@nowhere.test", resent: false },
+        { kind: "member-added", member: named },
+      ]);
+      expect(activity?.map((a) => a.actorMemberId)).toEqual(Array(5).fill(actorOf(group)));
     });
 
     it("records nothing for changes refused, and deletes Activity with its Group", async () => {

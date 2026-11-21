@@ -243,7 +243,8 @@ describe.skipIf(!url)("Postgres GroupRepository", () => {
     expect(await theosRepo.deleteCategory(group.id, category.id)).toBe(false);
     expect(await theosRepo.deleteGroup(group.id)).toBe(false);
     expect(await mayasRepo.getGroup(group.id)).toEqual(theosView);
-    expect(await mayasRepo.listActivity(group.id)).toHaveLength(4);
+    // Adding and removing Theo, the Expense and the two Settlements; nothing refused.
+    expect(await mayasRepo.listActivity(group.id)).toHaveLength(6);
 
     // Once the reopened Balance is settled, the Group is gone again.
     await mayasRepo.addSettlement(group.id, settlement);
@@ -389,6 +390,42 @@ describe.skipIf(!url)("Postgres GroupRepository", () => {
     expect(linked).toHaveLength(1);
   });
 
+  it("records a Pending Member claimed as joined, under that Member and their User's name", async () => {
+    const maya = await aUser();
+    const theo = await aUser();
+    const mayasRepo = createPostgresGroupRepository(db, maya);
+    const group = await mayasRepo.createGroup({ name: "Shared", description: "", currency: "USD" });
+    const elsewhere = await mayasRepo.createGroup({ name: "Elsewhere", description: "", currency: "USD" });
+    const pending = (await mayasRepo.addMember(group.id, { name: "Teddy", email: theo.email }))!;
+
+    await verify(theo);
+    await claimPendingMembers(db, theo);
+    // Already Linked, so claiming again changes nothing.
+    await claimPendingMembers(db, theo);
+
+    const theosRepo = createPostgresGroupRepository(db, theo);
+    const [joined, ...rest] = (await theosRepo.listActivity(group.id))!;
+    expect(joined).toMatchObject({ actorMemberId: pending.id, change: { kind: "member-joined", member: { id: pending.id, name: theo.name } } });
+    expect(rest.map((a) => a.change.kind)).toEqual(["member-added"]);
+    expect(await mayasRepo.listActivity(elsewhere.id)).toEqual([]);
+  });
+
+  it("records nothing when claiming fails, as the claim is undone", async () => {
+    const theo = await aUser();
+    const mayasRepo = createPostgresGroupRepository(db, await aUser());
+    const group = await mayasRepo.createGroup({ name: "Shared", description: "", currency: "USD" });
+    await mayasRepo.addMember(group.id, { name: "Theo", email: theo.email });
+
+    await expect(
+      db.transaction(async (tx) => {
+        await claimPendingMembers(tx, theo);
+        throw new Error("verification failed");
+      }),
+    ).rejects.toThrow("verification failed");
+
+    expect((await mayasRepo.listActivity(group.id))?.map((a) => a.change.kind)).toEqual(["member-added"]);
+  });
+
   it("reads Settlement Activity recorded before Settlement Currencies as in the Group Currency at 1, leaving it as recorded", async () => {
     const maya = await aUser();
     const repo = createPostgresGroupRepository(db, maya);
@@ -420,10 +457,12 @@ describe.skipIf(!url)("Postgres GroupRepository", () => {
     // Theo joins after Maya's change, makes one of his own, then leaves.
     const theoMember = await mayasRepo.addMember(group.id, { name: "Theo", email: theo.email });
     await theosRepo.addSettlement(group.id, settlement);
-    expect((await theosRepo.listActivity(group.id))?.map((a) => a.actorMemberId)).toEqual([theoMember!.id, mayaMember]);
+    // Maya added Chloe, recorded a Settlement and added Theo; then Theo's Settlement.
+    const before = [theoMember!.id, mayaMember, mayaMember, mayaMember];
+    expect((await theosRepo.listActivity(group.id))?.map((a) => a.actorMemberId)).toEqual(before);
     await mayasRepo.removeMember(group.id, theoMember!.id);
 
-    expect((await mayasRepo.listActivity(group.id))?.map((a) => a.actorMemberId)).toEqual([theoMember!.id, mayaMember]);
+    expect((await mayasRepo.listActivity(group.id))?.map((a) => a.actorMemberId)).toEqual([mayaMember, ...before]);
     // A Former Member no longer sees the Group, so nor its Activity.
     expect(await theosRepo.listActivity(group.id)).toBeNull();
   });
