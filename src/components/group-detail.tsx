@@ -7,6 +7,7 @@ import {
   computeLedger,
   formatMoney,
   recordChangeBlock,
+  type CalendarDate,
   type Expense,
   type GroupSnapshot,
   type Settlement,
@@ -19,6 +20,7 @@ import { DatedLedger } from "@/components/dated-ledger";
 import { ExpenseEditor } from "@/components/expense-editor";
 import { SettleUpSection } from "@/components/settle-up";
 import { ExpensesAndInsights } from "@/components/expenses-and-insights";
+import { MyCalendar } from "@/components/my-calendar";
 import { AvatarStack } from "@/components/member-avatar";
 import { Button } from "@/components/ui/button";
 import { useTodaysRates } from "@/rates/use-todays-rates";
@@ -26,9 +28,10 @@ import { describeBalance, pluralize } from "@/lib/format";
 
 /**
  * A Group's header (name, Members, total spent), the settle-up hero (Settle
- * up, then Balances), then Expenses and Insights, each collapsed until opened
- * (the dated ledger of Expenses and Settlements, and where the money went,
- * over one shared filter), with Expense entry kept in view. Details,
+ * up, then Balances), My Calendar, then Expenses and Insights, each collapsed
+ * until opened (the dated ledger of Expenses and Settlements, and where the
+ * money went, over one shared filter), with Expense entry kept in view. A day
+ * picked in My Calendar opens Expenses at that date. Details,
  * Categories, Members and deletion live in Group settings, linked from the
  * header beside Activity. Balances are recomputed from the Group on every
  * render (ADR 0004).
@@ -78,6 +81,9 @@ export function GroupDetail({
   const members = new Map(group.members.map((m) => [m.id, m]));
   const activeMembers = group.members.filter((m) => !m.former);
   const nameOf = (id: string) => members.get(id)?.name ?? "Unknown member";
+  // A Guest has no Member of their own in a sample Group, so its first Member stands in, as they pay by default.
+  const me = currentMemberId ? members.get(currentMemberId) : undefined;
+  const calendarMember = me ?? activeMembers[0];
 
   // `null`: closed; `{ expense: null }`: adding; otherwise editing that Expense.
   const [editing, setEditing] = useState<{ expense: Expense | null } | null>(null);
@@ -85,6 +91,8 @@ export function GroupDetail({
   const opener = useRef<HTMLElement | null>(null);
   const addButton = useRef<HTMLButtonElement>(null);
   const ledgerHeading = useRef<HTMLHeadingElement>(null);
+  // A new object for every pick, so picking the same day again still scrolls to it.
+  const [ledgerDate, setLedgerDate] = useState<{ date: CalendarDate } | null>(null);
 
   // Announce Balance changes once they arrive (Guest writes are instant;
   // a User's arrive with the refreshed Group).
@@ -228,12 +236,22 @@ export function GroupDetail({
         <BalancesPanel group={group} ledger={ledger} currentMemberId={currentMemberId} />
       )}
 
+      {ledger.timeline.length > 0 && calendarMember && (
+        <MyCalendar
+          group={group}
+          member={calendarMember}
+          isYou={calendarMember === me}
+          onOpenDay={(date) => setLedgerDate({ date })}
+        />
+      )}
+
       {/* With nothing recorded, the hero leads to the first Expense instead. */}
       {ledger.timeline.length > 0 && (
         <ExpensesAndInsights
           group={group}
           ledger={ledger}
           headingRef={ledgerHeading}
+          showDate={ledgerDate}
           renderLedger={(timeline) => (
             <DatedLedger
               group={group}

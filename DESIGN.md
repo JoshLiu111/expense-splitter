@@ -294,7 +294,7 @@ The scale is a compact major third (13, 16, 20, 25, 31, 39px), with an 11px capt
 
 The page is a centred column inside an 80rem frame with 16px side padding. Reading content (a Group, the dashboard, forms) narrows further to a 42rem content column so lists read like a statement. The landing hero uses a two-column grid (1.1fr / 1fr) from 1024px; feature lists step from one to two (640px) to four columns (1024px). Insights charts sit in a two-column grid from 768px.
 
-The Group page opens on its settle-up hero, two white panels inside the content column: **Settle up** (what closes the Group) and then **Balances** (why). The hero does not widen the column. Everything after it sits on the page background: the Expenses section (the dated ledger of Expenses and Settlements), then Insights, both collapsed until opened.
+The Group page opens on its settle-up hero, two white panels inside the content column: **Settle up** (what closes the Group) and then **Balances** (why). The hero does not widen the column. Everything after it sits on the page background: My Calendar, then the Expenses section (the dated ledger of Expenses and Settlements), then Insights, both collapsed until opened.
 
 Spacing is a 4px base scale. Inside components, 8–16px dominates (chip gaps 8px, list row padding 12px × 16px, panel padding 24px, hero panel padding 20px on phones and 28px from 640px); between sections, 32px. Forms stack fields with 20px gaps.
 
@@ -428,6 +428,13 @@ The itemised account of one Member's Balance, opened from Balances: a dialog on 
 - **Totals:** under a hairline, a 13px list of Paid, Share of Expenses, and (when there are any) Settlements made and Settlements received, signed, graphite labels, mono figures.
 - **Balance:** pinned to the bottom of the dialog or sheet on sheet white under a hairline, so it stays in view while the lines scroll: "Balance" (bold) on the left; the arrow, the word ("owes", "gets back", "settled up") and the signed figure (mono 18px) on the right in debt red, credit green or graphite, with the Balances row's screen-reader sentence.
 - **Empty:** a Member with no lines reads "No Expenses or Settlements involve Marcus Webb yet."
+
+### My Calendar
+The visitor's own month, between Balances and Expenses on the page background, under the same heading row as Expenses (18px extrabold, hairline below) with ghost previous/next chevrons around the month name (14px bold). A Guest in a sample Group sees its first Member, named in a 13px graphite line ("Showing Alex Chen, standing in for you in this sample Group.").
+- **Grid:** seven Sunday-first columns under one-letter weekday labels (12px semibold graphite), each day a 48px-tall button with a 10px radius: the date (14px tabular) over its marks. Days with something are ink semibold with the hover tint; other days are graphite and open nothing. Today's date is underlined, never tinted. One tab stop; the arrow keys move between days.
+- **Marks:** all ink and told apart by shape alone: a filled dot for Expenses paid, an arrow in (down-left) for Settlements received, an arrow out (up-right) for Settlements paid. Cells carry marks only; amounts live in the summary, so the grid fits a 390px screen.
+- **Summary:** the three totals in a 13px list (one per line on phones, a row from 640px): the mark, a graphite label (Paid for Expenses, Received in Settlements, Paid in Settlements) and the mono figure. A month with nothing reads "Nothing paid or received by you in April 2024." instead.
+- **Opening a day:** a marked day opens Expenses unfiltered and scrolls to its date, which takes focus.
 
 ### Activity
 A Group's Activity page, opened from the Group page's Activity icon or an Expense editor's "View changes": every change to the Group's Expenses and Settlements, newest first, unfiltered and read-only (no buttons on entries; nothing can be edited, deleted or restored).

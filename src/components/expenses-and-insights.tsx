@@ -1,10 +1,11 @@
 "use client";
 
-import { useId, useRef, useState, type ReactNode, type Ref } from "react";
+import { useEffect, useId, useRef, useState, type ReactNode, type Ref } from "react";
 import { SlidersHorizontal, X } from "lucide-react";
 import {
   computeInsights,
   isFiltering,
+  type CalendarDate,
   type ExpenseFilter,
   type GroupSnapshot,
   type Ledger,
@@ -25,17 +26,22 @@ import { pluralize } from "@/lib/format";
  * Expenses drops its filters, so Insights is never narrowed by filters out
  * of sight. While filtering, the ledger hides Settlements. Once open,
  * Insights offers Export CSV, which takes the whole Group, filters or not.
+ * A `showDate` request (a day picked in My Calendar) opens Expenses
+ * unfiltered and scrolls to that date, moving focus there.
  */
 export function ExpensesAndInsights({
   group,
   ledger,
   headingRef,
+  showDate,
   renderLedger,
 }: {
   group: GroupSnapshot;
   ledger: Ledger;
   /** The ledger's visually hidden heading, focused after a deletion. */
   headingRef: Ref<HTMLHeadingElement>;
+  /** Opens Expenses at this date; a new object each time it's asked for. */
+  showDate?: { date: CalendarDate } | null;
   /** The dated ledger for these entries. */
   renderLedger: (timeline: TimelineEntry[]) => ReactNode;
 }) {
@@ -47,6 +53,24 @@ export function ExpensesAndInsights({
   const expensesToggle = useRef<HTMLButtonElement>(null);
   const filterButton = useRef<HTMLButtonElement>(null);
   const chipList = useRef<HTMLUListElement>(null);
+  const expensesPanel = useRef<HTMLDivElement>(null);
+
+  // Open unfiltered, so the day's Settlements show too, then go to the date once it's rendered.
+  const [shownDate, setShownDate] = useState(showDate);
+  if (showDate !== shownDate) {
+    setShownDate(showDate);
+    if (showDate) {
+      setExpensesOpen(true);
+      setFilter({});
+      setFiltersOpen(false);
+    }
+  }
+  useEffect(() => {
+    if (!showDate) return;
+    const date = expensesPanel.current?.querySelector<HTMLElement>(`time[datetime="${showDate.date}"]`);
+    date?.scrollIntoView({ block: "start" });
+    date?.focus({ preventScroll: true });
+  }, [showDate]);
 
   const insights = computeInsights(group, filter);
   const filtering = isFiltering(filter);
@@ -115,7 +139,7 @@ export function ExpensesAndInsights({
           </div>
         </div>
 
-        <div id={`${id}-expenses-panel`} hidden={!expensesOpen}>
+        <div ref={expensesPanel} id={`${id}-expenses-panel`} hidden={!expensesOpen}>
           {expensesOpen && (
             <>
               <div id={filtersId} hidden={!filtersOpen} className="mt-3">
