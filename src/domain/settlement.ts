@@ -1,4 +1,4 @@
-import { formatMoney, isCurrencyCode, minorUnitRate, parseAmount } from "./currency";
+import { convertAtRate, formatMoney, isCurrencyCode, minorUnitRate, parseAmount } from "./currency";
 import type { RateSnapshot } from "./exchange-rates";
 import { computeLedger, settlementInGroupCurrency } from "./ledger";
 import { isCalendarDate, lockRate } from "./new-expense";
@@ -101,12 +101,13 @@ function largestSettlementAmount(
   groupCurrency: CurrencyCode,
   rate: string,
 ): MinorUnits | null {
-  const { numerator: n, denominator: d } = minorUnitRate(currency, groupCurrency, rate);
+  const perUnit = minorUnitRate(currency, groupCurrency, rate);
+  const { numerator: n, denominator: d } = perUnit;
   if (n === 0n) return null;
   // Rounding half up, x converts to at most max exactly when 2xn < (2max + 1)d.
   const bound = (2n * BigInt(max) + 1n) * d;
   const largest = (bound + 2n * n - 1n) / (2n * n) - 1n;
-  return largest > 0n && (largest * n * 2n + d) / (d * 2n) > 0n ? Number(largest) : null;
+  return largest > 0n && convertAtRate(largest, perUnit) > 0n ? Number(largest) : null;
 }
 
 /**
@@ -123,7 +124,8 @@ function amountsNear(
   rate: string,
 ) {
   // Group Currency minor units per Settlement Currency minor unit: n / d.
-  const { numerator: n, denominator: d } = minorUnitRate(currency, groupCurrency, rate);
+  const perUnit = minorUnitRate(currency, groupCurrency, rate);
+  const { numerator: n, denominator: d } = perUnit;
   // Distance from the exact conversion, scaled by d so it stays an integer.
   const offExact = (x: bigint) => abs(x * n - target * d);
   const candidates: { amount: bigint; converted: bigint }[] = [];
@@ -131,7 +133,7 @@ function amountsNear(
   const estimate = (target * d) / n;
   for (let x = estimate - 2n; x <= estimate + 2n; x++) {
     if (x <= 0n) continue;
-    const converted = (x * n * 2n + d) / (d * 2n);
+    const converted = convertAtRate(x, perUnit);
     if (converted > 0n && converted <= BigInt(max)) candidates.push({ amount: x, converted });
   }
   return { candidates, offExact };
@@ -193,7 +195,9 @@ export function parseNewSettlement(
     errors[check.field] = check.error;
     if (check.maxAmount !== undefined && lock.ok && currency !== group.currency) {
       const most = largestSettlementAmount(check.maxAmount, currency, group.currency, lock.rate);
-      if (most !== null) errors.amount = `${check.error.slice(0, -1)} (${formatMoney(most, currency)} at this rate).`;
+      const from = group.members.find((m) => m.id === fields.fromId)!;
+      if (most !== null)
+        errors.amount = `${from.name} can pay at most ${formatMoney(check.maxAmount, group.currency)} (${formatMoney(most, currency)} at this rate).`;
     }
   }
   if (!amount.ok) errors.amount = amount.error;

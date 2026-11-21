@@ -6,9 +6,9 @@ import {
   type CalendarDate,
   type NewSettlementErrors,
   type NewSettlementFields,
+  type TodaysRates,
   type Visitor,
 } from "@/domain";
-import type { TodaysRates } from "@/expenses/save-expense";
 import type { GroupRepository } from "@/groups/group-repository";
 
 /** What the Settle up controls show after they act. */

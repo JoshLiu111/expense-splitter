@@ -459,7 +459,8 @@ function SettlementForm({
   const lock = lockRate({ typed: fields.rate, currency, group, rates });
   const rateError = errors?.rate && (lock.ok ? undefined : lock.error);
 
-  const amount = (() => {
+  // The amount as shown: typed, or prefilled from the Suggested Settlement.
+  const shownAmount = (() => {
     if (!suggestion || amountTyped) return fields.amount;
     if (!lock.ok) return "";
     // The Suggested Settlement in the Settlement Currency, never converting
@@ -476,7 +477,7 @@ function SettlementForm({
 
   // The amount in the Group Currency at the rate it would be locked at.
   const groupAmount = (() => {
-    const parsed = parseAmount(amount, currency);
+    const parsed = parseAmount(shownAmount, currency);
     if (!parsed.ok || !lock.ok) return null;
     return settlementInGroupCurrency({ amount: parsed.amount, currency, lockedRate: lock.rate }, group.currency);
   })();
@@ -509,7 +510,7 @@ function SettlementForm({
     event.preventDefault();
     const left = remaining;
     startTransition(async () => {
-      const result = await attempt(() => onRecord({ ...fields, amount }));
+      const result = await attempt(() => onRecord({ ...fields, amount: shownAmount }));
       if (!result.ok) setFailure(result);
       else onRecorded(`Settlement recorded.${left === null ? "" : ` ${describeRemaining(left)}`}`);
     });
@@ -549,7 +550,7 @@ function SettlementForm({
               id={ids.amount}
               inputMode="decimal"
               autoComplete="off"
-              value={amount}
+              value={shownAmount}
               onChange={(e) => {
                 setAmountTyped(true);
                 set("amount", e.target.value);

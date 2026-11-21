@@ -4,7 +4,7 @@ import {
   type Visitor,
   type NewExpenseErrors,
   type NewExpenseFields,
-  type RateSnapshot,
+  type TodaysRates,
 } from "@/domain";
 import type { GroupRepository } from "@/groups/group-repository";
 
@@ -62,8 +62,6 @@ const EXPENSE_GONE = "This Expense no longer exists. It may have been deleted.";
 
 const formError = (form: string): ExpenseResult => ({ ok: false, errors: { form } });
 
-/** Today's exchange rates (perhaps outdated), or `null` if none were ever cached. */
-export type TodaysRates = () => Promise<RateSnapshot | null>;
 
 /**
  * Validates the form against the Group as it is now (so the Payer and

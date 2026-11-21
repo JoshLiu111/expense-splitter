@@ -13,6 +13,9 @@ export interface RateSnapshot {
   stale: boolean;
 }
 
+/** Today's exchange rates (perhaps outdated), or `null` if none were ever cached. */
+export type TodaysRates = () => Promise<RateSnapshot | null>;
+
 const SIGNIFICANT_DIGITS = 6;
 
 /**

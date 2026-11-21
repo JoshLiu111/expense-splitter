@@ -35,7 +35,7 @@ export { importSampleGroups } from "./sample-data";
 export { amountText, CURRENCY_CODES, formatMoney, isCurrencyCode, parseAmount } from "./currency";
 export type { ParseAmountResult } from "./currency";
 export { todaysRate } from "./exchange-rates";
-export type { RateSnapshot } from "./exchange-rates";
+export type { RateSnapshot, TodaysRates } from "./exchange-rates";
 export {
   parseNewGroup,
   DEFAULT_GROUP_CURRENCY,

@@ -93,6 +93,14 @@ export function minorUnitRate(
   };
 }
 
+/** Minor units converted at a `minorUnitRate`, rounding half up. */
+export function convertAtRate(
+  amount: bigint,
+  { numerator, denominator }: { numerator: bigint; denominator: bigint },
+): bigint {
+  return (amount * numerator * 2n + denominator) / (denominator * 2n);
+}
+
 /**
  * Converts an amount from one currency into another with a decimal rate,
  * rounding half up to the target's minor unit. Integer arithmetic only.
@@ -103,10 +111,7 @@ export function convert(
   to: CurrencyCode,
   rate: string,
 ): MinorUnits {
-  const { numerator: perUnit, denominator } = minorUnitRate(from, to, rate);
-  const numerator = BigInt(Math.abs(amount)) * perUnit;
-  const rounded = (numerator * 2n + denominator) / (denominator * 2n);
-  return Math.sign(amount) * Number(rounded);
+  return Math.sign(amount) * Number(convertAtRate(BigInt(Math.abs(amount)), minorUnitRate(from, to, rate)));
 }
 
 /** Minor units as plain text a person can edit, e.g. 6000 USD → "60.00". */
