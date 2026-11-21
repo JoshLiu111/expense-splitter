@@ -191,19 +191,22 @@ export default function WhyThesePayments({
   // Nothing to compare then: one graph of the Suggested Settlements.
   const shown: GraphPhase = alreadySimplest ? "after" : phase;
   // Under each Suggested Settlement: why it pairs these two, and what it adds up from.
-  const explain = (s: ExplainedSettlement) => (
-    <>
-      {!s.sharedAnExpense && <p className="break-words text-text-secondary">{neverSharedReason(group, s, "panel")}</p>}
-      <PaymentSources
-        group={group}
-        payerName={nameOf(s.fromId)}
-        amount={s.amount}
-        sources={s.sources}
-        nameOf={nameOf}
-        money={money}
-      />
-    </>
-  );
+  const explain = (s: ExplainedSettlement) => {
+    const reason = neverSharedReason(group, s, "panel");
+    return (
+      <>
+        {reason && <p className="break-words text-text-secondary">{reason}</p>}
+        <PaymentSources
+          group={group}
+          payerName={nameOf(s.fromId)}
+          amount={s.amount}
+          sources={s.sources}
+          nameOf={nameOf}
+          money={money}
+        />
+      </>
+    );
+  };
 
   return (
     <div className="flex flex-col gap-4 rounded-lg border border-border bg-surface p-4">

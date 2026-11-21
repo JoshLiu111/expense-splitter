@@ -96,7 +96,7 @@ describe("neverSharedReason", () => {
     );
   });
 
-  it("names at most three Members, then how many others, marking a Former Member", () => {
+  it("names at most three Members, then how many others, a Former Member by name alone", () => {
     const others = ["a", "b", "c", "d", "e"];
     const names: Record<string, string> = { a: "Ana", b: "Ben", c: "Cai", d: "Dee", e: "Eli" };
     const big = groupOf(
@@ -108,7 +108,7 @@ describe("neverSharedReason", () => {
     );
     expect(neverSharedReason(big, suggestionOf(big, "you", "tay"), "payer")).toBe(
       "You never shared an Expense with Taylor; Debt Simplification goes by Balances, and Taylor is owed $50.00, " +
-        "the most in the Group. Instead of 5 Debts with Ana, Ben (Former Member), Cai and 2 others, you make 1 payment.",
+        "the most in the Group. Instead of 5 Debts with Ana, Ben, Cai and 2 others, you make 1 payment.",
     );
   });
 });

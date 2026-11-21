@@ -1,10 +1,4 @@
-import {
-  explainNeverShared,
-  formatMoney,
-  memberLabel,
-  type GroupSnapshot,
-  type SuggestedSettlement,
-} from "@/domain";
+import { explainNeverShared, formatMoney, type GroupSnapshot, type SuggestedSettlement } from "@/domain";
 import { pluralize } from "@/lib/format";
 
 /**
@@ -18,7 +12,8 @@ const NAMED = 3;
 
 /**
  * The one-line reason under a Suggested Settlement between two Members who
- * never shared an Expense (issue-track#56); nothing for a pair who did.
+ * never shared an Expense; nothing for a pair who did. Members go by name,
+ * as on the Suggested Settlement's own line.
  */
 export function neverSharedReason(
   group: GroupSnapshot,
@@ -27,8 +22,7 @@ export function neverSharedReason(
 ): string | undefined {
   const reason = explainNeverShared(group, suggestion);
   if (!reason) return undefined;
-  const members = new Map(group.members.map((m) => [m.id, m]));
-  const nameOf = (id: string) => members.get(id)?.name ?? "Unknown member";
+  const nameOf = (id: string) => group.members.find((m) => m.id === id)?.name ?? "Unknown member";
   const payer = nameOf(suggestion.fromId);
   const recipient = nameOf(suggestion.toId);
   if (reader === "recipient")
@@ -42,12 +36,9 @@ export function neverSharedReason(
   const owed = `${opening}; Debt Simplification goes by Balances, and ${recipient} is owed ${formatMoney(reason.recipientBalance, group.currency)}${most}.`;
   if (reason.payments >= reason.debtsWith.length) return owed;
 
-  const labels = reason.debtsWith.map((id) => {
-    const member = members.get(id);
-    return member ? memberLabel(member) : "Unknown member";
-  });
+  const names = reason.debtsWith.map(nameOf);
   const who = reader === "payer" ? "you make" : `${payer} makes`;
-  return `${owed} Instead of ${pluralize(labels.length, "Debt")} with ${nameList(labels)}, ${who} ${pluralize(reason.payments, "payment")}.`;
+  return `${owed} Instead of ${pluralize(names.length, "Debt")} with ${nameList(names)}, ${who} ${pluralize(reason.payments, "payment")}.`;
 }
 
 /** "Sam", "Sam and Riley", "Sam, Riley and Drew", "Sam, Riley, Drew and 2 others". */
