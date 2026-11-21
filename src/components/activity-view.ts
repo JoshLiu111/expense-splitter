@@ -197,6 +197,66 @@ export function activityItems(entries: readonly ActivityEntry[], current: GroupS
 }
 
 /**
+ * Which entries Activity shows: all of them, only those about Expenses and
+ * Settlements, or only the Group's other changes.
+ */
+export type ActivityFilter = "all" | "expenses-and-settlements" | "group-changes";
+
+/**
+ * Each filter, in the order offered: its label, and what Activity says when
+ * it shows nothing and no note explains why.
+ */
+export const ACTIVITY_FILTERS: readonly { value: ActivityFilter; label: string; empty: string }[] = [
+  { value: "all", label: "All", empty: "No changes yet." },
+  {
+    value: "expenses-and-settlements",
+    label: "Expenses & Settlements",
+    empty: "No changes to Expenses or Settlements yet.",
+  },
+  { value: "group-changes", label: "Group changes", empty: "No Group changes yet." },
+];
+
+/** The items `filter` shows, in the order given. */
+export function filterActivity(items: readonly ActivityItem[], filter: ActivityFilter): ActivityItem[] {
+  if (filter === "all") return [...items];
+  const wantRecords = filter === "expenses-and-settlements";
+  return items.filter((item) => (item.subject.kind === "expense" || item.subject.kind === "settlement") === wantRecords);
+}
+
+/**
+ * What Activity can't list for `filter`, as sentences: everything before the
+ * day Activity started, and Group changes before the day it started
+ * recording them. The second is left out where the first already covers
+ * it, and for Expenses and Settlements alone.
+ */
+export function activityNotes(
+  group: Pick<GroupSnapshot, "activityStartedOn" | "groupChangesStartedOn">,
+  filter: ActivityFilter,
+): string[] {
+  const { activityStartedOn, groupChangesStartedOn } = group;
+  const notes: string[] = [];
+  const startNote = activityStartNote(group);
+  if (startNote) notes.push(startNote);
+  if (
+    groupChangesStartedOn &&
+    filter !== "expenses-and-settlements" &&
+    !(activityStartedOn && activityStartedOn >= groupChangesStartedOn)
+  ) {
+    notes.push(
+      `Group changes are listed from ${formatCalendarDate(groupChangesStartedOn)}. Earlier ones aren’t listed here.`,
+    );
+  }
+  return notes;
+}
+
+/** That Activity started after the Group did, if it did: nothing earlier is listed. */
+export function activityStartNote({ activityStartedOn }: Pick<GroupSnapshot, "activityStartedOn">): string | undefined {
+  return activityStartedOn
+    ? `Activity starts on ${formatCalendarDate(activityStartedOn)}. Earlier changes aren’t listed here.`
+    : undefined;
+}
+
+/**
  * The fields an edit changed (`changedExpenseFields`), in the Expense form's
  * order, then each Member whose Share changed, in Group order. Shares are in
  * Group Currency at each version's Locked Rate, so a new rate shows as the

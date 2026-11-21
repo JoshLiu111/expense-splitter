@@ -101,6 +101,13 @@ export const groups = pgTable("groups", {
    * the Activity page can say earlier Expenses and Settlements aren't listed.
    */
   activityStartedOn: date("activity_started_on", { mode: "string" }),
+  /**
+   * Set on Groups created before Activity recorded Group changes (changes to
+   * Members, the Group's details, Group Currency, Custom Categories and
+   * Editing Mode): the day it started, so the Activity page can say earlier
+   * Group changes aren't listed.
+   */
+  groupChangesStartedOn: date("group_changes_started_on", { mode: "string" }),
 });
 
 export const members = pgTable(

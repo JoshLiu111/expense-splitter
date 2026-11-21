@@ -329,6 +329,7 @@ export function createPostgresGroupRepository(
         ),
       settlements: settlementRows.filter((s) => s.groupId === g.id).map(toSettlement),
       ...(g.activityStartedOn ? { activityStartedOn: g.activityStartedOn } : {}),
+      ...(g.groupChangesStartedOn ? { groupChangesStartedOn: g.groupChangesStartedOn } : {}),
     }));
   }
 

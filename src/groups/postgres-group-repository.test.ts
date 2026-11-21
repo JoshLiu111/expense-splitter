@@ -485,6 +485,15 @@ describe.skipIf(!url)("Postgres GroupRepository", () => {
     expect((await repo.getGroup(group.id))?.activityStartedOn).toBe("2026-11-19");
   });
 
+  it("marks Groups that existed before Activity recorded Group changes with the day it started", async () => {
+    const repo = createPostgresGroupRepository(db, await aUser());
+    const group = await repo.createGroup({ name: "New", description: "", currency: "USD" });
+    expect(group.groupChangesStartedOn).toBeUndefined();
+
+    await db.update(groups).set({ groupChangesStartedOn: "2026-11-21" }).where(eq(groups.id, group.id));
+    expect((await repo.getGroup(group.id))?.groupChangesStartedOn).toBe("2026-11-21");
+  });
+
   it("lists a User's Groups oldest first", async () => {
     const repo = createPostgresGroupRepository(db, await aUser());
     const first = await repo.createGroup({ name: "First", description: "", currency: "USD" });

@@ -135,4 +135,10 @@ export interface GroupSnapshot {
    * started. Expenses and Settlements from before then have no entries.
    */
   activityStartedOn?: CalendarDate;
+  /**
+   * Set when the Group's Activity started recording Group changes (to its
+   * Members, details, Group Currency, Custom Categories and Editing Mode)
+   * after the Group began: the day it started. Earlier ones have no entries.
+   */
+  groupChangesStartedOn?: CalendarDate;
 }

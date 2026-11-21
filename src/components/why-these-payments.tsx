@@ -15,6 +15,7 @@ import { SIMPLIFY_TIMING, simplifyDurations, staggerFor } from "@/components/sim
 import { avatarFill, initials, textColourOn } from "@/components/member-avatar";
 import { PaymentSources } from "@/components/payment-sources";
 import { Button } from "@/components/ui/button";
+import { togglePillClass } from "@/components/ui/toggle-pill";
 import { useMediaQuery } from "@/components/use-media-query";
 import { pluralize } from "@/lib/format";
 
@@ -38,10 +39,6 @@ interface EdgeMotion {
   motion: Motion;
   delayMs: number;
 }
-
-/** A selectable pill, as in the Expense form's chips. */
-const toggleClass =
-  "inline-flex min-h-11 cursor-pointer items-center rounded-full border border-border-input bg-surface px-4 text-sm font-semibold transition-colors duration-(--duration-fast) hover:bg-bg-tertiary aria-pressed:border-accent aria-pressed:bg-accent-subtle focus-visible:ring-[3px] focus-visible:ring-ring focus-visible:outline-none";
 
 /**
  * "Why these payments?": the Group's debts before Debt Simplification (who
@@ -239,7 +236,7 @@ export default function WhyThesePayments({
               <button
                 key={p}
                 type="button"
-                className={toggleClass}
+                className={togglePillClass}
                 aria-pressed={phase === p}
                 onClick={() => show(p)}
               >
